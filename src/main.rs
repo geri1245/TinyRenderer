@@ -1,3 +1,4 @@
+use std::time;
 use wgpu::util::DeviceExt;
 use winit::{
     event::*,
@@ -5,6 +6,7 @@ use winit::{
     window::WindowBuilder,
 };
 
+mod camera;
 mod texture;
 
 pub async fn run() {
@@ -37,6 +39,9 @@ pub async fn run() {
                         } => *control_flow = ControlFlow::Exit,
                         WindowEvent::Resized(physical_size) => {
                             state.resize(*physical_size);
+                            state
+                                .camera
+                                .resize(physical_size.width as f32 / physical_size.height as f32)
                         }
                         WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
                             // new_inner_size is &&mut so we have to dereference it twice
@@ -63,6 +68,9 @@ pub async fn run() {
                 // request it.
                 window.request_redraw();
             }
+            Event::DeviceEvent { event, .. } => {
+                state.device_input(event);
+            }
             _ => {}
         }
     });
@@ -78,6 +86,9 @@ struct State {
     surface: wgpu::Surface,
     device: wgpu::Device,
     queue: wgpu::Queue,
+    camera: camera::CameraController,
+    camera_buffer: wgpu::Buffer,
+    camera_bind_group: wgpu::BindGroup,
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
     render_pipeline: wgpu::RenderPipeline,
@@ -97,24 +108,24 @@ struct Vertex {
 
 const VERTICES: &[Vertex] = &[
     Vertex {
-        position: [-0.5, -0.5, 0.0],
+        position: [-0.5, 0.0, -0.5],
         tex_coords: [0.0, 1.0],
     },
     Vertex {
-        position: [-0.5, 0.5, 0.0],
+        position: [-0.5, 0.0, 0.5],
         tex_coords: [0.0, 0.0],
     },
     Vertex {
-        position: [0.5, -0.5, 0.0],
+        position: [0.5, 0.0, -0.5],
         tex_coords: [1.0, 1.0],
     },
     Vertex {
-        position: [0.5, 0.5, 0.0],
+        position: [0.5, 0.0, 0.5],
         tex_coords: [1.0, 0.0],
     },
 ];
 
-const INDICES: &[u16] = &[3, 1, 2, 0, 2, 1];
+const INDICES: &[u16] = &[3, 2, 1, 2, 0, 1];
 
 impl Vertex {
     fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
@@ -212,6 +223,21 @@ impl State {
                 label: Some("texture_bind_group_layout"),
             });
 
+        let camera_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+                label: Some("camera_bind_group_layout"),
+            });
+
         let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &texture_bind_group_layout,
             entries: &[
@@ -232,10 +258,27 @@ impl State {
             source: wgpu::ShaderSource::Wgsl(include_str!("shaders/shader.wgsl").into()),
         });
 
+        let camera = camera::CameraController::new(config.width as f32 / config.height as f32);
+
+        let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Camera Buffer"),
+            contents: bytemuck::cast_slice(&[camera.to_raw()]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &camera_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: camera_buffer.as_entire_binding(),
+            }],
+            label: Some("camera_bind_group"),
+        });
+
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&texture_bind_group_layout],
+                bind_group_layouts: &[&texture_bind_group_layout, &camera_bind_group_layout],
                 push_constant_ranges: &[],
             });
 
@@ -292,6 +335,9 @@ impl State {
             device,
             queue,
             config,
+            camera,
+            camera_buffer,
+            camera_bind_group,
             size,
             render_pipeline,
             vertex_buffer,
@@ -311,12 +357,23 @@ impl State {
         }
     }
 
+    fn device_input(&mut self, event: DeviceEvent) {
+        self.camera.process_device_events(event)
+    }
+
     fn input(&mut self, _event: &WindowEvent) -> bool {
         false
     }
 
     fn update(&mut self) {
-        return;
+        self.camera.update(time::Duration::from_millis(16));
+        self.queue.write_buffer(
+            &self.camera_buffer,
+            0,
+            bytemuck::cast_slice(&[self.camera.to_raw()]),
+        );
+        print!("direction: {:?}", self.camera.get_forward());
+        print!("position: {:?}", self.camera.get_position());
     }
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
@@ -350,6 +407,7 @@ impl State {
 
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
+            render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
             render_pass.draw_indexed(0..self.num_indices, 0, 0..1);

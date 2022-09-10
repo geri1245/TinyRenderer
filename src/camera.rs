@@ -6,12 +6,12 @@ pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     0.0, 0.0, 0.5, 1.0,
 );
 
-use cgmath::Vector3 as Vec3;
+use cgmath::num_traits::clamp;
+use cgmath::{Quaternion, Rotation, Vector3 as Vec3};
 
-const REFERENCE_UP: f32 = PI / 2.0;
-// const REFERENCE_DIRECTION: Vec3<f32> = Vec3::new(1.0, 0.0, 0.0);
+const REFERENCE_DIRECTION: Vec3<f32> = Vec3::new(1.0, 0.0, 0.0);
 
-use cgmath::{ElementWise, InnerSpace, Point3, Zero};
+use cgmath::{ElementWise, Euler, InnerSpace, One, Point3, Rad, Rotation3, Zero};
 use winit::event::*;
 
 use std::f32::consts::PI;
@@ -22,13 +22,13 @@ const CAMERA_UP_VECTOR: Vec3<f32> = Vec3::new(0 as f32, 1 as f32, 0 as f32);
 const MOVEMENT_SENSITIVITY: f32 = 20.0;
 const MOUSE_LOOK_SENSITIVITY: f32 = 0.005;
 
-fn spherical_to_cartesian((phi, theta): (f32, f32)) -> Vec3<f32> {
-    Vec3::new(
-        theta.sin() * phi.cos(),
-        theta.cos(),
-        theta.sin() * phi.sin(),
-    )
-}
+// fn spherical_to_cartesian((phi, theta): (f32, f32)) -> Vec3<f32> {
+//     Vec3::new(
+//         theta.sin() * phi.cos(),
+//         theta.cos(),
+//         theta.sin() * phi.sin(),
+//     )
+// }
 
 // Result is given in order of (phi, theta)
 // fn cartesian_to_spherical(
@@ -56,7 +56,7 @@ pub struct CameraController {
     znear: f32,
     zfar: f32,
     look_sensitivity: cgmath::Vector2<f32>,
-    orientation: (f32, f32),
+    orientation: Euler<cgmath::Rad<f32>>,
     current_speed_positive: Vec3<f32>,
     current_speed_negative: Vec3<f32>,
     movement_sensitivity: Vec3<f32>,
@@ -65,10 +65,38 @@ pub struct CameraController {
 
 impl CameraController {
     pub fn new(aspect_ratio: f32) -> Self {
-        let eye: cgmath::Point3<f32> = (2.0, 5.0, 0.0).into();
-        let target = Vec3::<f32>::zero();
+        let eye: Point3<f32> = (-12.0, 10.0, 0.0).into();
+        let target: Point3<f32> = (0.0, 0.0, 0.0).into();
+        let view_dir = (target - eye).normalize();
+        let rotation_quat = Quaternion::from_axis_angle(
+            view_dir.cross(REFERENCE_DIRECTION).normalize(),
+            -view_dir.angle(REFERENCE_DIRECTION),
+        );
+        let mut orientation = Euler::from(rotation_quat);
 
-        let phi: cgmath::Rad<f32> = cgmath::Angle::atan2(eye.y - target.y, eye.x - target.x);
+        let pitch_rotation = Quaternion::from_angle_y(orientation.x);
+        let yaw_rotation = Quaternion::from_angle_z(orientation.z);
+        let look_vector = (pitch_rotation * yaw_rotation).rotate_vector(REFERENCE_DIRECTION);
+
+        println!("{:?}", view_dir);
+        println!("{:?}", look_vector);
+        println!("{:?}", orientation);
+
+        // orientation.z += Rad(PI);
+        // orientation.x += Rad(PI);
+        // orientation.z = clamp(
+        //     orientation.z,
+        //     Rad(-PI / 2.0 + 0.0001),
+        //     Rad(PI / 2.0 - 0.0001),
+        // );
+
+        println!("{:?}", orientation);
+
+        let pitch_rotation = Quaternion::from_angle_y(orientation.x);
+        let yaw_rotation = Quaternion::from_angle_z(orientation.z);
+        let look_vector = (pitch_rotation * yaw_rotation).rotate_vector(REFERENCE_DIRECTION);
+
+        println!("{:?}", look_vector);
 
         Self {
             eye,
@@ -77,7 +105,7 @@ impl CameraController {
             fovy: cgmath::Deg(45.0),
             znear: 0.1,
             zfar: 100.0,
-            orientation: (0.0, REFERENCE_UP + phi.0),
+            orientation,
             look_sensitivity: cgmath::Vector2::new(MOUSE_LOOK_SENSITIVITY, MOUSE_LOOK_SENSITIVITY),
             movement_sensitivity: Vec3::new(
                 MOVEMENT_SENSITIVITY,
@@ -104,7 +132,9 @@ impl CameraController {
     }
 
     pub fn get_forward(&self) -> Vec3<f32> {
-        spherical_to_cartesian(self.orientation)
+        let pitch_rotation = Quaternion::from_angle_y(self.orientation.x);
+        let yaw_rotation = Quaternion::from_angle_z(self.orientation.z);
+        (pitch_rotation * yaw_rotation).rotate_vector(REFERENCE_DIRECTION)
     }
 
     fn get_right(&self) -> Vec3<f32> {
@@ -158,7 +188,7 @@ impl CameraController {
         match event {
             DeviceEvent::MouseMotion { delta } => {
                 if self.is_rotation_enabled {
-                    self.rotate(delta);
+                    self.rotate((delta.0 as f32, delta.1 as f32));
                 }
             }
             DeviceEvent::Key(keyboard_input) => {
@@ -185,11 +215,13 @@ impl CameraController {
         self.eye += v;
     }
 
-    fn rotate(&mut self, (delta_x, delta_y): (f64, f64)) {
-        let (yaw, pitch) = self.orientation;
-        let new_yaw = yaw + self.look_sensitivity.x * delta_x as f32;
-        let new_pitch = (pitch + self.look_sensitivity.y * delta_y as f32).clamp(0.1, PI - 0.1);
-
-        self.orientation = (new_yaw, new_pitch);
+    fn rotate(&mut self, (delta_x, delta_y): (f32, f32)) {
+        self.orientation.x += Rad(self.look_sensitivity.x * -delta_x);
+        self.orientation.z += Rad(self.look_sensitivity.y * -delta_y);
+        self.orientation.z = clamp(
+            self.orientation.z,
+            Rad(-PI / 2.0 + 0.0001),
+            Rad(PI / 2.0 - 0.0001),
+        );
     }
 }

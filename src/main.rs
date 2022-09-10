@@ -22,7 +22,7 @@ pub async fn run() {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
     window.set_title("Awesome application");
-    let mut state = State::new(&window).await;
+    let mut app_state = AppState::new(&window).await;
 
     event_loop.run(move |event, _, control_flow| {
         match event {
@@ -33,7 +33,7 @@ pub async fn run() {
                 if window_id != window.id() {
                     return;
                 }
-                if !state.input(event) {
+                if !app_state.input(event) {
                     match event {
                         WindowEvent::CloseRequested
                         | WindowEvent::KeyboardInput {
@@ -46,25 +46,32 @@ pub async fn run() {
                             ..
                         } => *control_flow = ControlFlow::Exit,
                         WindowEvent::Resized(physical_size) => {
-                            state.resize(*physical_size);
-                            state
+                            app_state.resize(*physical_size);
+                            app_state
                                 .camera
                                 .resize(physical_size.width as f32 / physical_size.height as f32)
                         }
                         WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
                             // new_inner_size is &&mut so we have to dereference it twice
-                            state.resize(**new_inner_size);
+                            app_state.resize(**new_inner_size);
+                        }
+                        WindowEvent::MouseInput { state, button, .. }
+                            if *button == MouseButton::Right =>
+                        {
+                            app_state
+                                .camera
+                                .set_is_camera_rotation_enabled(*state == ElementState::Pressed)
                         }
                         _ => {}
                     }
                 }
             }
             Event::RedrawRequested(window_id) if window_id == window.id() => {
-                state.update();
-                match state.render() {
+                app_state.update();
+                match app_state.render() {
                     Ok(_) => {}
                     // Reconfigure the surface if lost
-                    Err(wgpu::SurfaceError::Lost) => state.resize(state.size),
+                    Err(wgpu::SurfaceError::Lost) => app_state.resize(app_state.size),
                     // The system is out of memory, we should probably quit
                     Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
                     // All other errors (Outdated, Timeout) should be resolved by the next frame
@@ -77,7 +84,7 @@ pub async fn run() {
                 window.request_redraw();
             }
             Event::DeviceEvent { event, .. } => {
-                state.device_input(event);
+                app_state.device_input(event);
             }
             _ => {}
         }
@@ -90,7 +97,7 @@ fn main() {
 
 use winit::window::Window;
 
-struct State {
+struct AppState {
     surface: wgpu::Surface,
     device: wgpu::Device,
     queue: wgpu::Queue,
@@ -219,7 +226,7 @@ impl Vertex {
     }
 }
 
-impl State {
+impl AppState {
     // Creating some of the wgpu types requires async code
     async fn new(window: &Window) -> Self {
         let size = window.inner_size();

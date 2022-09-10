@@ -6,10 +6,13 @@ pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     0.0, 0.0, 0.5, 1.0,
 );
 
-use winit::event::*;
-
 use cgmath::Vector3 as Vec3;
+
+const REFERENCE_UP: f32 = PI / 2.0;
+// const REFERENCE_DIRECTION: Vec3<f32> = Vec3::new(1.0, 0.0, 0.0);
+
 use cgmath::{ElementWise, InnerSpace, Point3, Zero};
+use winit::event::*;
 
 use std::f32::consts::PI;
 use std::time::Duration;
@@ -26,6 +29,17 @@ fn spherical_to_cartesian((phi, theta): (f32, f32)) -> Vec3<f32> {
         theta.sin() * phi.sin(),
     )
 }
+
+// Result is given in order of (phi, theta)
+// fn cartesian_to_spherical(
+//     target: Vec3<f32>,
+//     origin: Vec3<f32>,
+// ) -> (cgmath::Rad<f32>, cgmath::Rad<f32>) {
+//     let coords = target - origin;
+//     let inclination: cgmath::Rad<f32> = cgmath::Angle::acos(coords.y / coords.magnitude());
+//     let azimuth: cgmath::Rad<f32> = cgmath::Angle::atan2(coords.z, coords.x);
+//     (inclination, azimuth)
+// }
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -46,11 +60,12 @@ pub struct CameraController {
     current_speed_positive: Vec3<f32>,
     current_speed_negative: Vec3<f32>,
     movement_sensitivity: Vec3<f32>,
+    is_rotation_enabled: bool,
 }
 
 impl CameraController {
     pub fn new(aspect_ratio: f32) -> Self {
-        let eye: cgmath::Point3<f32> = (0.0, 5.0, 0.0).into();
+        let eye: cgmath::Point3<f32> = (2.0, 5.0, 0.0).into();
         let target = Vec3::<f32>::zero();
 
         let phi: cgmath::Rad<f32> = cgmath::Angle::atan2(eye.y - target.y, eye.x - target.x);
@@ -62,7 +77,7 @@ impl CameraController {
             fovy: cgmath::Deg(45.0),
             znear: 0.1,
             zfar: 100.0,
-            orientation: (0.0, PI / 2.0 + phi.0),
+            orientation: (0.0, REFERENCE_UP + phi.0),
             look_sensitivity: cgmath::Vector2::new(MOUSE_LOOK_SENSITIVITY, MOUSE_LOOK_SENSITIVITY),
             movement_sensitivity: Vec3::new(
                 MOVEMENT_SENSITIVITY,
@@ -71,6 +86,7 @@ impl CameraController {
             ),
             current_speed_positive: Vec3::<f32>::zero(),
             current_speed_negative: Vec3::<f32>::zero(),
+            is_rotation_enabled: false,
         }
     }
 
@@ -101,6 +117,10 @@ impl CameraController {
 
     pub fn resize(&mut self, aspect: f32) {
         self.aspect = aspect;
+    }
+
+    pub fn set_is_camera_rotation_enabled(&mut self, is_enabled: bool) {
+        self.is_rotation_enabled = is_enabled;
     }
 
     fn handle_keyboard_event(&mut self, keyboard_event: &KeyboardInput) {
@@ -137,7 +157,9 @@ impl CameraController {
     pub fn process_device_events(&mut self, event: DeviceEvent) {
         match event {
             DeviceEvent::MouseMotion { delta } => {
-                self.rotate(delta);
+                if self.is_rotation_enabled {
+                    self.rotate(delta);
+                }
             }
             DeviceEvent::Key(keyboard_input) => {
                 self.handle_keyboard_event(&keyboard_input);

@@ -11,7 +11,7 @@ use cgmath::{Quaternion, Rotation, Vector3 as Vec3};
 
 const REFERENCE_DIRECTION: Vec3<f32> = Vec3::new(1.0, 0.0, 0.0);
 
-use cgmath::{ElementWise, Euler, InnerSpace, One, Point3, Rad, Rotation3, Zero};
+use cgmath::{ElementWise, Euler, InnerSpace, Point3, Rad, Rotation3, Zero};
 use winit::event::*;
 
 use std::f32::consts::PI;
@@ -72,7 +72,7 @@ impl CameraController {
             view_dir.cross(REFERENCE_DIRECTION).normalize(),
             -view_dir.angle(REFERENCE_DIRECTION),
         );
-        let mut orientation = Euler::from(rotation_quat);
+        let orientation = Euler::from(rotation_quat);
 
         let pitch_rotation = Quaternion::from_angle_y(orientation.x);
         let yaw_rotation = Quaternion::from_angle_z(orientation.z);

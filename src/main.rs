@@ -1,6 +1,8 @@
 use cgmath::prelude::*;
+use model::{DrawModel, Model};
 use std::time;
-use wgpu::util::DeviceExt;
+use texture::Texture;
+use wgpu::{util::DeviceExt, RenderPassDepthStencilAttachment};
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
@@ -8,14 +10,12 @@ use winit::{
 };
 
 mod camera;
+mod model;
+mod render_pipeline;
+mod resources;
 mod texture;
 
 const NUM_INSTANCES_PER_ROW: u32 = 10;
-const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(
-    NUM_INSTANCES_PER_ROW as f32 * 0.5,
-    0.0,
-    NUM_INSTANCES_PER_ROW as f32 * 0.5,
-);
 
 pub async fn run() {
     env_logger::init();
@@ -97,21 +97,28 @@ fn main() {
 
 use winit::window::Window;
 
+use crate::model::Vertex;
+
 struct AppState {
     surface: wgpu::Surface,
     device: wgpu::Device,
     queue: wgpu::Queue,
     camera: camera::CameraController,
+    light_state: LightUniform,
     camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
     render_pipeline: wgpu::RenderPipeline,
-    vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
-    num_indices: u32,
-    diffuse_bind_group: wgpu::BindGroup,
+    light_render_pipeline: wgpu::RenderPipeline,
+    _vertex_buffer: wgpu::Buffer,
+    _index_buffer: wgpu::Buffer,
+    light_buffer: wgpu::Buffer,
+    obj_model: Model,
+    _diffuse_bind_group: wgpu::BindGroup,
+    light_bind_group: wgpu::BindGroup,
     _diffuse_texture: texture::Texture,
+    depth_texture: texture::Texture,
     instances: Vec<Instance>,
     instance_buffer: wgpu::Buffer,
 }
@@ -125,6 +132,17 @@ struct Instance {
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 struct InstanceRaw {
     model: [[f32; 4]; 4],
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+struct LightUniform {
+    position: [f32; 3],
+    // Due to uniforms requiring 16 byte (4 float) spacing, we need to use a padding field here
+    _padding: u32,
+    color: [f32; 3],
+    // Due to uniforms requiring 16 byte (4 float) spacing, we need to use a padding field here
+    _padding2: u32,
 }
 
 impl Instance {
@@ -146,17 +164,17 @@ impl InstanceRaw {
             // This means that our shaders will only change to use the next
             // instance when the shader starts processing a new instance
             step_mode: wgpu::VertexStepMode::Instance,
+            // While our vertex shader only uses locations 0, and 1 now, in later tutorials we'll
+            // be using 2, 3, and 4, for Vertex. We'll start at slot 5 not conflict with them later
+            // A mat4 takes up 4 vertex slots as it is technically 4 vec4s. We need to define a slot
+            // for each vec4. We'll have to reassemble the mat4 in
+            // the shader.
             attributes: &[
                 wgpu::VertexAttribute {
                     offset: 0,
-                    // While our vertex shader only uses locations 0, and 1 now, in later tutorials we'll
-                    // be using 2, 3, and 4, for Vertex. We'll start at slot 5 not conflict with them later
                     shader_location: 5,
                     format: wgpu::VertexFormat::Float32x4,
                 },
-                // A mat4 takes up 4 vertex slots as it is technically 4 vec4s. We need to define a slot
-                // for each vec4. We'll have to reassemble the mat4 in
-                // the shader.
                 wgpu::VertexAttribute {
                     offset: mem::size_of::<[f32; 4]>() as wgpu::BufferAddress,
                     shader_location: 6,
@@ -179,52 +197,31 @@ impl InstanceRaw {
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-struct Vertex {
+struct RawVertex {
     position: [f32; 3],
     tex_coords: [f32; 2],
 }
 
-const VERTICES: &[Vertex] = &[
-    Vertex {
+const VERTICES: &[RawVertex] = &[
+    RawVertex {
         position: [-0.5, 0.0, -0.5],
         tex_coords: [0.0, 0.0],
     },
-    Vertex {
+    RawVertex {
         position: [-0.5, 0.0, 0.5],
         tex_coords: [0.0, 1.0],
     },
-    Vertex {
+    RawVertex {
         position: [0.5, 0.0, -0.5],
         tex_coords: [1.0, 0.0],
     },
-    Vertex {
+    RawVertex {
         position: [0.5, 0.0, 0.5],
         tex_coords: [1.0, 1.0],
     },
 ];
 
 const INDICES: &[u16] = &[3, 2, 1, 2, 0, 1];
-
-impl Vertex {
-    fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
-        wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &[
-                wgpu::VertexAttribute {
-                    offset: 0,
-                    shader_location: 0,
-                    format: wgpu::VertexFormat::Float32x3,
-                },
-                wgpu::VertexAttribute {
-                    offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
-                    shader_location: 1,
-                    format: wgpu::VertexFormat::Float32x3,
-                },
-            ],
-        }
-    }
-}
 
 impl AppState {
     // Creating some of the wgpu types requires async code
@@ -271,10 +268,27 @@ impl AppState {
         };
         surface.configure(&device, &config);
 
-        let diffuse_bytes = include_bytes!("assets/happy-tree.png");
+        let light_state = LightUniform {
+            position: [2.0, 2.0, 2.0],
+            _padding: 0,
+            color: [1.0, 1.0, 1.0],
+            _padding2: 0,
+        };
+
+        // We'll want to update our lights position, so we use COPY_DST
+        let light_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Light VB"),
+            contents: bytemuck::cast_slice(&[light_state]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let diffuse_bytes = include_bytes!("../assets/happy-tree.png");
 
         let diffuse_texture =
             texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "treeTexture").unwrap();
+
+        let depth_texture =
+            texture::Texture::create_depth_texture(&device, &config, "depth_texture");
 
         let texture_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -331,9 +345,28 @@ impl AppState {
             label: Some("diffuse_bind_group"),
         });
 
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/shader.wgsl").into()),
+        let light_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+                label: Some("light_bind_group_layout"),
+            });
+
+        let light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &light_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: light_buffer.as_entire_binding(),
+            }],
+            label: Some("Light bind group"),
         });
 
         let camera = camera::CameraController::new(config.width as f32 / config.height as f32);
@@ -356,44 +389,47 @@ impl AppState {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&texture_bind_group_layout, &camera_bind_group_layout],
+                bind_group_layouts: &[
+                    &texture_bind_group_layout,
+                    &camera_bind_group_layout,
+                    &light_bind_group_layout,
+                ],
                 push_constant_ranges: &[],
             });
 
-        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
-            layout: Some(&render_pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: "vs_main",
-                buffers: &[Vertex::desc(), InstanceRaw::desc()],
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: "fs_main",
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: config.format,
-                    blend: Some(wgpu::BlendState::REPLACE),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
-                polygon_mode: wgpu::PolygonMode::Fill,
-                unclipped_depth: false,
-                conservative: false,
-            },
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState {
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
-            multiview: None,
-        });
+        let shader_desc = wgpu::ShaderModuleDescriptor {
+            label: Some("Shader"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/shader.wgsl").into()),
+        };
+
+        let render_pipeline = render_pipeline::create_render_pipeline(
+            &device,
+            &render_pipeline_layout,
+            config.format,
+            Some(texture::Texture::DEPTH_FORMAT),
+            &[model::ModelVertex::desc(), InstanceRaw::desc()],
+            shader_desc,
+        );
+
+        let light_render_pipeline = {
+            let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Light Pipeline Layout"),
+                bind_group_layouts: &[&camera_bind_group_layout, &light_bind_group_layout],
+                push_constant_ranges: &[],
+            });
+            let shader = wgpu::ShaderModuleDescriptor {
+                label: Some("Light Shader"),
+                source: wgpu::ShaderSource::Wgsl(include_str!("shaders/light.wgsl").into()),
+            };
+            render_pipeline::create_render_pipeline(
+                &device,
+                &layout,
+                config.format,
+                Some(texture::Texture::DEPTH_FORMAT),
+                &[model::ModelVertex::desc()],
+                shader,
+            )
+        };
 
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
@@ -406,20 +442,17 @@ impl AppState {
             contents: bytemuck::cast_slice(INDICES),
             usage: wgpu::BufferUsages::INDEX,
         });
-        let num_indices = INDICES.len() as u32;
 
+        const SPACE_BETWEEN: f32 = 3.0;
         let instances = (0..NUM_INSTANCES_PER_ROW)
             .flat_map(|z| {
                 (0..NUM_INSTANCES_PER_ROW).map(move |x| {
-                    let position = cgmath::Vector3 {
-                        x: x as f32,
-                        y: 0.0,
-                        z: z as f32,
-                    } - INSTANCE_DISPLACEMENT;
+                    let x = SPACE_BETWEEN * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
+                    let z = SPACE_BETWEEN * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
+
+                    let position = cgmath::Vector3 { x, y: 0.0, z };
 
                     let rotation = if position.is_zero() {
-                        // this is needed so an object at (0, 0, 0) won't get scaled to zero
-                        // as Quaternions can effect scale if they're not created correctly
                         cgmath::Quaternion::from_axis_angle(
                             cgmath::Vector3::unit_z(),
                             cgmath::Deg(0.0),
@@ -440,6 +473,11 @@ impl AppState {
             usage: wgpu::BufferUsages::VERTEX,
         });
 
+        let obj_model =
+            resources::load_model("cube.obj", &device, &queue, &texture_bind_group_layout)
+                .await
+                .unwrap();
+
         Self {
             surface,
             device,
@@ -450,11 +488,16 @@ impl AppState {
             camera_bind_group,
             size,
             render_pipeline,
-            vertex_buffer,
-            index_buffer,
-            num_indices,
-            diffuse_bind_group,
+            light_render_pipeline,
+            _vertex_buffer: vertex_buffer,
+            _index_buffer: index_buffer,
+            light_state,
+            light_buffer,
+            obj_model,
+            _diffuse_bind_group: diffuse_bind_group,
+            light_bind_group,
             _diffuse_texture: diffuse_texture,
+            depth_texture,
             instances,
             instance_buffer,
         }
@@ -466,6 +509,8 @@ impl AppState {
             self.config.width = new_size.width;
             self.config.height = new_size.height;
             self.surface.configure(&self.device, &self.config);
+            self.depth_texture =
+                Texture::create_depth_texture(&self.device, &self.config, "depth_texture");
         }
     }
 
@@ -483,6 +528,17 @@ impl AppState {
             &self.camera_buffer,
             0,
             bytemuck::cast_slice(&[self.camera.to_raw()]),
+        );
+
+        let old_light_position: cgmath::Vector3<_> = self.light_state.position.into();
+        self.light_state.position =
+            (cgmath::Quaternion::from_axis_angle((0.0, 1.0, 0.0).into(), cgmath::Deg(1.0))
+                * old_light_position)
+                .into();
+        self.queue.write_buffer(
+            &self.light_buffer,
+            0,
+            bytemuck::cast_slice(&[self.light_state]),
         );
     }
 
@@ -512,19 +568,34 @@ impl AppState {
                         store: true,
                     },
                 })],
-                depth_stencil_attachment: None,
+                depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                    view: &self.depth_texture.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: true,
+                    }),
+                    stencil_ops: None,
+                }),
             });
 
-            render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
-            render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
-
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
 
-            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+            use crate::model::DrawLight;
+            render_pass.set_pipeline(&self.light_render_pipeline);
+            render_pass.draw_light_model(
+                &self.obj_model,
+                &self.camera_bind_group,
+                &self.light_bind_group,
+            );
 
-            render_pass.draw_indexed(0..self.num_indices, 0, 0..self.instances.len() as u32);
+            render_pass.set_pipeline(&self.render_pipeline);
+
+            render_pass.draw_model_instanced(
+                &self.obj_model,
+                0..self.instances.len() as u32,
+                &self.camera_bind_group,
+                &self.light_bind_group,
+            );
         }
 
         // submit will accept anything that implements IntoIter

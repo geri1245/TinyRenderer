@@ -22,25 +22,6 @@ const CAMERA_UP_VECTOR: Vec3<f32> = Vec3::new(0 as f32, 1 as f32, 0 as f32);
 const MOVEMENT_SENSITIVITY: f32 = 20.0;
 const MOUSE_LOOK_SENSITIVITY: f32 = 0.005;
 
-// fn spherical_to_cartesian((phi, theta): (f32, f32)) -> Vec3<f32> {
-//     Vec3::new(
-//         theta.sin() * phi.cos(),
-//         theta.cos(),
-//         theta.sin() * phi.sin(),
-//     )
-// }
-
-// Result is given in order of (phi, theta)
-// fn cartesian_to_spherical(
-//     target: Vec3<f32>,
-//     origin: Vec3<f32>,
-// ) -> (cgmath::Rad<f32>, cgmath::Rad<f32>) {
-//     let coords = target - origin;
-//     let inclination: cgmath::Rad<f32> = cgmath::Angle::acos(coords.y / coords.magnitude());
-//     let azimuth: cgmath::Rad<f32> = cgmath::Angle::atan2(coords.z, coords.x);
-//     (inclination, azimuth)
-// }
-
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct CameraRaw {
@@ -73,30 +54,7 @@ impl CameraController {
             -view_dir.angle(REFERENCE_DIRECTION),
         );
         let orientation = Euler::from(rotation_quat);
-
-        let pitch_rotation = Quaternion::from_angle_y(orientation.x);
-        let yaw_rotation = Quaternion::from_angle_z(orientation.z);
-        let look_vector = (pitch_rotation * yaw_rotation).rotate_vector(REFERENCE_DIRECTION);
-
-        println!("{:?}", view_dir);
-        println!("{:?}", look_vector);
-        println!("{:?}", orientation);
-
-        // orientation.z += Rad(PI);
-        // orientation.x += Rad(PI);
-        // orientation.z = clamp(
-        //     orientation.z,
-        //     Rad(-PI / 2.0 + 0.0001),
-        //     Rad(PI / 2.0 - 0.0001),
-        // );
-
-        println!("{:?}", orientation);
-
-        let pitch_rotation = Quaternion::from_angle_y(orientation.x);
-        let yaw_rotation = Quaternion::from_angle_z(orientation.z);
-        let look_vector = (pitch_rotation * yaw_rotation).rotate_vector(REFERENCE_DIRECTION);
-
-        println!("{:?}", look_vector);
+        // TODO: calculate orientation properly. Now the camera can flip
 
         Self {
             eye,

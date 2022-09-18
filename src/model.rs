@@ -36,6 +36,11 @@ impl Vertex for ModelVertex {
                     shader_location: 2,
                     format: wgpu::VertexFormat::Float32x3,
                 },
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<[f32; 5]>() as wgpu::BufferAddress,
+                    shader_location: 2,
+                    format: wgpu::VertexFormat::Float32x3,
+                },
             ],
         }
     }
@@ -90,6 +95,10 @@ pub trait DrawModel<'a> {
         camera_bind_group: &'a wgpu::BindGroup,
         light_bind_group: &'a wgpu::BindGroup,
     );
+}
+
+pub trait Drawable {
+    fn draw(&mut self);
 }
 
 impl<'a, 'b> DrawModel<'b> for wgpu::RenderPass<'a>

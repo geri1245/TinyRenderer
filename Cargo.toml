@@ -14,6 +14,8 @@ async-std = "1.12"
 bytemuck = { version = "1.9", features = [ "derive" ] }
 anyhow = "1.0"
 cgmath = "0.18"
+futures-intrusive = "0.4"
+png = "0.17"
 tobj = { version = "3.2", features = ["async"]}
 
 [build-dependencies]

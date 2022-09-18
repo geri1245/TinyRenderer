@@ -1,8 +1,10 @@
+use async_std::task::block_on;
 use cgmath::prelude::*;
+use core::mem;
 use model::{DrawModel, Model};
-use std::time;
+use std::{fs::File, io::Write, time};
 use texture::Texture;
-use wgpu::{util::DeviceExt, RenderPassDepthStencilAttachment};
+use wgpu::{util::DeviceExt, RenderPassDepthStencilAttachment, SubmissionIndex};
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
@@ -17,12 +19,65 @@ mod texture;
 
 const NUM_INSTANCES_PER_ROW: u32 = 10;
 
+async fn create_png(
+    png_output_path: &str,
+    device: &wgpu::Device,
+    output_buffer: &wgpu::Buffer,
+    buffer_dimensions: &BufferDimensions,
+    submission_index: wgpu::SubmissionIndex,
+) {
+    let buffer_slice = output_buffer.slice(..);
+    // Sets the buffer up for mapping, sending over the result of the mapping back to us when it is finished.
+    let (sender, receiver) = futures_intrusive::channel::shared::oneshot_channel();
+    buffer_slice.map_async(wgpu::MapMode::Read, move |v| sender.send(v).unwrap());
+
+    // TODO: Either Poll without blocking or move the blocking polling to another thread
+    device.poll(wgpu::Maintain::WaitForSubmissionIndex(submission_index));
+
+    let has_file_system_available = cfg!(not(target_arch = "wasm32"));
+    if !has_file_system_available {
+        return;
+    }
+
+    if let Some(Ok(())) = receiver.receive().await {
+        let padded_buffer = buffer_slice.get_mapped_range();
+
+        let mut png_encoder = png::Encoder::new(
+            File::create(png_output_path).unwrap(),
+            buffer_dimensions.width as u32,
+            buffer_dimensions.height as u32,
+        );
+        png_encoder.set_depth(png::BitDepth::Eight);
+        png_encoder.set_color(png::ColorType::Rgba);
+        let mut png_writer = png_encoder
+            .write_header()
+            .unwrap()
+            .into_stream_writer_with_size(buffer_dimensions.unpadded_bytes_per_row)
+            .unwrap();
+
+        // from the padded_buffer we write just the unpadded bytes into the image
+        for chunk in padded_buffer.chunks(buffer_dimensions.padded_bytes_per_row) {
+            png_writer
+                .write_all(&chunk[..buffer_dimensions.unpadded_bytes_per_row])
+                .unwrap();
+        }
+        png_writer.finish().unwrap();
+
+        // With the current interface, we have to make sure all mapped views are
+        // dropped before we unmap the buffer.
+        drop(padded_buffer);
+
+        output_buffer.unmap();
+    }
+}
+
 pub async fn run() {
     env_logger::init();
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
     window.set_title("Awesome application");
     let mut app_state = AppState::new(&window).await;
+    let mut i = 0;
 
     event_loop.run(move |event, _, control_flow| {
         match event {
@@ -67,9 +122,22 @@ pub async fn run() {
                 }
             }
             Event::RedrawRequested(window_id) if window_id == window.id() => {
+                i += 1;
                 app_state.update();
                 match app_state.render() {
-                    Ok(_) => {}
+                    Ok(submission_index) => {
+                        if app_state.should_capture_frame_content || i == 150 {
+                            app_state.should_capture_frame_content = false;
+                            let future = create_png(
+                                "./frame.png",
+                                &app_state.device,
+                                &app_state.output_buffer,
+                                &app_state.buffer_dimensions,
+                                submission_index,
+                            );
+                            block_on(future);
+                        }
+                    }
                     // Reconfigure the surface if lost
                     Err(wgpu::SurfaceError::Lost) => app_state.resize(app_state.size),
                     // The system is out of memory, we should probably quit
@@ -121,6 +189,33 @@ struct AppState {
     depth_texture: texture::Texture,
     instances: Vec<Instance>,
     instance_buffer: wgpu::Buffer,
+    output_buffer: wgpu::Buffer,
+    buffer_dimensions: BufferDimensions,
+    texture_extent: wgpu::Extent3d,
+    should_capture_frame_content: bool,
+}
+
+struct BufferDimensions {
+    width: usize,
+    height: usize,
+    unpadded_bytes_per_row: usize,
+    padded_bytes_per_row: usize,
+}
+
+impl BufferDimensions {
+    fn new(width: usize, height: usize) -> Self {
+        let bytes_per_pixel = std::mem::size_of::<u32>();
+        let unpadded_bytes_per_row = width * bytes_per_pixel;
+        let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize;
+        let padded_bytes_per_row_padding = (align - unpadded_bytes_per_row % align) % align;
+        let padded_bytes_per_row = unpadded_bytes_per_row + padded_bytes_per_row_padding;
+        Self {
+            width,
+            height,
+            unpadded_bytes_per_row,
+            padded_bytes_per_row,
+        }
+    }
 }
 
 struct Instance {
@@ -131,7 +226,8 @@ struct Instance {
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 struct InstanceRaw {
-    model: [[f32; 4]; 4],
+    model_matrix: [[f32; 4]; 4],
+    normal: [[f32; 3]; 3],
 }
 
 #[repr(C)]
@@ -148,16 +244,16 @@ struct LightUniform {
 impl Instance {
     fn to_raw(&self) -> InstanceRaw {
         InstanceRaw {
-            model: (cgmath::Matrix4::from_translation(self.position)
+            model_matrix: (cgmath::Matrix4::from_translation(self.position)
                 * cgmath::Matrix4::from(self.rotation))
             .into(),
+            normal: cgmath::Matrix3::from(self.rotation).into(),
         }
     }
 }
 
 impl InstanceRaw {
     fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
-        use std::mem;
         wgpu::VertexBufferLayout {
             array_stride: mem::size_of::<InstanceRaw>() as wgpu::BufferAddress,
             // We need to switch from using a step mode of Vertex to Instance
@@ -189,6 +285,21 @@ impl InstanceRaw {
                     offset: mem::size_of::<[f32; 12]>() as wgpu::BufferAddress,
                     shader_location: 8,
                     format: wgpu::VertexFormat::Float32x4,
+                },
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<[f32; 16]>() as wgpu::BufferAddress,
+                    shader_location: 9,
+                    format: wgpu::VertexFormat::Float32x3,
+                },
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<[f32; 19]>() as wgpu::BufferAddress,
+                    shader_location: 10,
+                    format: wgpu::VertexFormat::Float32x3,
+                },
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<[f32; 22]>() as wgpu::BufferAddress,
+                    shader_location: 11,
+                    format: wgpu::VertexFormat::Float32x3,
                 },
             ],
         }
@@ -260,7 +371,7 @@ impl AppState {
             .unwrap();
 
         let config = wgpu::SurfaceConfiguration {
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
             format: *surface.get_supported_formats(&adapter).first().unwrap(),
             width: size.width,
             height: size.height,
@@ -281,6 +392,26 @@ impl AppState {
             contents: bytemuck::cast_slice(&[light_state]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
+
+        // It is a WebGPU requirement that ImageCopyBuffer.layout.bytes_per_row % wgpu::COPY_BYTES_PER_ROW_ALIGNMENT == 0
+        // So we calculate padded_bytes_per_row by rounding unpadded_bytes_per_row
+        // up to the next multiple of wgpu::COPY_BYTES_PER_ROW_ALIGNMENT.
+        // https://en.wikipedia.org/wiki/Data_structure_alignment#Computing_padding
+        let buffer_dimensions =
+            BufferDimensions::new(config.width as usize, config.height as usize);
+        // The output buffer lets us retrieve the data as an array
+        let output_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Buffer to copy frame content into"),
+            size: (buffer_dimensions.padded_bytes_per_row * buffer_dimensions.height) as u64,
+            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        let texture_extent = wgpu::Extent3d {
+            width: config.width,
+            height: config.height,
+            depth_or_array_layers: 1,
+        };
 
         let diffuse_bytes = include_bytes!("../assets/happy-tree.png");
 
@@ -319,7 +450,7 @@ impl AppState {
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
+                    visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
@@ -500,6 +631,10 @@ impl AppState {
             depth_texture,
             instances,
             instance_buffer,
+            output_buffer,
+            buffer_dimensions,
+            texture_extent,
+            should_capture_frame_content: false,
         }
     }
 
@@ -542,7 +677,7 @@ impl AppState {
         );
     }
 
-    fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
+    fn render(&mut self) -> Result<SubmissionIndex, wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
         let view = output
             .texture
@@ -598,10 +733,27 @@ impl AppState {
             );
         }
 
-        // submit will accept anything that implements IntoIter
-        self.queue.submit(std::iter::once(encoder.finish()));
+        encoder.copy_texture_to_buffer(
+            output.texture.as_image_copy(),
+            wgpu::ImageCopyBuffer {
+                buffer: &self.output_buffer,
+                layout: wgpu::ImageDataLayout {
+                    offset: 0,
+                    bytes_per_row: Some(
+                        std::num::NonZeroU32::new(
+                            self.buffer_dimensions.padded_bytes_per_row as u32,
+                        )
+                        .unwrap(),
+                    ),
+                    rows_per_image: None,
+                },
+            },
+            self.texture_extent,
+        );
+
+        let submission_index = self.queue.submit(Some(encoder.finish()));
         output.present();
 
-        Ok(())
+        Ok(submission_index)
     }
 }

@@ -1,3 +1,11 @@
+use cgmath::{
+    num_traits::clamp, ElementWise, Euler, InnerSpace, Point3, Quaternion, Rad, Rotation,
+    Rotation3, Vector2, Vector3, Zero,
+};
+use std::f32::consts::PI;
+use std::time::Duration;
+use winit::event::*;
+
 #[rustfmt::skip]
 pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     1.0, 0.0, 0.0, 0.0,
@@ -6,18 +14,9 @@ pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     0.0, 0.0, 0.5, 1.0,
 );
 
-use cgmath::num_traits::clamp;
-use cgmath::{Quaternion, Rotation, Vector3 as Vec3};
+const REFERENCE_DIRECTION: Vector3<f32> = Vector3::new(1.0, 0.0, 0.0);
 
-const REFERENCE_DIRECTION: Vec3<f32> = Vec3::new(1.0, 0.0, 0.0);
-
-use cgmath::{ElementWise, Euler, InnerSpace, Point3, Rad, Rotation3, Zero};
-use winit::event::*;
-
-use std::f32::consts::PI;
-use std::time::Duration;
-
-const CAMERA_UP_VECTOR: Vec3<f32> = Vec3::new(0 as f32, 1 as f32, 0 as f32);
+const CAMERA_UP_VECTOR: Vector3<f32> = Vector3::new(0 as f32, 1 as f32, 0 as f32);
 
 const MOVEMENT_SENSITIVITY: f32 = 20.0;
 const MOUSE_LOOK_SENSITIVITY: f32 = 0.005;
@@ -29,22 +28,22 @@ pub struct CameraRaw {
     camera_pos: [f32; 4],
 }
 
-pub struct CameraController {
+pub struct Camera {
     eye: cgmath::Point3<f32>,
-    up: cgmath::Vector3<f32>,
+    up: Vector3<f32>,
     aspect: f32,
     fovy: cgmath::Deg<f32>,
     znear: f32,
     zfar: f32,
-    look_sensitivity: cgmath::Vector2<f32>,
+    look_sensitivity: Vector2<f32>,
     orientation: Euler<cgmath::Rad<f32>>,
-    current_speed_positive: Vec3<f32>,
-    current_speed_negative: Vec3<f32>,
-    movement_sensitivity: Vec3<f32>,
+    current_speed_positive: Vector3<f32>,
+    current_speed_negative: Vector3<f32>,
+    movement_sensitivity: Vector3<f32>,
     is_rotation_enabled: bool,
 }
 
-impl CameraController {
+impl Camera {
     pub fn new(aspect_ratio: f32) -> Self {
         let eye: Point3<f32> = (-12.0, 10.0, 0.0).into();
         let target: Point3<f32> = (0.0, 0.0, 0.0).into();
@@ -65,13 +64,13 @@ impl CameraController {
             zfar: 100.0,
             orientation,
             look_sensitivity: cgmath::Vector2::new(MOUSE_LOOK_SENSITIVITY, MOUSE_LOOK_SENSITIVITY),
-            movement_sensitivity: Vec3::new(
+            movement_sensitivity: Vector3::new(
                 MOVEMENT_SENSITIVITY,
                 MOVEMENT_SENSITIVITY,
                 MOVEMENT_SENSITIVITY,
             ),
-            current_speed_positive: Vec3::<f32>::zero(),
-            current_speed_negative: Vec3::<f32>::zero(),
+            current_speed_positive: Vector3::<f32>::zero(),
+            current_speed_negative: Vector3::<f32>::zero(),
             is_rotation_enabled: false,
         }
     }
@@ -89,13 +88,13 @@ impl CameraController {
         self.eye
     }
 
-    pub fn get_forward(&self) -> Vec3<f32> {
+    pub fn get_forward(&self) -> Vector3<f32> {
         let pitch_rotation = Quaternion::from_angle_y(self.orientation.x);
         let yaw_rotation = Quaternion::from_angle_z(self.orientation.z);
         (pitch_rotation * yaw_rotation).rotate_vector(REFERENCE_DIRECTION)
     }
 
-    fn get_right(&self) -> Vec3<f32> {
+    fn get_right(&self) -> Vector3<f32> {
         self.get_forward().cross(CAMERA_UP_VECTOR).normalize()
     }
 

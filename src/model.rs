@@ -98,7 +98,7 @@ pub trait DrawModel<'a> {
 }
 
 pub trait Drawable {
-    fn draw(&mut self);
+    fn draw(&mut self, render_pass: &mut wgpu::RenderPass);
 }
 
 impl<'a, 'b> DrawModel<'b> for wgpu::RenderPass<'a>

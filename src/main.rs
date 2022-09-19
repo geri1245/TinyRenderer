@@ -1,10 +1,13 @@
+use crate::model::Vertex;
 use async_std::task::block_on;
+use camera_controller::CameraController;
 use cgmath::prelude::*;
 use core::mem;
 use model::{DrawModel, Model};
 use std::{fs::File, io::Write, time};
 use texture::Texture;
 use wgpu::{util::DeviceExt, RenderPassDepthStencilAttachment, SubmissionIndex};
+use winit::window::Window;
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
@@ -12,6 +15,7 @@ use winit::{
 };
 
 mod camera;
+mod camera_controller;
 mod model;
 mod render_pipeline;
 mod resources;
@@ -103,6 +107,7 @@ pub async fn run() {
                         WindowEvent::Resized(physical_size) => {
                             app_state.resize(*physical_size);
                             app_state
+                                .camera_controller
                                 .camera
                                 .resize(physical_size.width as f32 / physical_size.height as f32)
                         }
@@ -114,6 +119,7 @@ pub async fn run() {
                             if *button == MouseButton::Right =>
                         {
                             app_state
+                                .camera_controller
                                 .camera
                                 .set_is_camera_rotation_enabled(*state == ElementState::Pressed)
                         }
@@ -163,18 +169,11 @@ fn main() {
     async_std::task::block_on(run());
 }
 
-use winit::window::Window;
-
-use crate::model::Vertex;
-
 struct AppState {
     surface: wgpu::Surface,
     device: wgpu::Device,
     queue: wgpu::Queue,
-    camera: camera::CameraController,
     light_state: LightUniform,
-    camera_buffer: wgpu::Buffer,
-    camera_bind_group: wgpu::BindGroup,
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
     render_pipeline: wgpu::RenderPipeline,
@@ -193,6 +192,7 @@ struct AppState {
     buffer_dimensions: BufferDimensions,
     texture_extent: wgpu::Extent3d,
     should_capture_frame_content: bool,
+    camera_controller: CameraController,
 }
 
 struct BufferDimensions {
@@ -446,21 +446,6 @@ impl AppState {
                 label: Some("texture_bind_group_layout"),
             });
 
-        let camera_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
-                label: Some("camera_bind_group_layout"),
-            });
-
         let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &texture_bind_group_layout,
             entries: &[
@@ -500,29 +485,15 @@ impl AppState {
             label: Some("Light bind group"),
         });
 
-        let camera = camera::CameraController::new(config.width as f32 / config.height as f32);
-
-        let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Camera Buffer"),
-            contents: bytemuck::cast_slice(&[camera.to_raw()]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
-        let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &camera_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: camera_buffer.as_entire_binding(),
-            }],
-            label: Some("camera_bind_group"),
-        });
+        let camera_controller =
+            CameraController::new(config.width as f32 / config.height as f32, &device);
 
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
                 bind_group_layouts: &[
                     &texture_bind_group_layout,
-                    &camera_bind_group_layout,
+                    &camera_controller.bind_group_layout,
                     &light_bind_group_layout,
                 ],
                 push_constant_ranges: &[],
@@ -545,7 +516,10 @@ impl AppState {
         let light_render_pipeline = {
             let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Light Pipeline Layout"),
-                bind_group_layouts: &[&camera_bind_group_layout, &light_bind_group_layout],
+                bind_group_layouts: &[
+                    &camera_controller.bind_group_layout,
+                    &light_bind_group_layout,
+                ],
                 push_constant_ranges: &[],
             });
             let shader = wgpu::ShaderModuleDescriptor {
@@ -614,9 +588,7 @@ impl AppState {
             device,
             queue,
             config,
-            camera,
-            camera_buffer,
-            camera_bind_group,
+            camera_controller,
             size,
             render_pipeline,
             light_render_pipeline,
@@ -650,7 +622,7 @@ impl AppState {
     }
 
     fn device_input(&mut self, event: DeviceEvent) {
-        self.camera.process_device_events(event)
+        self.camera_controller.camera.process_device_events(event)
     }
 
     fn input(&mut self, _event: &WindowEvent) -> bool {
@@ -658,11 +630,13 @@ impl AppState {
     }
 
     fn update(&mut self) {
-        self.camera.update(time::Duration::from_millis(16));
+        self.camera_controller
+            .camera
+            .update(time::Duration::from_millis(16));
         self.queue.write_buffer(
-            &self.camera_buffer,
+            &self.camera_controller.binding_buffer,
             0,
-            bytemuck::cast_slice(&[self.camera.to_raw()]),
+            bytemuck::cast_slice(&[self.camera_controller.camera.to_raw()]),
         );
 
         let old_light_position: cgmath::Vector3<_> = self.light_state.position.into();
@@ -719,7 +693,7 @@ impl AppState {
             render_pass.set_pipeline(&self.light_render_pipeline);
             render_pass.draw_light_model(
                 &self.obj_model,
-                &self.camera_bind_group,
+                &self.camera_controller.bind_group,
                 &self.light_bind_group,
             );
 
@@ -728,7 +702,7 @@ impl AppState {
             render_pass.draw_model_instanced(
                 &self.obj_model,
                 0..self.instances.len() as u32,
-                &self.camera_bind_group,
+                &self.camera_controller.bind_group,
                 &self.light_bind_group,
             );
         }

@@ -1,10 +1,10 @@
-use std::ops::Range;
+use std::{ops::Range, rc::Rc};
 
 use crate::texture;
 
 pub struct Model {
     pub meshes: Vec<Mesh>,
-    pub materials: Vec<Material>,
+    pub materials: Vec<Rc<Material>>,
 }
 
 pub struct Material {
@@ -18,101 +18,85 @@ pub struct Mesh {
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
     pub index_count: u32,
-    pub material: usize,
+    pub material: Option<Rc<Material>>,
 }
 
-pub trait DrawModel<'a> {
-    fn draw_mesh(
-        &mut self,
-        mesh: &'a Mesh,
-        material: &'a Material,
-        camera_bind_group: &'a wgpu::BindGroup,
-        light_bind_group: &'a wgpu::BindGroup,
+pub trait Drawable<'a, 'b> {
+    fn draw(
+        &'a self,
+        render_pass: &mut wgpu::RenderPass<'b>,
+        camera_bind_group: &'b wgpu::BindGroup,
+        light_bind_group: &'b wgpu::BindGroup,
     );
-    fn draw_mesh_instanced(
-        &mut self,
-        mesh: &'a Mesh,
-        material: &'a Material,
+
+    fn draw_instanced(
+        &'a self,
+        render_pass: &mut wgpu::RenderPass<'b>,
+        camera_bind_group: &'b wgpu::BindGroup,
+        light_bind_group: &'b wgpu::BindGroup,
         instances: Range<u32>,
-        camera_bind_group: &'a wgpu::BindGroup,
-        light_bind_group: &'a wgpu::BindGroup,
-    );
-
-    fn draw_model(
-        &mut self,
-        model: &'a Model,
-        camera_bind_group: &'a wgpu::BindGroup,
-        light_bind_group: &'a wgpu::BindGroup,
-    );
-    fn draw_model_instanced(
-        &mut self,
-        model: &'a Model,
-        instances: Range<u32>,
-        camera_bind_group: &'a wgpu::BindGroup,
-        light_bind_group: &'a wgpu::BindGroup,
     );
 }
 
-pub trait Drawable {
-    fn draw(&mut self, render_pass: &mut wgpu::RenderPass);
-}
-
-impl<'a, 'b> DrawModel<'b> for wgpu::RenderPass<'a>
+impl<'a, 'b> Drawable<'a, 'b> for Mesh
 where
-    'b: 'a,
+    'a: 'b,
 {
-    fn draw_mesh(
-        &mut self,
-        mesh: &'b Mesh,
-        material: &'b Material,
+    fn draw_instanced(
+        &'a self,
+        render_pass: &mut wgpu::RenderPass<'b>,
         camera_bind_group: &'b wgpu::BindGroup,
-        light_bind_group: &'a wgpu::BindGroup,
-    ) {
-        self.draw_mesh_instanced(mesh, material, 0..1, camera_bind_group, light_bind_group);
-    }
-
-    fn draw_mesh_instanced(
-        &mut self,
-        mesh: &'b Mesh,
-        material: &'b Material,
+        light_bind_group: &'b wgpu::BindGroup,
         instances: Range<u32>,
-        camera_bind_group: &'b wgpu::BindGroup,
-        light_bind_group: &'a wgpu::BindGroup,
     ) {
-        self.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
-        self.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-        self.set_bind_group(0, &material.bind_group, &[]);
-        self.set_bind_group(1, camera_bind_group, &[]);
-        self.set_bind_group(2, light_bind_group, &[]);
-        self.draw_indexed(0..mesh.index_count, 0, instances);
+        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+        if self.material.is_some() {
+            render_pass.set_bind_group(0, &self.material.as_ref().unwrap().bind_group, &[]);
+        }
+        render_pass.set_bind_group(1, camera_bind_group, &[]);
+        render_pass.set_bind_group(2, light_bind_group, &[]);
+        render_pass.draw_indexed(0..self.index_count, 0, instances);
     }
 
-    fn draw_model(
-        &mut self,
-        model: &'b Model,
+    fn draw(
+        &'a self,
+        render_pass: &mut wgpu::RenderPass<'b>,
         camera_bind_group: &'b wgpu::BindGroup,
         light_bind_group: &'b wgpu::BindGroup,
     ) {
-        self.draw_model_instanced(model, 0..1, camera_bind_group, light_bind_group);
+        self.draw_instanced(render_pass, camera_bind_group, light_bind_group, 0..1);
     }
+}
 
-    fn draw_model_instanced(
-        &mut self,
-        model: &'b Model,
-        instances: Range<u32>,
+impl<'a, 'b> Drawable<'a, 'b> for Model
+where
+    'a: 'b,
+{
+    fn draw_instanced(
+        &'a self,
+        render_pass: &mut wgpu::RenderPass<'b>,
         camera_bind_group: &'b wgpu::BindGroup,
         light_bind_group: &'b wgpu::BindGroup,
+        instances: Range<u32>,
     ) {
-        for mesh in &model.meshes {
-            let material = &model.materials[mesh.material];
-            self.draw_mesh_instanced(
-                mesh,
-                material,
-                instances.clone(),
+        for mesh in &self.meshes {
+            mesh.draw_instanced(
+                render_pass,
                 camera_bind_group,
                 light_bind_group,
+                instances.clone(),
             );
         }
+    }
+
+    fn draw(
+        &'a self,
+        render_pass: &mut wgpu::RenderPass<'b>,
+        camera_bind_group: &'b wgpu::BindGroup,
+        light_bind_group: &'b wgpu::BindGroup,
+    ) {
+        self.draw_instanced(render_pass, camera_bind_group, light_bind_group, 0..1);
     }
 }
 

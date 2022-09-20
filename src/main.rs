@@ -12,13 +12,17 @@ use winit::{
 use buffer_content::BufferContent;
 use camera_controller::CameraController;
 use instance::Instance;
-use model::{DrawModel, Model};
+use light_controller::{LightController, PointLight};
+use model::Model;
 use texture::Texture;
+
+use crate::model::Drawable;
 
 mod buffer_content;
 mod camera;
 mod camera_controller;
 mod instance;
+mod light_controller;
 mod model;
 mod primitive_shapes;
 mod render_pipeline;
@@ -175,14 +179,12 @@ struct AppState {
     surface: wgpu::Surface,
     device: wgpu::Device,
     queue: wgpu::Queue,
-    light_state: LightUniform,
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
     render_pipeline: wgpu::RenderPipeline,
     light_render_pipeline: wgpu::RenderPipeline,
-    light_buffer: wgpu::Buffer,
     obj_model: Model,
-    light_bind_group: wgpu::BindGroup,
+    light_controller: LightController,
     depth_texture: texture::Texture,
     instances: Vec<Instance>,
     instance_buffer: wgpu::Buffer,
@@ -214,17 +216,6 @@ impl BufferDimensions {
             padded_bytes_per_row,
         }
     }
-}
-
-#[repr(C)]
-#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-struct LightUniform {
-    position: [f32; 3],
-    // Due to uniforms requiring 16 byte (4 float) spacing, we need to use a padding field here
-    _padding: u32,
-    color: [f32; 3],
-    // Due to uniforms requiring 16 byte (4 float) spacing, we need to use a padding field here
-    _padding2: u32,
 }
 
 impl AppState {
@@ -272,20 +263,6 @@ impl AppState {
         };
         surface.configure(&device, &config);
 
-        let light_state = LightUniform {
-            position: [2.0, 2.0, 2.0],
-            _padding: 0,
-            color: [1.0, 1.0, 1.0],
-            _padding2: 0,
-        };
-
-        // We'll want to update our lights position, so we use COPY_DST
-        let light_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Light VB"),
-            contents: bytemuck::cast_slice(&[light_state]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
         // It is a WebGPU requirement that ImageCopyBuffer.layout.bytes_per_row % wgpu::COPY_BYTES_PER_ROW_ALIGNMENT == 0
         // So we calculate padded_bytes_per_row by rounding unpadded_bytes_per_row
         // up to the next multiple of wgpu::COPY_BYTES_PER_ROW_ALIGNMENT.
@@ -329,14 +306,14 @@ impl AppState {
                 label: Some("light_bind_group_layout"),
             });
 
-        let light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &light_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: light_buffer.as_entire_binding(),
-            }],
-            label: Some("Light bind group"),
-        });
+        let light_controller = LightController::new(
+            PointLight {
+                position: [2.0, 2.0, 2.0],
+                color: [1.0, 1.0, 1.0],
+            },
+            &device,
+            &light_bind_group_layout,
+        );
 
         let camera_controller =
             CameraController::new(config.width as f32 / config.height as f32, &device);
@@ -479,11 +456,9 @@ impl AppState {
             camera_controller,
             size,
             render_pipeline,
+            light_controller,
             light_render_pipeline,
-            light_state,
-            light_buffer,
             obj_model,
-            light_bind_group,
             depth_texture,
             instances,
             instance_buffer,
@@ -517,16 +492,8 @@ impl AppState {
         self.camera_controller
             .update(time::Duration::from_millis(16), &self.queue);
 
-        let old_light_position: cgmath::Vector3<_> = self.light_state.position.into();
-        self.light_state.position =
-            (cgmath::Quaternion::from_axis_angle((0.0, 1.0, 0.0).into(), cgmath::Deg(1.0))
-                * old_light_position)
-                .into();
-        self.queue.write_buffer(
-            &self.light_buffer,
-            0,
-            bytemuck::cast_slice(&[self.light_state]),
-        );
+        self.light_controller
+            .update(time::Duration::from_millis(16), &self.queue);
     }
 
     fn render(&mut self) -> Result<SubmissionIndex, wgpu::SurfaceError> {
@@ -572,16 +539,16 @@ impl AppState {
             render_pass.draw_light_model(
                 &self.obj_model,
                 &self.camera_controller.bind_group,
-                &self.light_bind_group,
+                &self.light_controller.bind_group,
             );
 
             render_pass.set_pipeline(&self.render_pipeline);
 
-            render_pass.draw_model_instanced(
-                &self.obj_model,
-                0..self.instances.len() as u32,
+            self.obj_model.draw_instanced(
+                &mut render_pass,
                 &self.camera_controller.bind_group,
-                &self.light_bind_group,
+                &self.light_controller.bind_group,
+                0..self.instances.len() as u32,
             );
         }
 

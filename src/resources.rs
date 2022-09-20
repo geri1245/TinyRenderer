@@ -1,4 +1,5 @@
 use std::io::{BufReader, Cursor};
+use std::rc::Rc;
 use wgpu::util::DeviceExt;
 
 use crate::model;
@@ -45,7 +46,7 @@ pub async fn load_texture(
     texture::Texture::from_bytes(device, queue, &data, file_name)
 }
 
-pub async fn load_model(
+pub async fn load_model<'a>(
     file_name: &str,
     device: &wgpu::Device,
     queue: &wgpu::Queue,
@@ -87,11 +88,11 @@ pub async fn load_model(
             label: None,
         });
 
-        materials.push(model::Material {
+        materials.push(Rc::new(model::Material {
             name: m.name,
             diffuse_texture,
             bind_group,
-        })
+        }))
     }
 
     let meshes = models
@@ -129,7 +130,10 @@ pub async fn load_model(
                 vertex_buffer,
                 index_buffer,
                 index_count: m.mesh.indices.len() as u32,
-                material: m.mesh.material_id.unwrap_or(0),
+                material: m
+                    .mesh
+                    .material_id
+                    .map(|material_index| materials[material_index].clone()),
             }
         })
         .collect::<Vec<_>>();

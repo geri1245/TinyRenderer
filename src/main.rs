@@ -1,11 +1,6 @@
-use crate::model::Vertex;
 use async_std::task::block_on;
-use camera_controller::CameraController;
 use cgmath::prelude::*;
-use core::mem;
-use model::{DrawModel, Model};
 use std::{fs::File, io::Write, time};
-use texture::Texture;
 use wgpu::{util::DeviceExt, RenderPassDepthStencilAttachment, SubmissionIndex};
 use winit::window::Window;
 use winit::{
@@ -14,12 +9,22 @@ use winit::{
     window::WindowBuilder,
 };
 
+use buffer_content::BufferContent;
+use camera_controller::CameraController;
+use instance::Instance;
+use model::{DrawModel, Model};
+use texture::Texture;
+
+mod buffer_content;
 mod camera;
 mod camera_controller;
+mod instance;
 mod model;
+mod primitive_shapes;
 mod render_pipeline;
 mod resources;
 mod texture;
+mod vertex;
 
 const NUM_INSTANCES_PER_ROW: u32 = 10;
 
@@ -108,7 +113,6 @@ pub async fn run() {
                             app_state.resize(*physical_size);
                             app_state
                                 .camera_controller
-                                .camera
                                 .resize(physical_size.width as f32 / physical_size.height as f32)
                         }
                         WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
@@ -118,10 +122,8 @@ pub async fn run() {
                         WindowEvent::MouseInput { state, button, .. }
                             if *button == MouseButton::Right =>
                         {
-                            app_state
-                                .camera_controller
-                                .camera
-                                .set_is_camera_rotation_enabled(*state == ElementState::Pressed)
+                            app_state.camera_controller.is_movement_enabled =
+                                *state == ElementState::Pressed;
                         }
                         _ => {}
                     }
@@ -178,13 +180,9 @@ struct AppState {
     size: winit::dpi::PhysicalSize<u32>,
     render_pipeline: wgpu::RenderPipeline,
     light_render_pipeline: wgpu::RenderPipeline,
-    _vertex_buffer: wgpu::Buffer,
-    _index_buffer: wgpu::Buffer,
     light_buffer: wgpu::Buffer,
     obj_model: Model,
-    _diffuse_bind_group: wgpu::BindGroup,
     light_bind_group: wgpu::BindGroup,
-    _diffuse_texture: texture::Texture,
     depth_texture: texture::Texture,
     instances: Vec<Instance>,
     instance_buffer: wgpu::Buffer,
@@ -218,18 +216,6 @@ impl BufferDimensions {
     }
 }
 
-struct Instance {
-    position: cgmath::Vector3<f32>,
-    rotation: cgmath::Quaternion<f32>,
-}
-
-#[repr(C)]
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-struct InstanceRaw {
-    model_matrix: [[f32; 4]; 4],
-    normal: [[f32; 3]; 3],
-}
-
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 struct LightUniform {
@@ -240,99 +226,6 @@ struct LightUniform {
     // Due to uniforms requiring 16 byte (4 float) spacing, we need to use a padding field here
     _padding2: u32,
 }
-
-impl Instance {
-    fn to_raw(&self) -> InstanceRaw {
-        InstanceRaw {
-            model_matrix: (cgmath::Matrix4::from_translation(self.position)
-                * cgmath::Matrix4::from(self.rotation))
-            .into(),
-            normal: cgmath::Matrix3::from(self.rotation).into(),
-        }
-    }
-}
-
-impl InstanceRaw {
-    fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
-        wgpu::VertexBufferLayout {
-            array_stride: mem::size_of::<InstanceRaw>() as wgpu::BufferAddress,
-            // We need to switch from using a step mode of Vertex to Instance
-            // This means that our shaders will only change to use the next
-            // instance when the shader starts processing a new instance
-            step_mode: wgpu::VertexStepMode::Instance,
-            // While our vertex shader only uses locations 0, and 1 now, in later tutorials we'll
-            // be using 2, 3, and 4, for Vertex. We'll start at slot 5 not conflict with them later
-            // A mat4 takes up 4 vertex slots as it is technically 4 vec4s. We need to define a slot
-            // for each vec4. We'll have to reassemble the mat4 in
-            // the shader.
-            attributes: &[
-                wgpu::VertexAttribute {
-                    offset: 0,
-                    shader_location: 5,
-                    format: wgpu::VertexFormat::Float32x4,
-                },
-                wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 4]>() as wgpu::BufferAddress,
-                    shader_location: 6,
-                    format: wgpu::VertexFormat::Float32x4,
-                },
-                wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 8]>() as wgpu::BufferAddress,
-                    shader_location: 7,
-                    format: wgpu::VertexFormat::Float32x4,
-                },
-                wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 12]>() as wgpu::BufferAddress,
-                    shader_location: 8,
-                    format: wgpu::VertexFormat::Float32x4,
-                },
-                wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 16]>() as wgpu::BufferAddress,
-                    shader_location: 9,
-                    format: wgpu::VertexFormat::Float32x3,
-                },
-                wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 19]>() as wgpu::BufferAddress,
-                    shader_location: 10,
-                    format: wgpu::VertexFormat::Float32x3,
-                },
-                wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 22]>() as wgpu::BufferAddress,
-                    shader_location: 11,
-                    format: wgpu::VertexFormat::Float32x3,
-                },
-            ],
-        }
-    }
-}
-
-#[repr(C)]
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-struct RawVertex {
-    position: [f32; 3],
-    tex_coords: [f32; 2],
-}
-
-const VERTICES: &[RawVertex] = &[
-    RawVertex {
-        position: [-0.5, 0.0, -0.5],
-        tex_coords: [0.0, 0.0],
-    },
-    RawVertex {
-        position: [-0.5, 0.0, 0.5],
-        tex_coords: [0.0, 1.0],
-    },
-    RawVertex {
-        position: [0.5, 0.0, -0.5],
-        tex_coords: [1.0, 0.0],
-    },
-    RawVertex {
-        position: [0.5, 0.0, 0.5],
-        tex_coords: [1.0, 1.0],
-    },
-];
-
-const INDICES: &[u16] = &[3, 2, 1, 2, 0, 1];
 
 impl AppState {
     // Creating some of the wgpu types requires async code
@@ -421,46 +314,6 @@ impl AppState {
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &config, "depth_texture");
 
-        let texture_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            multisampled: false,
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        // This should match the filterable field of the
-                        // corresponding Texture entry above.
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                ],
-                label: Some("texture_bind_group_layout"),
-            });
-
-        let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &texture_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
-                },
-            ],
-            label: Some("diffuse_bind_group"),
-        });
-
         let light_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 entries: &[wgpu::BindGroupLayoutEntry {
@@ -488,6 +341,29 @@ impl AppState {
         let camera_controller =
             CameraController::new(config.width as f32 / config.height as f32, &device);
 
+        let texture_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                ],
+                label: Some("texture_bind_group_layout"),
+            });
+
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
@@ -509,7 +385,10 @@ impl AppState {
             &render_pipeline_layout,
             config.format,
             Some(texture::Texture::DEPTH_FORMAT),
-            &[model::ModelVertex::desc(), InstanceRaw::desc()],
+            &[
+                vertex::VertexRaw::buffer_layout(),
+                instance::InstanceRaw::buffer_layout(),
+            ],
             shader_desc,
         );
 
@@ -531,22 +410,10 @@ impl AppState {
                 &layout,
                 config.format,
                 Some(texture::Texture::DEPTH_FORMAT),
-                &[model::ModelVertex::desc()],
+                &[vertex::VertexRaw::buffer_layout()],
                 shader,
             )
         };
-
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(VERTICES),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-
-        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Index Buffer"),
-            contents: bytemuck::cast_slice(INDICES),
-            usage: wgpu::BufferUsages::INDEX,
-        });
 
         const SPACE_BETWEEN: f32 = 3.0;
         let instances = (0..NUM_INSTANCES_PER_ROW)
@@ -571,7 +438,10 @@ impl AppState {
             })
             .collect::<Vec<_>>();
 
-        let instance_data = instances.iter().map(Instance::to_raw).collect::<Vec<_>>();
+        let instance_data = instances
+            .iter()
+            .map(instance::Instance::to_raw)
+            .collect::<Vec<_>>();
         let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Instance Buffer"),
             contents: bytemuck::cast_slice(&instance_data),
@@ -583,6 +453,24 @@ impl AppState {
                 .await
                 .unwrap();
 
+        // TODO: Unused stuff is grouped here
+        let _texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &texture_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
+                },
+            ],
+            label: Some("diffuse_bind_group"),
+        });
+
+        let _square = primitive_shapes::PrimitiveShape::square(&device);
+
         Self {
             surface,
             device,
@@ -592,14 +480,10 @@ impl AppState {
             size,
             render_pipeline,
             light_render_pipeline,
-            _vertex_buffer: vertex_buffer,
-            _index_buffer: index_buffer,
             light_state,
             light_buffer,
             obj_model,
-            _diffuse_bind_group: diffuse_bind_group,
             light_bind_group,
-            _diffuse_texture: diffuse_texture,
             depth_texture,
             instances,
             instance_buffer,
@@ -622,7 +506,7 @@ impl AppState {
     }
 
     fn device_input(&mut self, event: DeviceEvent) {
-        self.camera_controller.camera.process_device_events(event)
+        self.camera_controller.process_device_events(event);
     }
 
     fn input(&mut self, _event: &WindowEvent) -> bool {
@@ -631,13 +515,7 @@ impl AppState {
 
     fn update(&mut self) {
         self.camera_controller
-            .camera
-            .update(time::Duration::from_millis(16));
-        self.queue.write_buffer(
-            &self.camera_controller.binding_buffer,
-            0,
-            bytemuck::cast_slice(&[self.camera_controller.camera.to_raw()]),
-        );
+            .update(time::Duration::from_millis(16), &self.queue);
 
         let old_light_position: cgmath::Vector3<_> = self.light_state.position.into();
         self.light_state.position =

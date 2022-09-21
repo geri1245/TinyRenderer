@@ -5,11 +5,15 @@ use wgpu::util::DeviceExt;
 pub struct PointLight {
     pub position: [f32; 3],
     pub color: [f32; 3],
+    // Only used while real implementation is in progress
+    // In the final implementation this should radiate light in every direction
+    pub target: [f32; 3],
 }
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct PointLightRaw {
+    pub light_view_proj: [[f32; 4]; 4],
     pub position: [f32; 3],
     // Due to uniforms requiring 16 byte (4 float) spacing, we need to use a padding field here
     _padding: u32,
@@ -68,7 +72,19 @@ impl LightController {
     }
 
     fn to_raw(light: &PointLight) -> PointLightRaw {
+        let view = cgmath::Matrix4::look_at_rh(
+            light.position.into(),
+            light.target.into(),
+            Vector3 {
+                x: 0.0_f32,
+                y: 1.0,
+                z: 0.0,
+            },
+        );
+        let proj = cgmath::perspective(cgmath::Deg(60.0), 1.0, 1.0, 50.0);
+        let view_proj = proj * view;
         PointLightRaw {
+            light_view_proj: view_proj.into(),
             position: light.position,
             _padding: 0,
             color: light.color,

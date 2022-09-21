@@ -1,7 +1,6 @@
 use async_std::task::block_on;
-use cgmath::prelude::*;
-use cgmath::{One, Vector3};
-use primitive_shapes::TexturedPrimitive;
+use core::f32::consts;
+use glam::{Quat, Vec3};
 // use std::num::NonZeroU32;
 use std::{fs::File, io::Write, time};
 use wgpu::{util::DeviceExt, RenderPassDepthStencilAttachment, SubmissionIndex};
@@ -18,6 +17,7 @@ use drawable::Drawable;
 use instance::Instance;
 use light_controller::{LightController, PointLight};
 use model::Model;
+use primitive_shapes::TexturedPrimitive;
 use texture::Texture;
 
 mod buffer_content;
@@ -687,23 +687,19 @@ impl AppState {
         };
 
         const SPACE_BETWEEN: f32 = 4.0;
-        const SCALE: Vector3<f32> = Vector3 {
-            x: 1.0,
-            y: 1.0,
-            z: 1.0,
-        };
+        const SCALE: Vec3 = Vec3::new(1.0, 1.0, 1.0);
         let instances = (0..NUM_INSTANCES_PER_ROW)
             .flat_map(|z| {
                 (0..NUM_INSTANCES_PER_ROW).map(move |x| {
                     let x = SPACE_BETWEEN * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
                     let z = SPACE_BETWEEN * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
 
-                    let position = Vector3 { x, y: 0.0, z };
+                    let position = Vec3 { x, y: 0.0, z };
 
-                    let rotation = if position.is_zero() {
-                        cgmath::Quaternion::from_axis_angle(Vector3::unit_z(), cgmath::Deg(0.0))
+                    let rotation = if position == Vec3::ZERO {
+                        Quat::from_axis_angle(Vec3::Z, 0.0)
                     } else {
-                        cgmath::Quaternion::from_axis_angle(position.normalize(), cgmath::Deg(45.0))
+                        Quat::from_axis_angle(position.normalize(), consts::FRAC_PI_4)
                     };
 
                     Instance {
@@ -752,14 +748,10 @@ impl AppState {
         };
 
         let square_instances = vec![Instance {
-            position: Vector3 {
-                x: 0.0,
-                y: -10.0,
-                z: 0.0,
-            },
-            rotation: cgmath::Quaternion::one(),
+            position: Vec3::new(0.0, -10.0, 0.0),
+            rotation: Quat::IDENTITY,
             scale: 100.0_f32
-                * Vector3 {
+                * Vec3 {
                     x: 1.0_f32,
                     y: 1.0,
                     z: 1.0,

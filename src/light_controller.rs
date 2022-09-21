@@ -1,5 +1,6 @@
-use cgmath::Rotation3;
-use cgmath::Vector3;
+use core::f32::consts;
+
+use glam::{Mat4, Quat, Vec3};
 use wgpu::util::DeviceExt;
 
 pub struct PointLight {
@@ -57,10 +58,10 @@ impl LightController {
     }
 
     pub fn update(&mut self, delta_time: std::time::Duration, render_queue: &wgpu::Queue) {
-        let old_light_position = Vector3::from(self.light.position);
-        self.light.position = (cgmath::Quaternion::from_axis_angle(
+        let old_light_position = Vec3::from_array(self.light.position);
+        self.light.position = (Quat::from_axis_angle(
             (0.0, 1.0, 0.0).into(),
-            cgmath::Deg(60.0 * delta_time.as_secs_f32()),
+            consts::FRAC_PI_3 * delta_time.as_secs_f32(),
         ) * old_light_position)
             .into();
 
@@ -72,19 +73,15 @@ impl LightController {
     }
 
     fn to_raw(light: &PointLight) -> PointLightRaw {
-        let view = cgmath::Matrix4::look_at_rh(
+        let view = Mat4::look_at_rh(
             light.position.into(),
             light.target.into(),
-            Vector3 {
-                x: 0.0_f32,
-                y: 1.0,
-                z: 0.0,
-            },
+            Vec3::new(0.0_f32, 1.0, 0.0),
         );
-        let proj = cgmath::perspective(cgmath::Deg(60.0), 1.0, 1.0, 50.0);
+        let proj = glam::Mat4::perspective_rh(consts::FRAC_PI_3, 1.0, 1.0, 50.0);
         let view_proj = proj * view;
         PointLightRaw {
-            light_view_proj: view_proj.into(),
+            light_view_proj: view_proj.to_cols_array_2d(),
             position: light.position,
             _padding: 0,
             color: light.color,

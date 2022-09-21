@@ -1,16 +1,9 @@
+use glam::{Mat4, Vec4};
 use std::time;
 use wgpu::util::DeviceExt;
 use winit::event::DeviceEvent;
 
 use crate::camera::Camera;
-
-#[rustfmt::skip]
-pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
-    1.0, 0.0, 0.0, 0.0,
-    0.0, 1.0, 0.0, 0.0,
-    0.0, 0.0, 0.5, 0.0,
-    0.0, 0.0, 0.5, 1.0,
-);
 
 /// Contains the rendering-related concepts of the camera
 pub struct CameraController {
@@ -84,12 +77,15 @@ impl CameraController {
     }
 
     fn get_raw(camera: &Camera) -> CameraRaw {
-        let view = cgmath::Matrix4::look_at_rh(camera.position, camera.get_target(), camera.up);
-        let proj = cgmath::perspective(camera.fovy, camera.aspect, camera.znear, camera.zfar);
+        let view = Mat4::look_at_rh(camera.position, camera.get_target(), camera.up);
+        let proj = Mat4::perspective_rh(camera.fovy, camera.aspect, camera.znear, camera.zfar);
+
+        let pos = camera.get_position();
+        let pos_homogenous = Vec4::new(pos.x, pos.y, pos.z, 1.0_f32);
 
         CameraRaw {
-            view_proj: (OPENGL_TO_WGPU_MATRIX * proj * view).into(),
-            camera_pos: camera.get_position().to_homogeneous().into(),
+            view_proj: (proj * view).to_cols_array_2d(),
+            camera_pos: pos_homogenous.to_array(),
         }
     }
 }

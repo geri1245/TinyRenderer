@@ -4,6 +4,7 @@ use crate::buffer_content::BufferContent;
 
 pub struct Instance {
     pub position: cgmath::Vector3<f32>,
+    pub scale: cgmath::Vector3<f32>,
     pub rotation: cgmath::Quaternion<f32>,
 }
 
@@ -18,7 +19,8 @@ impl Instance {
     pub fn to_raw(&self) -> InstanceRaw {
         InstanceRaw {
             model_matrix: (cgmath::Matrix4::from_translation(self.position)
-                * cgmath::Matrix4::from(self.rotation))
+                * cgmath::Matrix4::from(self.rotation)
+                * cgmath::Matrix4::from_nonuniform_scale(self.scale.x, self.scale.y, self.scale.z))
             .into(),
             normal: cgmath::Matrix3::from(self.rotation).into(),
         }

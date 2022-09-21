@@ -111,6 +111,11 @@ impl Camera {
         }
     }
 
+    pub fn stop_movement(&mut self) {
+        self.current_speed_negative = Vector3::zero();
+        self.current_speed_positive = Vector3::zero();
+    }
+
     pub fn process_device_events(&mut self, event: DeviceEvent) {
         match event {
             DeviceEvent::MouseMotion { delta } => {

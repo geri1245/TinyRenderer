@@ -1,8 +1,8 @@
-use crate::camera::Camera;
-
 use std::time;
 use wgpu::util::DeviceExt;
 use winit::event::DeviceEvent;
+
+use crate::camera::Camera;
 
 #[rustfmt::skip]
 pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
@@ -16,13 +16,16 @@ pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
 pub struct CameraController {
     camera: Camera,
     pub binding_buffer: wgpu::Buffer,
-    pub bind_group_layout: wgpu::BindGroupLayout,
     pub bind_group: wgpu::BindGroup,
-    pub is_movement_enabled: bool,
+    is_movement_enabled: bool,
 }
 
 impl CameraController {
-    pub fn new(aspect_ratio: f32, render_device: &wgpu::Device) -> CameraController {
+    pub fn new(
+        aspect_ratio: f32,
+        render_device: &wgpu::Device,
+        camera_bind_group_layout: &wgpu::BindGroupLayout,
+    ) -> CameraController {
         let camera = Camera::new(aspect_ratio);
 
         let binding_buffer = render_device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -31,23 +34,8 @@ impl CameraController {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
-        let bind_group_layout =
-            render_device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
-                label: Some("camera_bind_group_layout"),
-            });
-
         let bind_group = render_device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &bind_group_layout,
+            layout: camera_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
                 resource: binding_buffer.as_entire_binding(),
@@ -58,7 +46,6 @@ impl CameraController {
         Self {
             camera,
             binding_buffer,
-            bind_group_layout,
             bind_group,
             is_movement_enabled: false,
         }
@@ -76,6 +63,14 @@ impl CameraController {
             0,
             bytemuck::cast_slice(&[self.to_raw()]),
         );
+    }
+
+    pub fn set_is_movement_enabled(&mut self, value: bool) {
+        self.is_movement_enabled = value;
+
+        if !self.is_movement_enabled {
+            self.camera.stop_movement();
+        }
     }
 
     pub fn process_device_events(&mut self, event: DeviceEvent) {

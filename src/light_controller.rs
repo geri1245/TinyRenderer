@@ -10,7 +10,6 @@ pub struct PointLight {
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct PointLightRaw {
-    /// Position or direction based on light type
     pub position: [f32; 3],
     // Due to uniforms requiring 16 byte (4 float) spacing, we need to use a padding field here
     _padding: u32,
@@ -61,10 +60,6 @@ impl LightController {
         ) * old_light_position)
             .into();
 
-        self.update_buffer(render_queue);
-    }
-
-    fn update_buffer(&self, render_queue: &wgpu::Queue) {
         render_queue.write_buffer(
             &self.uniform_buffer,
             0,

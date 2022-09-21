@@ -1,5 +1,7 @@
 use async_std::task::block_on;
 use cgmath::prelude::*;
+use cgmath::{One, Vector3};
+use primitive_shapes::TexturedPrimitive;
 use std::{fs::File, io::Write, time};
 use wgpu::{util::DeviceExt, RenderPassDepthStencilAttachment, SubmissionIndex};
 use winit::window::Window;
@@ -11,16 +13,16 @@ use winit::{
 
 use buffer_content::BufferContent;
 use camera_controller::CameraController;
+use drawable::Drawable;
 use instance::Instance;
 use light_controller::{LightController, PointLight};
 use model::Model;
 use texture::Texture;
 
-use crate::model::Drawable;
-
 mod buffer_content;
 mod camera;
 mod camera_controller;
+mod drawable;
 mod instance;
 mod light_controller;
 mod model;
@@ -126,8 +128,9 @@ pub async fn run() {
                         WindowEvent::MouseInput { state, button, .. }
                             if *button == MouseButton::Right =>
                         {
-                            app_state.camera_controller.is_movement_enabled =
-                                *state == ElementState::Pressed;
+                            app_state
+                                .camera_controller
+                                .set_is_movement_enabled(*state == ElementState::Pressed);
                         }
                         _ => {}
                     }
@@ -193,6 +196,8 @@ struct AppState {
     texture_extent: wgpu::Extent3d,
     should_capture_frame_content: bool,
     camera_controller: CameraController,
+    square: TexturedPrimitive,
+    square_instance_buffer: wgpu::Buffer,
 }
 
 struct BufferDimensions {
@@ -283,10 +288,10 @@ impl AppState {
             depth_or_array_layers: 1,
         };
 
-        let diffuse_bytes = include_bytes!("../assets/happy-tree.png");
+        let tree_texture_raw = include_bytes!("../assets/happy-tree.png");
 
-        let diffuse_texture =
-            texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "treeTexture").unwrap();
+        let tree_texture =
+            texture::Texture::from_bytes(&device, &queue, tree_texture_raw, "treeTexture").unwrap();
 
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &config, "depth_texture");
@@ -308,15 +313,33 @@ impl AppState {
 
         let light_controller = LightController::new(
             PointLight {
-                position: [2.0, 2.0, 2.0],
+                position: [2.0, 6.0, 2.0],
                 color: [1.0, 1.0, 1.0],
             },
             &device,
             &light_bind_group_layout,
         );
 
-        let camera_controller =
-            CameraController::new(config.width as f32 / config.height as f32, &device);
+        let camera_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+                label: Some("camera_bind_group_layout"),
+            });
+
+        let camera_controller = CameraController::new(
+            config.width as f32 / config.height as f32,
+            &device,
+            &camera_bind_group_layout,
+        );
 
         let texture_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -346,7 +369,7 @@ impl AppState {
                 label: Some("Render Pipeline Layout"),
                 bind_group_layouts: &[
                     &texture_bind_group_layout,
-                    &camera_controller.bind_group_layout,
+                    &camera_bind_group_layout,
                     &light_bind_group_layout,
                 ],
                 push_constant_ranges: &[],
@@ -372,10 +395,7 @@ impl AppState {
         let light_render_pipeline = {
             let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Light Pipeline Layout"),
-                bind_group_layouts: &[
-                    &camera_controller.bind_group_layout,
-                    &light_bind_group_layout,
-                ],
+                bind_group_layouts: &[&camera_bind_group_layout, &light_bind_group_layout],
                 push_constant_ranges: &[],
             });
             let shader = wgpu::ShaderModuleDescriptor {
@@ -392,25 +412,31 @@ impl AppState {
             )
         };
 
-        const SPACE_BETWEEN: f32 = 3.0;
+        const SPACE_BETWEEN: f32 = 4.0;
+        const SCALE: Vector3<f32> = Vector3 {
+            x: 1.0,
+            y: 1.0,
+            z: 1.0,
+        };
         let instances = (0..NUM_INSTANCES_PER_ROW)
             .flat_map(|z| {
                 (0..NUM_INSTANCES_PER_ROW).map(move |x| {
                     let x = SPACE_BETWEEN * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
                     let z = SPACE_BETWEEN * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
 
-                    let position = cgmath::Vector3 { x, y: 0.0, z };
+                    let position = Vector3 { x, y: 0.0, z };
 
                     let rotation = if position.is_zero() {
-                        cgmath::Quaternion::from_axis_angle(
-                            cgmath::Vector3::unit_z(),
-                            cgmath::Deg(0.0),
-                        )
+                        cgmath::Quaternion::from_axis_angle(Vector3::unit_z(), cgmath::Deg(0.0))
                     } else {
                         cgmath::Quaternion::from_axis_angle(position.normalize(), cgmath::Deg(45.0))
                     };
 
-                    Instance { position, rotation }
+                    Instance {
+                        position,
+                        rotation,
+                        scale: SCALE,
+                    }
                 })
             })
             .collect::<Vec<_>>();
@@ -431,22 +457,50 @@ impl AppState {
                 .unwrap();
 
         // TODO: Unused stuff is grouped here
-        let _texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        let texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &texture_bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
+                    resource: wgpu::BindingResource::TextureView(&tree_texture.view),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
+                    resource: wgpu::BindingResource::Sampler(&tree_texture.sampler),
                 },
             ],
             label: Some("diffuse_bind_group"),
         });
 
-        let _square = primitive_shapes::PrimitiveShape::square(&device);
+        let square = TexturedPrimitive {
+            primitive_shape: primitive_shapes::PrimitiveShape::square(&device),
+            texture_bind_group,
+        };
+
+        let square_instances = vec![Instance {
+            position: Vector3 {
+                x: 0.0,
+                y: -10.0,
+                z: 0.0,
+            },
+            rotation: cgmath::Quaternion::one(),
+            scale: 100.0_f32
+                * Vector3 {
+                    x: 1.0_f32,
+                    y: 1.0,
+                    z: 1.0,
+                },
+        }];
+
+        let square_instance_raw = square_instances
+            .iter()
+            .map(|instance| instance.to_raw())
+            .collect::<Vec<_>>();
+        let square_instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Square Instance Buffer"),
+            contents: bytemuck::cast_slice(&square_instance_raw),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
 
         Self {
             surface,
@@ -464,8 +518,10 @@ impl AppState {
             instance_buffer,
             output_buffer,
             buffer_dimensions,
+            square_instance_buffer,
             texture_extent,
             should_capture_frame_content: false,
+            square,
         }
     }
 
@@ -532,8 +588,6 @@ impl AppState {
                 }),
             });
 
-            render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
-
             use crate::model::DrawLight;
             render_pass.set_pipeline(&self.light_render_pipeline);
             render_pass.draw_light_model(
@@ -544,12 +598,15 @@ impl AppState {
 
             render_pass.set_pipeline(&self.render_pipeline);
 
-            self.obj_model.draw_instanced(
-                &mut render_pass,
-                &self.camera_controller.bind_group,
-                &self.light_controller.bind_group,
-                0..self.instances.len() as u32,
-            );
+            render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
+            render_pass.set_bind_group(1, &self.camera_controller.bind_group, &[]);
+            render_pass.set_bind_group(2, &self.light_controller.bind_group, &[]);
+
+            self.obj_model
+                .draw_instanced(&mut render_pass, 0..self.instances.len() as u32);
+
+            render_pass.set_vertex_buffer(1, self.square_instance_buffer.slice(..));
+            self.square.draw_instanced(&mut render_pass, 0..1);
         }
 
         encoder.copy_texture_to_buffer(

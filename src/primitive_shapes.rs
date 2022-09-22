@@ -84,7 +84,7 @@ where
         render_pass: &mut wgpu::RenderPass<'b>,
         instances: std::ops::Range<u32>,
     ) {
-        render_pass.set_bind_group(0, &self.texture_bind_group, &[]);
+        render_pass.set_bind_group(2, &self.texture_bind_group, &[]);
         self.primitive_shape.draw_instanced(render_pass, instances);
     }
 }

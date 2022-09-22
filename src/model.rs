@@ -30,7 +30,7 @@ where
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
         if self.material.is_some() {
-            render_pass.set_bind_group(0, &self.material.as_ref().unwrap().bind_group, &[]);
+            render_pass.set_bind_group(2, &self.material.as_ref().unwrap().bind_group, &[]);
         }
         render_pass.draw_indexed(0..self.index_count, 0, instances);
     }
@@ -107,8 +107,8 @@ where
     ) {
         self.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
         self.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-        self.set_bind_group(0, camera_bind_group, &[]);
-        self.set_bind_group(1, light_bind_group, &[]);
+        self.set_bind_group(1, camera_bind_group, &[]);
+        self.set_bind_group(0, light_bind_group, &[]);
         self.draw_indexed(0..mesh.index_count, 0, instances);
     }
 

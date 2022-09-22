@@ -36,7 +36,7 @@ impl LightController {
         bind_group_layout: &wgpu::BindGroupLayout,
     ) -> LightController {
         let buffer = render_device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Light VB"),
+            label: Some("Light Uniform Buffer"),
             contents: bytemuck::cast_slice(&[Self::to_raw(&light)]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
@@ -78,7 +78,7 @@ impl LightController {
             light.target.into(),
             Vec3::new(0.0_f32, 1.0, 0.0),
         );
-        let proj = glam::Mat4::perspective_rh(consts::FRAC_PI_3, 1.0, 1.0, 50.0);
+        let proj = glam::Mat4::perspective_rh(consts::FRAC_PI_3, 1.0, 1.0, 100.0);
         let view_proj = proj * view;
         PointLightRaw {
             light_view_proj: view_proj.to_cols_array_2d(),

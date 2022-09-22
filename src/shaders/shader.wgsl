@@ -21,7 +21,7 @@ struct Light {
     position: vec3<f32>,
     color: vec3<f32>,
 }
-@group(2) @binding(0)
+@group(0) @binding(0)
 var<uniform> light: Light;
 
 struct VertexInput {
@@ -33,7 +33,7 @@ struct VertexInput {
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) world_normal: vec3<f32>,
-    @location(1) world_position: vec3<f32>,
+    @location(1) world_position: vec4<f32>,
     @location(2) tex_coord: vec2<f32>,
 };
 
@@ -60,27 +60,49 @@ fn vs_main(
     var out: VertexOutput;
     out.tex_coord = model.tex_coord;
     out.world_normal = normal_matrix * model.normal;
-    out.world_position = (model_matrix * vertex_position).xyz;
+    out.world_position = model_matrix * vertex_position;
 
     out.clip_position = camera.view_proj * model_matrix * vertex_position;
 
     return out;
 }
 
-@group(0) @binding(0)
+@group(2) @binding(0)
 var t_diffuse: texture_2d<f32>;
-@group(0) @binding(1)
+@group(2) @binding(1)
 var s_diffuse: sampler;
+
+@group(3) @binding(0)
+var t_shadow: texture_depth_2d_array;
+@group(3) @binding(1)
+var sampler_shadow: sampler_comparison;
+
+fn fetch_shadow(light_id: u32, homogeneous_coords: vec4<f32>) -> f32 {
+    if (homogeneous_coords.w <= 0.0) {
+        return 1.0;
+    }
+    // compensate for the Y-flip difference between the NDC and texture coordinates
+    let flip_correction = vec2<f32>(0.5, -0.5);
+    // compute texture coordinates for shadow lookup
+    let proj_correction = 1.0 / homogeneous_coords.w;
+    let light_local = homogeneous_coords.xy * flip_correction * proj_correction + vec2<f32>(0.5, 0.5);
+    // do the lookup, using HW PCF and comparison
+    return textureSampleCompareLevel(t_shadow, sampler_shadow, light_local, i32(light_id), homogeneous_coords.z * proj_correction);
+}
+
+let c_ambient_strength: f32 = 0.1;
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let ambient_strength = 0.1;
+    let normal = normalize(in.world_normal);
     let texture_color = textureSample(t_diffuse, s_diffuse, in.tex_coord);
 
-    let ambient_color = light.color * ambient_strength;
+    let ambient_color = light.color * c_ambient_strength;
 
-    let pixel_to_light = normalize(light.position - in.world_position);
-    let pixel_to_camera = normalize(camera.position.xyz - in.world_position);
+    let shadow = fetch_shadow(0u, light.view_proj * in.world_position);
+
+    let pixel_to_light = normalize(light.position - in.world_position.xyz);
+    let pixel_to_camera = normalize(camera.position.xyz - in.world_position.xyz);
 
     let diffuse_strength = max(dot(in.world_normal, pixel_to_light), 0.0);
     let diffuse_color = light.color * diffuse_strength;
@@ -89,7 +111,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let specular_strength = pow(max(dot(half_dir, in.world_normal), 0.0), 32.0);
     let specular_color = specular_strength * light.color;
 
-    let result = (ambient_color + diffuse_color + specular_color) * texture_color.xyz;
+    let result = (ambient_color + diffuse_color * shadow + specular_color * shadow) * texture_color.xyz;
 
     return vec4(result, texture_color.a);
 }

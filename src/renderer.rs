@@ -169,7 +169,7 @@ impl Renderer {
         // Shadows
 
         let shadow_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            label: Some("shadow"),
+            label: Some("Shadow Sampler"),
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,
@@ -531,6 +531,9 @@ impl Renderer {
 
             self.obj_model
                 .draw_instanced(&mut shadow_pass, 0..self.instances.len() as u32);
+
+            shadow_pass.set_vertex_buffer(1, self.square_instance_buffer.slice(..));
+            self.square.draw_instanced(&mut shadow_pass, 0..1);
         }
         // Forward pass
         {

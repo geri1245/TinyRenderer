@@ -77,17 +77,27 @@ var t_shadow: texture_depth_2d_array;
 @group(3) @binding(1)
 var sampler_shadow: sampler_comparison;
 
-fn fetch_shadow(light_id: u32, homogeneous_coords: vec4<f32>) -> f32 {
-    if (homogeneous_coords.w <= 0.0) {
+fn is_valid_tex_coord(tex_coord: vec2<f32>) -> bool {
+    return tex_coord.x >= 0.0 && tex_coord.x <= 1.0 && tex_coord.y >= 0.0 && tex_coord.y <= 1.0;
+}
+
+fn fetch_shadow(light_id: u32, fragment_pos: vec4<f32>) -> f32 {
+    if (fragment_pos.w <= 0.0) {
         return 1.0;
     }
-    // compensate for the Y-flip difference between the NDC and texture coordinates
-    let flip_correction = vec2<f32>(0.5, -0.5);
-    // compute texture coordinates for shadow lookup
-    let proj_correction = 1.0 / homogeneous_coords.w;
-    let light_local = homogeneous_coords.xy * flip_correction * proj_correction + vec2<f32>(0.5, 0.5);
-    // do the lookup, using HW PCF and comparison
-    return textureSampleCompareLevel(t_shadow, sampler_shadow, light_local, i32(light_id), homogeneous_coords.z * proj_correction);
+    // Convert to NDC
+    let fragment_pos_ndc = fragment_pos.xyz / fragment_pos.w;
+
+    // Compute texture coordinates for shadow lookup
+    // NDC goes from -1 to 1, tex coords go from 0 to 1. In addition y must be flipped
+    let tex_coord = fragment_pos_ndc.xy * vec2<f32>(0.5, -0.5) + vec2<f32>(0.5, 0.5);
+
+    if (is_valid_tex_coord(tex_coord)) {
+        // Compare the shadow map sample against "the depth of the current fragment from the light's perspective"
+        return textureSampleCompareLevel(t_shadow, sampler_shadow, tex_coord, i32(light_id), fragment_pos_ndc.z);
+    } else {
+        return 1.0;
+    }
 }
 
 let c_ambient_strength: f32 = 0.1;
@@ -112,6 +122,5 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let specular_color = specular_strength * light.color;
 
     let result = (ambient_color + diffuse_color * shadow + specular_color * shadow) * texture_color.xyz;
-
     return vec4(result, texture_color.a);
 }

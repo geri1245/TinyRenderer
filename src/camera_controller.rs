@@ -3,7 +3,10 @@ use std::time;
 use wgpu::util::DeviceExt;
 use winit::event::DeviceEvent;
 
-use crate::camera::Camera;
+use crate::{
+    camera::Camera,
+    renderer::{BindGroupLayoutType, Renderer},
+};
 
 /// Contains the rendering-related concepts of the camera
 pub struct CameraController {
@@ -14,27 +17,31 @@ pub struct CameraController {
 }
 
 impl CameraController {
-    pub fn new(
-        aspect_ratio: f32,
-        render_device: &wgpu::Device,
-        camera_bind_group_layout: &wgpu::BindGroupLayout,
-    ) -> CameraController {
-        let camera = Camera::new(aspect_ratio);
+    pub fn new(renderer: &Renderer) -> CameraController {
+        let camera = Camera::new(renderer.config.width as f32 / renderer.config.height as f32);
 
-        let binding_buffer = render_device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Camera Buffer"),
-            contents: bytemuck::cast_slice(&[Self::get_raw(&camera)]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
+        let binding_buffer =
+            renderer
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Camera Buffer"),
+                    contents: bytemuck::cast_slice(&[Self::get_raw(&camera)]),
+                    usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                });
 
-        let bind_group = render_device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: camera_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: binding_buffer.as_entire_binding(),
-            }],
-            label: Some("camera_bind_group"),
-        });
+        let bind_group = renderer
+            .device
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                layout: renderer
+                    .bind_group_layouts
+                    .get(&BindGroupLayoutType::Camera)
+                    .unwrap(),
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: binding_buffer.as_entire_binding(),
+                }],
+                label: Some("camera_bind_group"),
+            });
 
         Self {
             camera,

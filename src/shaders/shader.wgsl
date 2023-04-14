@@ -82,7 +82,7 @@ fn is_valid_tex_coord(tex_coord: vec2<f32>) -> bool {
 }
 
 fn fetch_shadow(light_id: u32, fragment_pos: vec4<f32>) -> f32 {
-    if (fragment_pos.w <= 0.0) {
+    if fragment_pos.w <= 0.0 {
         return 1.0;
     }
     // Convert to NDC
@@ -92,7 +92,7 @@ fn fetch_shadow(light_id: u32, fragment_pos: vec4<f32>) -> f32 {
     // NDC goes from -1 to 1, tex coords go from 0 to 1. In addition y must be flipped
     let tex_coord = fragment_pos_ndc.xy * vec2<f32>(0.5, -0.5) + vec2<f32>(0.5, 0.5);
 
-    if (is_valid_tex_coord(tex_coord)) {
+    if is_valid_tex_coord(tex_coord) {
         // Compare the shadow map sample against "the depth of the current fragment from the light's perspective"
         return textureSampleCompareLevel(t_shadow, sampler_shadow, tex_coord, i32(light_id), fragment_pos_ndc.z);
     } else {
@@ -100,7 +100,7 @@ fn fetch_shadow(light_id: u32, fragment_pos: vec4<f32>) -> f32 {
     }
 }
 
-let c_ambient_strength: f32 = 0.1;
+const c_ambient_strength: f32 = 0.1;
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {

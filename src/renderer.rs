@@ -1,7 +1,7 @@
 use async_std::task::block_on;
 use glam::{Quat, Vec3};
 use std::{collections::HashMap, f32::consts, fs::File, hash::Hash, io::Write, num::NonZeroU32};
-use wgpu::{util::DeviceExt, RenderPassDepthStencilAttachment};
+use wgpu::{util::DeviceExt, InstanceDescriptor, RenderPassDepthStencilAttachment};
 
 use crate::{
     bind_group_layout_descriptors,
@@ -12,7 +12,8 @@ use crate::{
     light_controller::LightController,
     model::Model,
     primitive_shapes::{self, TexturedPrimitive},
-    render_pipeline, resources,
+    render_pipeline::RenderPipeline,
+    resources,
     texture::{self, Texture},
     vertex,
 };
@@ -66,8 +67,8 @@ pub struct Renderer {
 
     surface: wgpu::Surface,
 
-    render_pipeline: wgpu::RenderPipeline,
-    light_render_pipeline: wgpu::RenderPipeline,
+    render_pipeline: RenderPipeline,
+    light_render_pipeline: RenderPipeline,
     obj_model: Model,
     depth_texture: texture::Texture,
     instances: Vec<Instance>,
@@ -89,10 +90,12 @@ impl Renderer {
     pub async fn new(window: &winit::window::Window) -> Renderer {
         let size = window.inner_size();
 
-        // The instance is a handle to our GPU
         // Backends::all => Vulkan + Metal + DX12 + Browser WebGPU
-        let instance = wgpu::Instance::new(wgpu::Backends::DX12);
-        let surface = unsafe { instance.create_surface(window) };
+        let instance = wgpu::Instance::new(InstanceDescriptor {
+            backends: wgpu::Backends::DX12,
+            ..Default::default()
+        });
+        let surface = unsafe { instance.create_surface(window) }.unwrap();
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::default(),
@@ -120,12 +123,15 @@ impl Renderer {
             .await
             .unwrap();
 
+        let surface_capabilities = surface.get_capabilities(&adapter);
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
-            format: *surface.get_supported_formats(&adapter).first().unwrap(),
+            format: surface_capabilities.formats[0],
             width: size.width,
             height: size.height,
             present_mode: wgpu::PresentMode::Fifo,
+            alpha_mode: wgpu::CompositeAlphaMode::Auto,
+            view_formats: vec![],
         };
         surface.configure(&device, &config);
 
@@ -188,6 +194,7 @@ impl Renderer {
             format: SHADOW_FORMAT,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
             label: None,
+            view_formats: &[],
         });
         let shadow_view = shadow_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
@@ -299,7 +306,7 @@ impl Renderer {
                 push_constant_ranges: &[],
             });
 
-        let render_pipeline = render_pipeline::create_render_pipeline(
+        let render_pipeline = RenderPipeline::new(
             Some("Main render pipeline"),
             &device,
             &render_pipeline_layout,
@@ -328,7 +335,7 @@ impl Renderer {
                 source: wgpu::ShaderSource::Wgsl(include_str!("shaders/light.wgsl").into()),
             };
             let light_shader = device.create_shader_module(light_shader_desc);
-            render_pipeline::create_render_pipeline(
+            RenderPipeline::new(
                 Some("Light render pipeline"),
                 &device,
                 &layout,
@@ -563,14 +570,14 @@ impl Renderer {
             });
 
             use crate::model::DrawLight;
-            render_pass.set_pipeline(&self.light_render_pipeline);
+            render_pass.set_pipeline(&self.light_render_pipeline.pipeline);
             render_pass.draw_light_model(
                 &self.obj_model,
                 &camera_controller.bind_group,
                 &light_controller.bind_group,
             );
 
-            render_pass.set_pipeline(&self.render_pipeline);
+            render_pass.set_pipeline(&self.render_pipeline.pipeline);
 
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
             render_pass.set_bind_group(1, &camera_controller.bind_group, &[]);

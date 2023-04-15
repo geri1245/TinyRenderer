@@ -16,6 +16,7 @@ mod light_controller;
 mod model;
 mod primitive_shapes;
 mod render_pipeline;
+mod render_pipeline_layout;
 mod renderer;
 mod resources;
 mod texture;

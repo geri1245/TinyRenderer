@@ -579,11 +579,11 @@ impl Renderer {
 
             render_pass.set_pipeline(&self.render_pipeline.pipeline);
 
-            render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
             render_pass.set_bind_group(1, &camera_controller.bind_group, &[]);
             render_pass.set_bind_group(0, &light_controller.bind_group, &[]);
             render_pass.set_bind_group(3, &self.shadow_bind_group, &[]);
 
+            render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
             self.obj_model
                 .draw_instanced(&mut render_pass, 0..self.instances.len() as u32);
 

@@ -116,7 +116,7 @@ impl Imgui {
                     view: &current_frame_texture_view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(crate::CLEAR_COLOR),
+                        load: wgpu::LoadOp::Load,
                         store: true,
                     },
                 })],

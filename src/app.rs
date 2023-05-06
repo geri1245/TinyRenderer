@@ -5,9 +5,7 @@ use crate::{
     renderer::{BindGroupLayoutType, Renderer},
 };
 use std::time::Duration;
-use winit::event::{
-    DeviceEvent, ElementState, KeyboardInput, MouseButton, VirtualKeyCode, WindowEvent,
-};
+use winit::event::{DeviceEvent, ElementState, MouseButton, VirtualKeyCode, WindowEvent};
 use winit::window::Window;
 
 pub enum WindowEventHandlingResult {
@@ -58,16 +56,24 @@ impl App {
         }
     }
 
+    pub fn handle_event<'a, T>(
+        &mut self,
+        window: &winit::window::Window,
+        event: &winit::event::Event<'a, T>,
+    ) {
+        self.renderer.handle_event(window, event);
+    }
+
     pub fn handle_device_event(
         &mut self,
         window: &Window,
-        deviceId: winit::event::DeviceId,
+        device_id: winit::event::DeviceId,
         event: DeviceEvent,
     ) {
         self.renderer.handle_event(
             window,
             &winit::event::Event::DeviceEvent::<()> {
-                device_id: deviceId,
+                device_id,
                 event: event.clone(),
             },
         );
@@ -75,30 +81,17 @@ impl App {
         self.camera_controller.process_device_events(event);
     }
 
-    pub fn handle_window_event(
-        &mut self,
-        window: &Window,
-        event: WindowEvent,
-    ) -> WindowEventHandlingResult {
-        self.renderer.handle_event(
-            window,
-            &winit::event::Event::WindowEvent::<()> {
-                window_id: window.id(),
-                event: event,
-            },
-        );
-
+    pub fn handle_window_event(&mut self, event: WindowEvent) -> WindowEventHandlingResult {
         match event {
-            WindowEvent::CloseRequested
-            | WindowEvent::KeyboardInput {
-                input:
-                    KeyboardInput {
-                        state: ElementState::Pressed,
-                        virtual_keycode: Some(VirtualKeyCode::Escape),
-                        ..
-                    },
-                ..
-            } => return WindowEventHandlingResult::RequestExit,
+            WindowEvent::CloseRequested => return WindowEventHandlingResult::RequestExit,
+
+            WindowEvent::KeyboardInput { input, .. } => {
+                if input.state == ElementState::Pressed
+                    && input.virtual_keycode == Some(VirtualKeyCode::F)
+                {
+                    self.renderer.toggle_should_draw_imgui();
+                }
+            }
 
             WindowEvent::Resized(new_size) => {
                 self.resize(new_size);

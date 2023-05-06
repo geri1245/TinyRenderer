@@ -80,7 +80,9 @@ pub struct Renderer {
     output_buffer: wgpu::Buffer,
     buffer_dimensions: BufferDimensions,
     texture_extent: wgpu::Extent3d,
+
     should_capture_frame_content: bool,
+    should_draw_imgui: bool,
 
     square: TexturedPrimitive,
     square_instance_buffer: wgpu::Buffer,
@@ -462,6 +464,7 @@ impl Renderer {
             buffer_dimensions,
             texture_extent,
             should_capture_frame_content: false,
+            should_draw_imgui: false,
             square,
             square_instance_buffer,
             shadow_target_views,
@@ -621,7 +624,7 @@ impl Renderer {
 
         // Draw imgui
 
-        {
+        if self.should_draw_imgui {
             self.imgui
                 .render(&window, &self.device, &self.queue, delta, &view);
         }
@@ -690,5 +693,9 @@ impl Renderer {
         event: &winit::event::Event<'a, T>,
     ) {
         self.imgui.handle_event(window, event);
+    }
+
+    pub fn toggle_should_draw_imgui(&mut self) {
+        self.should_draw_imgui = !self.should_draw_imgui
     }
 }

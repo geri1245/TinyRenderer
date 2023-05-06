@@ -11,7 +11,6 @@ mod buffer_content;
 mod camera;
 mod camera_controller;
 mod drawable;
-mod events;
 mod frame_timer;
 mod imgui;
 mod instance;
@@ -40,11 +39,11 @@ pub async fn run() {
     let mut app = app::App::new(&window).await;
 
     event_loop.run(move |event, _, control_flow| {
+        app.handle_event(&window, &event);
+
         match event {
             Event::WindowEvent { event, window_id } if window_id == window.id() => {
-                if let WindowEventHandlingResult::RequestExit =
-                    app.handle_window_event(&window, event)
-                {
+                if let WindowEventHandlingResult::RequestExit = app.handle_window_event(event) {
                     *control_flow = ControlFlow::Exit;
                 }
             }

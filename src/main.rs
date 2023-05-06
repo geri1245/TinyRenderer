@@ -11,6 +11,9 @@ mod buffer_content;
 mod camera;
 mod camera_controller;
 mod drawable;
+mod events;
+mod frame_timer;
+mod imgui;
 mod instance;
 mod light_controller;
 mod model;
@@ -22,6 +25,13 @@ mod resources;
 mod texture;
 mod vertex;
 
+const CLEAR_COLOR: wgpu::Color = wgpu::Color {
+    r: 0.1,
+    g: 0.2,
+    b: 0.3,
+    a: 1.0,
+};
+
 pub async fn run() {
     env_logger::init();
     let event_loop = EventLoop::new();
@@ -32,12 +42,14 @@ pub async fn run() {
     event_loop.run(move |event, _, control_flow| {
         match event {
             Event::WindowEvent { event, window_id } if window_id == window.id() => {
-                if let WindowEventHandlingResult::RequestExit = app.handle_window_event(&event) {
+                if let WindowEventHandlingResult::RequestExit =
+                    app.handle_window_event(&window, event)
+                {
                     *control_flow = ControlFlow::Exit;
                 }
             }
             Event::RedrawRequested(window_id) if window_id == window.id() => {
-                match app.request_redraw() {
+                match app.request_redraw(&window) {
                     Ok(_) => (),
                     // Reconfigure the surface if lost
                     Err(wgpu::SurfaceError::Lost) => app.resize(app.renderer.size),
@@ -50,8 +62,10 @@ pub async fn run() {
             Event::MainEventsCleared => {
                 window.request_redraw();
             }
-            Event::DeviceEvent { event, .. } => {
-                app.handle_device_event(event);
+            Event::DeviceEvent {
+                event, device_id, ..
+            } => {
+                app.handle_device_event(&window, device_id, event);
             }
             _ => {}
         }

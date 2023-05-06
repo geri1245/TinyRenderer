@@ -1,6 +1,9 @@
 use async_std::task::block_on;
 use glam::{Quat, Vec3};
-use std::{collections::HashMap, f32::consts, fs::File, hash::Hash, io::Write, num::NonZeroU32};
+use std::{
+    collections::HashMap, f32::consts, fs::File, hash::Hash, io::Write, num::NonZeroU32,
+    time::Duration,
+};
 use wgpu::{util::DeviceExt, InstanceDescriptor, RenderPassDepthStencilAttachment};
 
 use crate::{
@@ -8,6 +11,7 @@ use crate::{
     buffer_content::BufferContent,
     camera_controller::CameraController,
     drawable::Drawable,
+    imgui::Imgui,
     instance::{self, Instance},
     light_controller::LightController,
     model::Model,
@@ -84,6 +88,8 @@ pub struct Renderer {
     shadow_target_views: Vec<wgpu::TextureView>,
     shadow_pipeline: wgpu::RenderPipeline,
     shadow_bind_group: wgpu::BindGroup,
+
+    imgui: crate::imgui::Imgui,
 }
 
 impl Renderer {
@@ -124,9 +130,11 @@ impl Renderer {
             .unwrap();
 
         let surface_capabilities = surface.get_capabilities(&adapter);
+        let format = surface_capabilities.formats[0];
+
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
-            format: surface_capabilities.formats[0],
+            format: format,
             width: size.width,
             height: size.height,
             present_mode: wgpu::PresentMode::Fifo,
@@ -134,6 +142,8 @@ impl Renderer {
             view_formats: vec![],
         };
         surface.configure(&device, &config);
+
+        let imgui = Imgui::new(&window, &device, &queue, format);
 
         let bind_group_layouts = Self::create_bind_group_layouts(&device);
 
@@ -457,6 +467,7 @@ impl Renderer {
             shadow_target_views,
             shadow_pipeline,
             shadow_bind_group,
+            imgui,
         }
     }
 
@@ -503,8 +514,10 @@ impl Renderer {
 
     pub fn render(
         &mut self,
+        window: &winit::window::Window,
         camera_controller: &CameraController,
         light_controller: &LightController,
+        delta: Duration,
     ) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
         let view = output
@@ -550,12 +563,7 @@ impl Renderer {
                     view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
-                            g: 0.2,
-                            b: 0.3,
-                            a: 1.0,
-                        }),
+                        load: wgpu::LoadOp::Clear(crate::CLEAR_COLOR),
                         store: true,
                     },
                 })],
@@ -610,6 +618,14 @@ impl Renderer {
         );
 
         let submission_index = self.queue.submit(Some(encoder.finish()));
+
+        // Draw imgui
+
+        {
+            self.imgui
+                .render(&window, &self.device, &self.queue, delta, &view);
+        }
+
         output.present();
 
         if self.should_capture_frame_content {
@@ -666,5 +682,13 @@ impl Renderer {
 
             self.output_buffer.unmap();
         }
+    }
+
+    pub fn handle_event<'a, T>(
+        &mut self,
+        window: &winit::window::Window,
+        event: &winit::event::Event<'a, T>,
+    ) {
+        self.imgui.handle_event(window, event);
     }
 }

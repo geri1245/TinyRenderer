@@ -6,10 +6,12 @@ use winit::{
 };
 
 mod app;
+mod basic_renderable;
 mod bind_group_layout_descriptors;
 mod buffer_content;
 mod camera;
 mod camera_controller;
+mod color;
 mod drawable;
 mod frame_timer;
 mod imgui;
@@ -21,6 +23,7 @@ mod render_pipeline;
 mod render_pipeline_layout;
 mod renderer;
 mod resources;
+mod shadow;
 mod texture;
 mod vertex;
 

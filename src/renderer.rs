@@ -1,35 +1,28 @@
 use async_std::task::block_on;
 use glam::{Quat, Vec3};
-use std::{
-    collections::HashMap, f32::consts, fs::File, hash::Hash, io::Write, num::NonZeroU32,
-    time::Duration,
-};
+use std::{collections::HashMap, f32::consts, fs::File, hash::Hash, io::Write, time::Duration};
 use wgpu::{util::DeviceExt, InstanceDescriptor, RenderPassDepthStencilAttachment};
 
 use crate::{
     bind_group_layout_descriptors,
     buffer_content::BufferContent,
     camera_controller::CameraController,
+    color,
     drawable::Drawable,
-    imgui::Imgui,
+    imgui::{Imgui, ImguiParams},
     instance::{self, Instance},
     light_controller::LightController,
     model::Model,
     primitive_shapes::{self, TexturedPrimitive},
     render_pipeline::RenderPipeline,
     resources,
+    shadow::Shadow,
     texture::{self, Texture},
-    vertex,
+    vertex, CLEAR_COLOR,
 };
 
+pub const MAX_LIGHTS: usize = 10;
 const NUM_INSTANCES_PER_ROW: u32 = 10;
-const MAX_LIGHTS: usize = 10;
-const SHADOW_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
-const SHADOW_SIZE: wgpu::Extent3d = wgpu::Extent3d {
-    width: 1024,
-    height: 1024,
-    depth_or_array_layers: MAX_LIGHTS as u32,
-};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum BindGroupLayoutType {
@@ -81,17 +74,16 @@ pub struct Renderer {
     buffer_dimensions: BufferDimensions,
     texture_extent: wgpu::Extent3d,
 
+    shadow: Shadow,
+
     should_capture_frame_content: bool,
     should_draw_imgui: bool,
 
     square: TexturedPrimitive,
     square_instance_buffer: wgpu::Buffer,
-    // shadows
-    shadow_target_views: Vec<wgpu::TextureView>,
-    shadow_pipeline: wgpu::RenderPipeline,
-    shadow_bind_group: wgpu::BindGroup,
 
     imgui: crate::imgui::Imgui,
+    imgui_params: crate::imgui::ImguiParams,
 }
 
 impl Renderer {
@@ -182,123 +174,9 @@ impl Renderer {
             source: wgpu::ShaderSource::Wgsl(include_str!("shaders/shader.wgsl").into()),
         };
 
+        let shadow = crate::shadow::Shadow::new(&device, &bind_group_layouts);
+
         let main_shader = device.create_shader_module(shader_desc);
-
-        // Shadows
-
-        let shadow_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            label: Some("Shadow Sampler"),
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Nearest,
-            compare: Some(wgpu::CompareFunction::LessEqual),
-            ..Default::default()
-        });
-
-        let shadow_texture = device.create_texture(&wgpu::TextureDescriptor {
-            size: SHADOW_SIZE,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: SHADOW_FORMAT,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
-            label: None,
-            view_formats: &[],
-        });
-        let shadow_view = shadow_texture.create_view(&wgpu::TextureViewDescriptor::default());
-
-        let shadow_target_views = (0..2)
-            .map(|i| {
-                shadow_texture.create_view(&wgpu::TextureViewDescriptor {
-                    label: Some("shadow"),
-                    format: None,
-                    dimension: Some(wgpu::TextureViewDimension::D2),
-                    aspect: wgpu::TextureAspect::All,
-                    base_mip_level: 0,
-                    mip_level_count: None,
-                    base_array_layer: i as u32,
-                    array_layer_count: NonZeroU32::new(1),
-                })
-            })
-            .collect::<Vec<_>>();
-
-        let shadow_pipeline = {
-            let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("shadow"),
-                bind_group_layouts: &[&bind_group_layouts
-                    .get(&BindGroupLayoutType::Light)
-                    .unwrap()],
-                push_constant_ranges: &[],
-            });
-
-            let shadow_shader_desc = wgpu::ShaderModuleDescriptor {
-                label: Some("Shadow bake shader"),
-                source: wgpu::ShaderSource::Wgsl(
-                    include_str!("shaders/shadow_bake_vert.wgsl").into(),
-                ),
-            };
-
-            let shadow_shader = device.create_shader_module(shadow_shader_desc);
-
-            // Create the render pipeline
-            let shadow_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                label: Some("shadow"),
-                layout: Some(&pipeline_layout),
-                vertex: wgpu::VertexState {
-                    module: &shadow_shader,
-                    entry_point: "vs_bake",
-                    buffers: &[
-                        vertex::VertexRaw::buffer_layout(),
-                        instance::InstanceRaw::buffer_layout(),
-                    ],
-                },
-                fragment: None,
-                primitive: wgpu::PrimitiveState {
-                    topology: wgpu::PrimitiveTopology::TriangleList,
-                    front_face: wgpu::FrontFace::Ccw,
-                    cull_mode: Some(wgpu::Face::Back),
-                    unclipped_depth: device
-                        .features()
-                        .contains(wgpu::Features::DEPTH_CLIP_CONTROL),
-                    ..Default::default()
-                },
-                depth_stencil: Some(wgpu::DepthStencilState {
-                    format: SHADOW_FORMAT,
-                    depth_write_enabled: true,
-                    depth_compare: wgpu::CompareFunction::LessEqual,
-                    stencil: wgpu::StencilState::default(),
-                    bias: wgpu::DepthBiasState {
-                        constant: 2, // corresponds to bilinear filtering
-                        slope_scale: 2.0,
-                        clamp: 0.0,
-                    },
-                }),
-                multisample: wgpu::MultisampleState::default(),
-                multiview: None,
-            });
-
-            shadow_pipeline
-        };
-
-        let shadow_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &bind_group_layouts
-                .get(&BindGroupLayoutType::DepthTexture)
-                .unwrap(),
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&shadow_view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&shadow_sampler),
-                },
-            ],
-            label: None,
-        });
 
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -447,6 +325,10 @@ impl Renderer {
             usage: wgpu::BufferUsages::VERTEX,
         });
 
+        let imgui_params = ImguiParams {
+            clear_color: color::wgpu_color_to_f32_array_rgba(CLEAR_COLOR),
+        };
+
         Renderer {
             surface,
             device,
@@ -467,10 +349,9 @@ impl Renderer {
             should_draw_imgui: false,
             square,
             square_instance_buffer,
-            shadow_target_views,
-            shadow_pipeline,
-            shadow_bind_group,
             imgui,
+            imgui_params,
+            shadow,
         }
     }
 
@@ -532,32 +413,14 @@ impl Renderer {
                 label: Some("Render Encoder"),
             });
 
-        //Shadow pass
-        {
-            let mut shadow_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Shadow pass"),
-                color_attachments: &[],
-                depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                    view: &self.shadow_target_views[0],
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(1.0),
-                        store: true,
-                    }),
-                    stencil_ops: None,
-                }),
-            });
+        self.shadow.render(
+            &mut encoder,
+            &self.obj_model,
+            &light_controller.bind_group,
+            self.instances.len(),
+            &self.instance_buffer,
+        );
 
-            shadow_pass.set_pipeline(&self.shadow_pipeline);
-
-            shadow_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
-            shadow_pass.set_bind_group(0, &light_controller.bind_group, &[]);
-
-            self.obj_model
-                .draw_instanced(&mut shadow_pass, 0..self.instances.len() as u32);
-
-            shadow_pass.set_vertex_buffer(1, self.square_instance_buffer.slice(..));
-            self.square.draw_instanced(&mut shadow_pass, 0..1);
-        }
         // Forward pass
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -566,7 +429,9 @@ impl Renderer {
                     view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(crate::CLEAR_COLOR),
+                        load: wgpu::LoadOp::Clear(color::f32_array_rgba_to_wgpu_color(
+                            self.imgui_params.clear_color,
+                        )),
                         store: true,
                     },
                 })],
@@ -592,7 +457,7 @@ impl Renderer {
 
             render_pass.set_bind_group(1, &camera_controller.bind_group, &[]);
             render_pass.set_bind_group(0, &light_controller.bind_group, &[]);
-            render_pass.set_bind_group(3, &self.shadow_bind_group, &[]);
+            render_pass.set_bind_group(3, &self.shadow.bind_group, &[]);
 
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
             self.obj_model
@@ -625,8 +490,14 @@ impl Renderer {
         // Draw imgui
 
         if self.should_draw_imgui {
-            self.imgui
-                .render(&window, &self.device, &self.queue, delta, &view);
+            self.imgui.render(
+                &window,
+                &self.device,
+                &self.queue,
+                delta,
+                &view,
+                &mut self.imgui_params,
+            );
         }
 
         output.present();

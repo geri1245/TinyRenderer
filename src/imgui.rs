@@ -4,6 +4,11 @@ use imgui::MouseCursor;
 use imgui_wgpu::{Renderer, RendererConfig};
 use imgui_winit_support::WinitPlatform;
 
+#[derive(Default)]
+pub struct ImguiParams {
+    pub clear_color: [f32; 4],
+}
+
 pub struct Imgui {
     context: imgui::Context,
     renderer: Renderer,
@@ -67,6 +72,7 @@ impl Imgui {
         queue: &wgpu::Queue,
         delta: Duration,
         current_frame_texture_view: &wgpu::TextureView,
+        params: &mut ImguiParams,
     ) {
         self.context.io_mut().update_delta_time(delta);
 
@@ -88,6 +94,7 @@ impl Imgui {
                         "Mouse Position: ({:.1},{:.1})",
                         mouse_pos[0], mouse_pos[1]
                     ));
+                    ui.color_picker4("Clear color", &mut params.clear_color);
                 });
 
             let window = ui.window("Hello too");

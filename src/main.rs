@@ -23,7 +23,8 @@ mod render_pipeline;
 mod render_pipeline_layout;
 mod renderer;
 mod resources;
-mod shadow;
+mod shadow_pipeline;
+mod skybox_pipeline;
 mod texture;
 mod vertex;
 

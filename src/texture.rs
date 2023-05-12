@@ -1,5 +1,9 @@
+use std::{fs::File, io::BufReader};
+
 use anyhow::*;
 use image::GenericImageView;
+
+const IMAGE_SIZE: u32 = 512;
 
 pub struct Texture {
     pub texture: wgpu::Texture,
@@ -58,12 +62,12 @@ impl Texture {
 
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::Repeat,
-            address_mode_v: wgpu::AddressMode::Repeat,
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,
             mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::FilterMode::Linear,
             ..Default::default()
         });
 
@@ -105,6 +109,79 @@ impl Texture {
             min_filter: wgpu::FilterMode::Linear,
             mipmap_filter: wgpu::FilterMode::Nearest,
             compare: Some(wgpu::CompareFunction::LessEqual),
+            ..Default::default()
+        });
+
+        Self {
+            texture,
+            view,
+            sampler,
+        }
+    }
+
+    pub async fn create_skybox_texture(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
+        // Is in the order in which the wgpu cubemap expects it: posX negX posY negY posZ negZ
+        let images = vec![
+            "assets/skybox/posX.png",
+            "assets/skybox/negX.png",
+            "assets/skybox/posY.png",
+            "assets/skybox/negY.png",
+            "assets/skybox/posZ.png",
+            "assets/skybox/negZ.png",
+        ];
+
+        let size = wgpu::Extent3d {
+            width: IMAGE_SIZE,
+            height: IMAGE_SIZE,
+            depth_or_array_layers: 6,
+        };
+
+        let texture_descriptor = wgpu::TextureDescriptor {
+            size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            label: None,
+            view_formats: &[],
+        };
+
+        let texture = device.create_texture(&texture_descriptor);
+
+        let mut bytes = Vec::new();
+        for image_name in images {
+            let file = File::open(image_name).unwrap();
+            let image = image::load(BufReader::new(file), image::ImageFormat::Png).unwrap();
+            bytes.extend_from_slice(&image.to_rgba8());
+        }
+
+        let image_copy_texture = texture.as_image_copy();
+        queue.write_texture(
+            image_copy_texture,
+            &bytes,
+            wgpu::ImageDataLayout {
+                offset: 0,
+                bytes_per_row: std::num::NonZeroU32::new(4 * IMAGE_SIZE),
+                rows_per_image: std::num::NonZeroU32::new(IMAGE_SIZE),
+            },
+            size,
+        );
+
+        let view = texture.create_view(&wgpu::TextureViewDescriptor {
+            label: None,
+            dimension: Some(wgpu::TextureViewDimension::Cube),
+            ..wgpu::TextureViewDescriptor::default()
+        });
+
+        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            label: None,
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::FilterMode::Linear,
             ..Default::default()
         });
 

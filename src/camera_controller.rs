@@ -92,6 +92,10 @@ impl CameraController {
 
         CameraRaw {
             view_proj: (proj * view).to_cols_array_2d(),
+            view: view.to_cols_array_2d(),
+            view_inv: view.transpose().to_cols_array_2d(),
+            proj: proj.to_cols_array_2d(),
+            proj_inv: proj.inverse().to_cols_array_2d(),
             camera_pos: pos_homogenous.to_array(),
         }
     }
@@ -101,5 +105,9 @@ impl CameraController {
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct CameraRaw {
     view_proj: [[f32; 4]; 4],
+    view: [[f32; 4]; 4],
+    view_inv: [[f32; 4]; 4],
+    proj: [[f32; 4]; 4],
+    proj_inv: [[f32; 4]; 4],
     camera_pos: [f32; 4],
 }

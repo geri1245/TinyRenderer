@@ -10,6 +10,10 @@ struct InstanceInput {
 
 struct CameraUniform {
     view_proj: mat4x4<f32>,
+    view: mat4x4<f32>,
+    view_inv: mat4x4<f32>,
+    proj: mat4x4<f32>,
+    proj_inv: mat4x4<f32>,
     position: vec3<f32>,
 };
 

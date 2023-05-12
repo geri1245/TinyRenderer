@@ -16,7 +16,8 @@ use crate::{
     primitive_shapes::{self, TexturedPrimitive},
     render_pipeline::RenderPipeline,
     resources,
-    shadow::Shadow,
+    shadow_pipeline::Shadow,
+    skybox_pipeline,
     texture::{self, Texture},
     vertex, CLEAR_COLOR,
 };
@@ -30,6 +31,7 @@ pub enum BindGroupLayoutType {
     Light,
     DiffuseTexture,
     DepthTexture,
+    SkyBox,
 }
 
 struct BufferDimensions {
@@ -68,6 +70,9 @@ pub struct Renderer {
     light_render_pipeline: RenderPipeline,
     obj_model: Model,
     depth_texture: texture::Texture,
+
+    skybox: skybox_pipeline::Skybox,
+
     instances: Vec<Instance>,
     instance_buffer: wgpu::Buffer,
     output_buffer: wgpu::Buffer,
@@ -174,7 +179,7 @@ impl Renderer {
             source: wgpu::ShaderSource::Wgsl(include_str!("shaders/shader.wgsl").into()),
         };
 
-        let shadow = crate::shadow::Shadow::new(&device, &bind_group_layouts);
+        let shadow = crate::shadow_pipeline::Shadow::new(&device, &bind_group_layouts);
 
         let main_shader = device.create_shader_module(shader_desc);
 
@@ -329,6 +334,9 @@ impl Renderer {
             clear_color: color::wgpu_color_to_f32_array_rgba(CLEAR_COLOR),
         };
 
+        let skybox =
+            skybox_pipeline::Skybox::new(&device, &queue, config.format, &bind_group_layouts).await;
+
         Renderer {
             surface,
             device,
@@ -352,6 +360,7 @@ impl Renderer {
             imgui,
             imgui_params,
             shadow,
+            skybox,
         }
     }
 
@@ -381,6 +390,12 @@ impl Renderer {
             BindGroupLayoutType::Light,
             render_device.create_bind_group_layout(
                 &bind_group_layout_descriptors::LIGHT_BIND_GROUP_LAYOUT_DESCRIPTOR,
+            ),
+        );
+        bind_group_layouts.insert(
+            BindGroupLayoutType::SkyBox,
+            render_device.create_bind_group_layout(
+                &bind_group_layout_descriptors::SKYBOX_BIND_GROUP_LAYOUT_DESCRIPTOR,
             ),
         );
 
@@ -465,6 +480,8 @@ impl Renderer {
 
             render_pass.set_vertex_buffer(1, self.square_instance_buffer.slice(..));
             self.square.draw_instanced(&mut render_pass, 0..1);
+
+            self.skybox.render(&mut render_pass, camera_controller);
         }
 
         encoder.copy_texture_to_buffer(

@@ -2,6 +2,7 @@ use std::{fs::File, io::BufReader};
 
 use anyhow::*;
 use image::GenericImageView;
+use wgpu::TextureFormat;
 
 const IMAGE_SIZE: u32 = 512;
 
@@ -9,6 +10,7 @@ pub struct Texture {
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
     pub sampler: wgpu::Sampler,
+    pub format: wgpu::TextureFormat,
 }
 
 impl Texture {
@@ -62,9 +64,6 @@ impl Texture {
 
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
             mipmap_filter: wgpu::FilterMode::Linear,
@@ -75,17 +74,19 @@ impl Texture {
             texture,
             view,
             sampler,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
         })
     }
 
     pub fn create_depth_texture(
         device: &wgpu::Device,
-        config: &wgpu::SurfaceConfiguration,
+        width: u32,
+        height: u32,
         label: &str,
     ) -> Self {
         let size = wgpu::Extent3d {
-            width: config.width,
-            height: config.height,
+            width,
+            height,
             depth_or_array_layers: 1,
         };
         let desc = wgpu::TextureDescriptor {
@@ -102,12 +103,8 @@ impl Texture {
 
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Nearest,
             compare: Some(wgpu::CompareFunction::LessEqual),
             ..Default::default()
         });
@@ -116,10 +113,11 @@ impl Texture {
             texture,
             view,
             sampler,
+            format: Self::DEPTH_FORMAT,
         }
     }
 
-    pub async fn create_skybox_texture(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
+    pub fn create_skybox_texture(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
         // Is in the order in which the wgpu cubemap expects it: posX negX posY negY posZ negZ
         let images = vec![
             "assets/skybox/posX.png",
@@ -176,9 +174,6 @@ impl Texture {
 
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             label: None,
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
             mipmap_filter: wgpu::FilterMode::Linear,
@@ -189,6 +184,46 @@ impl Texture {
             texture,
             view,
             sampler,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+        }
+    }
+
+    pub fn new(
+        device: &wgpu::Device,
+        format: TextureFormat,
+        width: u32,
+        height: u32,
+        label: &str,
+    ) -> Self {
+        let size = wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        };
+        let desc = wgpu::TextureDescriptor {
+            label: Some(label),
+            size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        };
+        let texture = device.create_texture(&desc);
+
+        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            ..Default::default()
+        });
+
+        Self {
+            texture,
+            view,
+            sampler,
+            format,
         }
     }
 }

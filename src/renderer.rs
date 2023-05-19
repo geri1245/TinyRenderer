@@ -8,7 +8,7 @@ use crate::{
     buffer_content::BufferContent,
     camera_controller::CameraController,
     color,
-    drawable::Drawable,
+    gbuffer::GBuffer,
     imgui::{Imgui, ImguiParams},
     instance::{self, Instance},
     light_controller::LightController,
@@ -32,6 +32,7 @@ pub enum BindGroupLayoutType {
     DiffuseTexture,
     DepthTexture,
     SkyBox,
+    GBuffer,
 }
 
 struct BufferDimensions {
@@ -80,6 +81,7 @@ pub struct Renderer {
     texture_extent: wgpu::Extent3d,
 
     shadow: Shadow,
+    gbuffer: GBuffer,
 
     should_capture_frame_content: bool,
     should_draw_imgui: bool,
@@ -110,10 +112,16 @@ impl Renderer {
             .await
             .unwrap();
 
+        let supported_features = adapter.features();
+        let required_features =
+            wgpu::Features::DEPTH_CLIP_CONTROL | wgpu::Features::TEXTURE_FORMAT_16BIT_NORM;
+        if !supported_features.contains(required_features) {
+            panic!("Not all required features are supported. \nRequired features: {:?}\nSupported features: {:?}", required_features, supported_features);
+        }
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
-                    features: wgpu::Features::empty(),
+                    features: required_features,
                     // WebGL doesn't support all of wgpu's features, so if
                     // we're building for the web we'll have to disable some.
                     limits: if cfg!(target_arch = "wasm32") {
@@ -171,11 +179,15 @@ impl Renderer {
         let tree_texture =
             texture::Texture::from_bytes(&device, &queue, tree_texture_raw, "treeTexture").unwrap();
 
-        let depth_texture =
-            texture::Texture::create_depth_texture(&device, &config, "depth_texture");
+        let depth_texture = texture::Texture::create_depth_texture(
+            &device,
+            config.width,
+            config.height,
+            "depth_texture",
+        );
 
         let shader_desc = wgpu::ShaderModuleDescriptor {
-            label: Some("Shader"),
+            label: Some("Main Shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("shaders/shader.wgsl").into()),
         };
 
@@ -185,14 +197,14 @@ impl Renderer {
 
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Render Pipeline Layout"),
+                label: Some("Main Render Pipeline Layout"),
                 bind_group_layouts: &[
                     &bind_group_layouts.get(&BindGroupLayoutType::Light).unwrap(),
                     &bind_group_layouts
                         .get(&BindGroupLayoutType::Camera)
                         .unwrap(),
                     &bind_group_layouts
-                        .get(&BindGroupLayoutType::DiffuseTexture)
+                        .get(&BindGroupLayoutType::GBuffer)
                         .unwrap(),
                     &bind_group_layouts
                         .get(&BindGroupLayoutType::DepthTexture)
@@ -207,10 +219,7 @@ impl Renderer {
             &render_pipeline_layout,
             config.format,
             Some(texture::Texture::DEPTH_FORMAT),
-            &[
-                vertex::VertexRaw::buffer_layout(),
-                instance::InstanceRaw::buffer_layout(),
-            ],
+            &[],
             &main_shader,
         );
 
@@ -335,7 +344,9 @@ impl Renderer {
         };
 
         let skybox =
-            skybox_pipeline::Skybox::new(&device, &queue, config.format, &bind_group_layouts).await;
+            skybox_pipeline::Skybox::new(&device, &queue, config.format, &bind_group_layouts);
+
+        let gbuffer = GBuffer::new(&device, &bind_group_layouts, config.width, config.height);
 
         Renderer {
             surface,
@@ -361,6 +372,7 @@ impl Renderer {
             imgui_params,
             shadow,
             skybox,
+            gbuffer,
         }
     }
 
@@ -398,6 +410,12 @@ impl Renderer {
                 &bind_group_layout_descriptors::SKYBOX_BIND_GROUP_LAYOUT_DESCRIPTOR,
             ),
         );
+        bind_group_layouts.insert(
+            BindGroupLayoutType::GBuffer,
+            render_device.create_bind_group_layout(
+                &bind_group_layout_descriptors::GBUFFER_BIND_GROUP_LAYOUT_DESCRIPTOR,
+            ),
+        );
 
         bind_group_layouts
     }
@@ -407,8 +425,12 @@ impl Renderer {
         self.config.width = new_size.width;
         self.config.height = new_size.height;
         self.surface.configure(&self.device, &self.config);
-        self.depth_texture =
-            Texture::create_depth_texture(&self.device, &self.config, "Depth texture");
+        self.depth_texture = Texture::create_depth_texture(
+            &self.device,
+            self.config.width,
+            self.config.height,
+            "Depth texture",
+        );
     }
 
     pub fn render(
@@ -418,10 +440,6 @@ impl Renderer {
         light_controller: &LightController,
         delta: Duration,
     ) -> Result<(), wgpu::SurfaceError> {
-        let output = self.surface.get_current_texture()?;
-        let view = output
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -435,6 +453,19 @@ impl Renderer {
             self.instances.len(),
             &self.instance_buffer,
         );
+
+        self.gbuffer.render(
+            &mut encoder,
+            &self.obj_model,
+            &camera_controller.bind_group,
+            self.instances.len(),
+            &self.instance_buffer,
+        );
+
+        let output = self.surface.get_current_texture()?;
+        let view = output
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
 
         // Forward pass
         {
@@ -451,37 +482,52 @@ impl Renderer {
                     },
                 })],
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                    view: &self.depth_texture.view,
+                    view: &self.gbuffer.depth_texture.view,
                     depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(1.0),
-                        store: true,
+                        load: wgpu::LoadOp::Load,
+                        store: false,
                     }),
                     stencil_ops: None,
                 }),
             });
 
-            use crate::model::DrawLight;
-            render_pass.set_pipeline(&self.light_render_pipeline.pipeline);
-            render_pass.draw_light_model(
-                &self.obj_model,
-                &camera_controller.bind_group,
-                &light_controller.bind_group,
-            );
+            {
+                render_pass.push_debug_group("Light rendering");
+                use crate::model::DrawLight;
+                render_pass.set_pipeline(&self.light_render_pipeline.pipeline);
+                render_pass.draw_light_model(
+                    &self.obj_model,
+                    &camera_controller.bind_group,
+                    &light_controller.bind_group,
+                );
+                render_pass.pop_debug_group();
+            }
 
-            render_pass.set_pipeline(&self.render_pipeline.pipeline);
+            // render_pass.set_vertex_buffer(1, self.square_instance_buffer.slice(..));
+            // self.square.draw_instanced(&mut render_pass, 0..1);
 
-            render_pass.set_bind_group(1, &camera_controller.bind_group, &[]);
-            render_pass.set_bind_group(0, &light_controller.bind_group, &[]);
-            render_pass.set_bind_group(3, &self.shadow.bind_group, &[]);
+            {
+                render_pass.push_debug_group("Cubes rendering from GBuffer");
 
-            render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
-            self.obj_model
-                .draw_instanced(&mut render_pass, 0..self.instances.len() as u32);
+                render_pass.set_pipeline(&self.render_pipeline.pipeline);
 
-            render_pass.set_vertex_buffer(1, self.square_instance_buffer.slice(..));
-            self.square.draw_instanced(&mut render_pass, 0..1);
+                render_pass.set_bind_group(1, &camera_controller.bind_group, &[]);
+                render_pass.set_bind_group(0, &light_controller.bind_group, &[]);
+                render_pass.set_bind_group(2, &self.gbuffer.bind_group, &[]);
+                render_pass.set_bind_group(3, &self.shadow.bind_group, &[]);
 
-            self.skybox.render(&mut render_pass, camera_controller);
+                render_pass.draw(0..3, 0..1);
+
+                render_pass.pop_debug_group();
+            }
+
+            {
+                render_pass.push_debug_group("Skybox rendering");
+
+                self.skybox.render(&mut render_pass, camera_controller);
+
+                render_pass.pop_debug_group();
+            }
         }
 
         encoder.copy_texture_to_buffer(

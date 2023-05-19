@@ -8,13 +8,13 @@ pub struct Skybox {
 }
 
 impl Skybox {
-    pub async fn new(
+    pub fn new(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         texture_format: wgpu::TextureFormat,
         bind_group_layouts: &HashMap<BindGroupLayoutType, wgpu::BindGroupLayout>,
     ) -> Self {
-        let texture = texture::Texture::create_skybox_texture(&device, &queue).await;
+        let texture = texture::Texture::create_skybox_texture(&device, &queue);
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &bind_group_layouts

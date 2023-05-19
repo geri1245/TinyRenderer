@@ -1,12 +1,29 @@
-struct InstanceInput {
-    @location(5) model_matrix_0: vec4<f32>,
-    @location(6) model_matrix_1: vec4<f32>,
-    @location(7) model_matrix_2: vec4<f32>,
-    @location(8) model_matrix_3: vec4<f32>,
-    @location(9) normal_matrix_0: vec3<f32>,
-    @location(10) normal_matrix_1: vec3<f32>,
-    @location(11) normal_matrix_2: vec3<f32>,
+struct VertexOutput {
+    @builtin(position) position: vec4<f32>,
+    @location(0) uv: vec2<f32>,
 };
+
+@vertex
+fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
+    var output: VertexOutput;
+    let u = f32((i32(vertex_index) * 2) & 2);
+    let v = f32(i32(vertex_index) & 2);
+    // 1 -> 0,0
+    // 2 -> 2, 0
+    // 3 -> 0, 2
+    output.uv = vec2(u, v);
+    output.position = vec4(output.uv * 2.0 - 1.0, 0.0, 1.0);
+    
+    return output;
+}
+
+struct Light {
+    view_proj: mat4x4<f32>,
+    position: vec3<f32>,
+    color: vec3<f32>,
+}
+@group(0) @binding(0)
+var<uniform> light: Light;
 
 struct CameraUniform {
     view_proj: mat4x4<f32>,
@@ -20,64 +37,21 @@ struct CameraUniform {
 @group(1) @binding(0)
 var<uniform> camera: CameraUniform;
 
-struct Light {
-    view_proj: mat4x4<f32>,
-    position: vec3<f32>,
-    color: vec3<f32>,
-}
-@group(0) @binding(0)
-var<uniform> light: Light;
-
-struct VertexInput {
-    @location(0) position: vec3<f32>,
-    @location(1) tex_coord: vec2<f32>,
-    @location(2) normal: vec3<f32>,
-};
-
-struct VertexOutput {
-    @builtin(position) clip_position: vec4<f32>,
-    @location(0) world_normal: vec3<f32>,
-    @location(1) world_position: vec4<f32>,
-    @location(2) tex_coord: vec2<f32>,
-};
-
-@vertex
-fn vs_main(
-    model: VertexInput,
-    instance: InstanceInput,
-) -> VertexOutput {
-    let model_matrix = mat4x4<f32>(
-        instance.model_matrix_0,
-        instance.model_matrix_1,
-        instance.model_matrix_2,
-        instance.model_matrix_3,
-    );
-
-    let normal_matrix = mat3x3<f32>(
-        instance.normal_matrix_0,
-        instance.normal_matrix_1,
-        instance.normal_matrix_2,
-    );
-
-    let vertex_position = vec4<f32>(model.position, 1.0);
-
-    var out: VertexOutput;
-    out.tex_coord = model.tex_coord;
-    out.world_normal = normal_matrix * model.normal;
-    out.world_position = model_matrix * vertex_position;
-
-    out.clip_position = camera.view_proj * model_matrix * vertex_position;
-
-    return out;
-}
-
 @group(2) @binding(0)
-var t_diffuse: texture_2d<f32>;
+var t_position: texture_2d<f32>;
 @group(2) @binding(1)
-var s_diffuse: sampler;
+var s_position: sampler;
+@group(2) @binding(2)
+var t_normal: texture_2d<f32>;
+@group(2) @binding(3)
+var s_normal: sampler;
+@group(2) @binding(4)
+var t_albedo: texture_2d<f32>;
+@group(2) @binding(5)
+var s_albedo: sampler;
 
 @group(3) @binding(0)
-var t_shadow: texture_depth_2d_array;
+var t_shadow: texture_depth_2d;
 @group(3) @binding(1)
 var sampler_shadow: sampler_comparison;
 
@@ -98,7 +72,7 @@ fn fetch_shadow(light_id: u32, fragment_pos: vec4<f32>) -> f32 {
 
     if is_valid_tex_coord(tex_coord) {
         // Compare the shadow map sample against "the depth of the current fragment from the light's perspective"
-        return textureSampleCompareLevel(t_shadow, sampler_shadow, tex_coord, i32(light_id), fragment_pos_ndc.z);
+        return textureSampleCompareLevel(t_shadow, sampler_shadow, tex_coord, fragment_pos_ndc.z);
     } else {
         return 1.0;
     }
@@ -107,24 +81,30 @@ fn fetch_shadow(light_id: u32, fragment_pos: vec4<f32>) -> f32 {
 const c_ambient_strength: f32 = 0.1;
 
 @fragment
-fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let normal = normalize(in.world_normal);
-    let texture_color = textureSample(t_diffuse, s_diffuse, in.tex_coord);
+fn fs_main(fragment_pos_and_coords: VertexOutput) -> @location(0) vec4<f32> {
+    let uv = fragment_pos_and_coords.uv;
+    // return vec4<f32>(uv, 0.0, 1.0);
+
+    let normal = textureSample(t_normal, s_normal, uv).xyz;
+    let albedo_and_shininess = textureSample(t_albedo, s_albedo, uv);
+    let albedo = albedo_and_shininess.xyz;
+    let shininess = albedo_and_shininess.a;
+    let position = textureSample(t_position, s_position, uv);
 
     let ambient_color = light.color * c_ambient_strength;
 
-    let shadow = fetch_shadow(0u, light.view_proj * in.world_position);
+    let shadow = fetch_shadow(0u, light.view_proj * position);
 
-    let pixel_to_light = normalize(light.position - in.world_position.xyz);
-    let pixel_to_camera = normalize(camera.position.xyz - in.world_position.xyz);
+    let pixel_to_light = normalize(light.position - position.xyz);
+    let pixel_to_camera = normalize(camera.position.xyz - position.xyz);
 
-    let diffuse_strength = max(dot(in.world_normal, pixel_to_light), 0.0);
+    let diffuse_strength = max(dot(normal, pixel_to_light), 0.0);
     let diffuse_color = light.color * diffuse_strength;
 
     let half_dir = normalize(pixel_to_camera + pixel_to_light);
-    let specular_strength = pow(max(dot(half_dir, in.world_normal), 0.0), 32.0);
+    let specular_strength = pow(max(dot(half_dir, normal), 0.0), 32.0);
     let specular_color = specular_strength * light.color;
 
-    let result = (ambient_color + diffuse_color * shadow + specular_color * shadow) * texture_color.xyz;
-    return vec4(result, texture_color.a);
+    let result = (ambient_color + diffuse_color * shadow + specular_color * shadow) * albedo;
+    return vec4(result, 1.0);
 }

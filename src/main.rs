@@ -14,6 +14,7 @@ mod camera_controller;
 mod color;
 mod drawable;
 mod frame_timer;
+mod gbuffer;
 mod imgui;
 mod instance;
 mod light_controller;

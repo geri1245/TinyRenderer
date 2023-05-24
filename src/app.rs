@@ -1,10 +1,12 @@
 use crate::{
     camera_controller::CameraController,
     frame_timer::FrameTimer,
+    imgui::ImguiParams,
     light_controller::{LightController, PointLight},
     renderer::{BindGroupLayoutType, Renderer},
 };
-use std::time::Duration;
+use bevy_ecs::world::World;
+use std::{cell::RefCell, rc::Rc, time::Duration};
 use winit::event::{DeviceEvent, ElementState, MouseButton, VirtualKeyCode, WindowEvent};
 use winit::window::Window;
 
@@ -18,13 +20,15 @@ pub struct App {
     pub camera_controller: CameraController,
     pub light_controller: LightController,
     pub frame_timer: FrameTimer,
+    _imgui_params: Rc<RefCell<ImguiParams>>,
 }
 
 impl App {
-    // Creating some of the wgpu types requires async code
     pub async fn new(window: &Window) -> Self {
-        let renderer = Renderer::new(window).await;
-        let camera_controller = CameraController::new(&renderer);
+        let imgui_params = Rc::new(RefCell::new(ImguiParams::new()));
+
+        let renderer = Renderer::new(window, imgui_params.clone()).await;
+        let camera_controller = CameraController::new(&renderer, imgui_params.clone());
         let light_controller = LightController::new(
             PointLight {
                 position: [20.0, 30.0, 0.0],
@@ -45,6 +49,7 @@ impl App {
             camera_controller,
             light_controller,
             frame_timer,
+            _imgui_params: imgui_params,
         }
     }
 

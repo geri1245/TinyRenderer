@@ -76,14 +76,8 @@ pub async fn load_model<'a>(
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout,
             entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
-                },
+                diffuse_texture.get_texture_bind_group_entry(0),
+                diffuse_texture.get_sampler_bind_group_entry(1),
             ],
             label: None,
         });

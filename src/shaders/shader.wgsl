@@ -1,6 +1,6 @@
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
-    @location(0) uv: vec2<f32>,
+    @location(0) tex_coords: vec2<f32>,
 };
 
 @vertex
@@ -8,12 +8,16 @@ fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
     var output: VertexOutput;
     let u = f32((i32(vertex_index) * 2) & 2);
     let v = f32(i32(vertex_index) & 2);
-    // 1 -> 0,0
-    // 2 -> 2, 0
-    // 3 -> 0, 2
-    output.uv = vec2(u, v);
-    output.position = vec4(output.uv * 2.0 - 1.0, 0.0, 1.0);
     
+    // 0 -> 0,0
+    // 1 -> 2, 0
+    // 2 -> 0, 2
+
+    let uv = vec2(u, v);
+    // Flip the y coordinate
+    output.tex_coords = vec2(uv.x, 1.0 - uv.y);
+    output.position = vec4(uv * 2.0 - 1.0, 0.0, 1.0);
+
     return output;
 }
 
@@ -82,7 +86,8 @@ const c_ambient_strength: f32 = 0.1;
 
 @fragment
 fn fs_main(fragment_pos_and_coords: VertexOutput) -> @location(0) vec4<f32> {
-    let uv = fragment_pos_and_coords.uv;
+    var uv = fragment_pos_and_coords.tex_coords;
+    // uv.y = 1.0 - uv.y;
     // return vec4<f32>(uv, 0.0, 1.0);
 
     let normal = textureSample(t_normal, s_normal, uv).xyz;

@@ -1,12 +1,26 @@
-use std::time::Duration;
+use std::{cell::RefCell, rc::Rc, time::Duration};
 
 use imgui::MouseCursor;
 use imgui_wgpu::{Renderer, RendererConfig};
 use imgui_winit_support::WinitPlatform;
 
+use crate::color;
+
 #[derive(Default)]
 pub struct ImguiParams {
     pub clear_color: [f32; 4],
+    pub fov_x: f32,
+    pub fov_y: f32,
+}
+
+impl ImguiParams {
+    pub fn new() -> Self {
+        ImguiParams {
+            clear_color: color::wgpu_color_to_f32_array_rgba(crate::CLEAR_COLOR),
+            fov_x: 90.0,
+            fov_y: 45.0,
+        }
+    }
 }
 
 pub struct Imgui {
@@ -72,7 +86,7 @@ impl Imgui {
         queue: &wgpu::Queue,
         delta: Duration,
         current_frame_texture_view: &wgpu::TextureView,
-        params: &mut ImguiParams,
+        params: Rc<RefCell<ImguiParams>>,
     ) {
         self.context.io_mut().update_delta_time(delta);
 
@@ -82,27 +96,14 @@ impl Imgui {
         let ui = self.context.frame();
 
         {
-            let window = ui.window("Hello world");
+            let window = ui.window("Render parameter configurations");
             window
                 .size([300.0, 100.0], imgui::Condition::FirstUseEver)
                 .build(|| {
                     ui.text("Hello world!");
-                    ui.text("This...is...imgui-rs on WGPU!");
                     ui.separator();
-                    let mouse_pos = ui.io().mouse_pos;
-                    ui.text(format!(
-                        "Mouse Position: ({:.1},{:.1})",
-                        mouse_pos[0], mouse_pos[1]
-                    ));
-                    ui.color_picker4("Clear color", &mut params.clear_color);
-                });
-
-            let window = ui.window("Hello too");
-            window
-                .size([400.0, 200.0], imgui::Condition::FirstUseEver)
-                .position([400.0, 200.0], imgui::Condition::FirstUseEver)
-                .build(|| {
-                    ui.text(format!("Frametime: {delta:?}"));
+                    ui.slider("FOV (vertical)", 40.0, 50.0, &mut params.borrow_mut().fov_x);
+                    ui.color_picker4("Clear color", &mut params.borrow_mut().clear_color);
                 });
 
             ui.show_demo_window(&mut self.is_ui_open);

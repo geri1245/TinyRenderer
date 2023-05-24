@@ -1,6 +1,9 @@
 use async_std::task::block_on;
 use glam::{Quat, Vec3};
-use std::{collections::HashMap, f32::consts, fs::File, hash::Hash, io::Write, time::Duration};
+use std::{
+    cell::RefCell, collections::HashMap, f32::consts, fs::File, hash::Hash, io::Write, rc::Rc,
+    time::Duration,
+};
 use wgpu::{util::DeviceExt, InstanceDescriptor, RenderPassDepthStencilAttachment};
 
 use crate::{
@@ -19,7 +22,7 @@ use crate::{
     shadow_pipeline::Shadow,
     skybox_pipeline,
     texture::{self, Texture},
-    vertex, CLEAR_COLOR,
+    vertex,
 };
 
 pub const MAX_LIGHTS: usize = 10;
@@ -58,6 +61,30 @@ impl BufferDimensions {
     }
 }
 
+struct OutputBuffer {
+    dimensions: BufferDimensions,
+    buffer: wgpu::Buffer,
+}
+
+impl OutputBuffer {
+    fn new(device: &wgpu::Device, width: usize, height: usize) -> Self {
+        // It is a WebGPU requirement that ImageCopyBuffer.layout.bytes_per_row % wgpu::COPY_BYTES_PER_ROW_ALIGNMENT == 0
+        // So we calculate padded_bytes_per_row by rounding unpadded_bytes_per_row
+        // up to the next multiple of wgpu::COPY_BYTES_PER_ROW_ALIGNMENT.
+        // https://en.wikipedia.org/wiki/Data_structure_alignment#Computing_padding
+        let dimensions = BufferDimensions::new(width, height);
+        // The output buffer lets us retrieve the data as an array
+        let buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Buffer to copy frame content into"),
+            size: (dimensions.padded_bytes_per_row * dimensions.height) as u64,
+            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        OutputBuffer { dimensions, buffer }
+    }
+}
+
 pub struct Renderer {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
@@ -76,9 +103,9 @@ pub struct Renderer {
 
     instances: Vec<Instance>,
     instance_buffer: wgpu::Buffer,
-    output_buffer: wgpu::Buffer,
-    buffer_dimensions: BufferDimensions,
     texture_extent: wgpu::Extent3d,
+
+    frame_content_copy_dest: OutputBuffer,
 
     shadow: Shadow,
     gbuffer: GBuffer,
@@ -90,11 +117,14 @@ pub struct Renderer {
     square_instance_buffer: wgpu::Buffer,
 
     imgui: crate::imgui::Imgui,
-    imgui_params: crate::imgui::ImguiParams,
+    imgui_params: Rc<RefCell<crate::imgui::ImguiParams>>,
 }
 
 impl Renderer {
-    pub async fn new(window: &winit::window::Window) -> Renderer {
+    pub async fn new(
+        window: &winit::window::Window,
+        imgui_params: Rc<RefCell<ImguiParams>>,
+    ) -> Renderer {
         let size = window.inner_size();
 
         // Backends::all => Vulkan + Metal + DX12 + Browser WebGPU
@@ -150,23 +180,12 @@ impl Renderer {
         };
         surface.configure(&device, &config);
 
+        let output_buffer =
+            OutputBuffer::new(&device, config.width as usize, config.height as usize);
+
         let imgui = Imgui::new(&window, &device, &queue, format);
 
         let bind_group_layouts = Self::create_bind_group_layouts(&device);
-
-        // It is a WebGPU requirement that ImageCopyBuffer.layout.bytes_per_row % wgpu::COPY_BYTES_PER_ROW_ALIGNMENT == 0
-        // So we calculate padded_bytes_per_row by rounding unpadded_bytes_per_row
-        // up to the next multiple of wgpu::COPY_BYTES_PER_ROW_ALIGNMENT.
-        // https://en.wikipedia.org/wiki/Data_structure_alignment#Computing_padding
-        let buffer_dimensions =
-            BufferDimensions::new(config.width as usize, config.height as usize);
-        // The output buffer lets us retrieve the data as an array
-        let output_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Buffer to copy frame content into"),
-            size: (buffer_dimensions.padded_bytes_per_row * buffer_dimensions.height) as u64,
-            usage: wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
 
         let texture_extent = wgpu::Extent3d {
             width: config.width,
@@ -339,10 +358,6 @@ impl Renderer {
             usage: wgpu::BufferUsages::VERTEX,
         });
 
-        let imgui_params = ImguiParams {
-            clear_color: color::wgpu_color_to_f32_array_rgba(CLEAR_COLOR),
-        };
-
         let skybox =
             skybox_pipeline::Skybox::new(&device, &queue, config.format, &bind_group_layouts);
 
@@ -361,8 +376,7 @@ impl Renderer {
             depth_texture,
             instances,
             instance_buffer,
-            output_buffer,
-            buffer_dimensions,
+            frame_content_copy_dest: output_buffer,
             texture_extent,
             should_capture_frame_content: false,
             should_draw_imgui: false,
@@ -431,6 +445,17 @@ impl Renderer {
             self.config.height,
             "Depth texture",
         );
+        self.gbuffer.resize(
+            &self.device,
+            &self.bind_group_layouts,
+            new_size.width,
+            new_size.height,
+        );
+        self.frame_content_copy_dest = OutputBuffer::new(
+            &self.device,
+            new_size.width as usize,
+            new_size.height as usize,
+        );
     }
 
     pub fn render(
@@ -467,22 +492,21 @@ impl Renderer {
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
-        // Forward pass
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Forward Render Pass"),
+                label: Some("Render pass that uses the GBuffer"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(color::f32_array_rgba_to_wgpu_color(
-                            self.imgui_params.clear_color,
+                            self.imgui_params.borrow().clear_color,
                         )),
                         store: true,
                     },
                 })],
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                    view: &self.gbuffer.depth_texture.view,
+                    view: &self.gbuffer.textures.depth_texture.view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Load,
                         store: false,
@@ -490,18 +514,6 @@ impl Renderer {
                     stencil_ops: None,
                 }),
             });
-
-            {
-                render_pass.push_debug_group("Light rendering");
-                use crate::model::DrawLight;
-                render_pass.set_pipeline(&self.light_render_pipeline.pipeline);
-                render_pass.draw_light_model(
-                    &self.obj_model,
-                    &camera_controller.bind_group,
-                    &light_controller.bind_group,
-                );
-                render_pass.pop_debug_group();
-            }
 
             // render_pass.set_vertex_buffer(1, self.square_instance_buffer.slice(..));
             // self.square.draw_instanced(&mut render_pass, 0..1);
@@ -530,15 +542,49 @@ impl Renderer {
             }
         }
 
+        // {
+        //     let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        //         label: Some("Forward Render Pass"),
+        //         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+        //             view: &view,
+        //             resolve_target: None,
+        //             ops: wgpu::Operations {
+        //                 load: wgpu::LoadOp::Clear(color::f32_array_rgba_to_wgpu_color(
+        //                     self.imgui_params.clear_color,
+        //                 )),
+        //                 store: true,
+        //             },
+        //         })],
+        //         depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+        //             view: &self.gbuffer.depth_texture.view,
+        //             depth_ops: Some(wgpu::Operations {
+        //                 load: wgpu::LoadOp::Load,
+        //                 store: true,
+        //             }),
+        //             stencil_ops: None,
+        //         }),
+        //     });
+
+        //     render_pass.push_debug_group("Light rendering");
+        //     use crate::model::DrawLight;
+        //     render_pass.set_pipeline(&self.light_render_pipeline.pipeline);
+        //     render_pass.draw_light_model(
+        //         &self.obj_model,
+        //         &camera_controller.bind_group,
+        //         &light_controller.bind_group,
+        //     );
+        //     render_pass.pop_debug_group();
+        // }
+
         encoder.copy_texture_to_buffer(
             output.texture.as_image_copy(),
             wgpu::ImageCopyBuffer {
-                buffer: &self.output_buffer,
+                buffer: &self.frame_content_copy_dest.buffer,
                 layout: wgpu::ImageDataLayout {
                     offset: 0,
                     bytes_per_row: Some(
                         std::num::NonZeroU32::new(
-                            self.buffer_dimensions.padded_bytes_per_row as u32,
+                            self.frame_content_copy_dest.dimensions.padded_bytes_per_row as u32,
                         )
                         .unwrap(),
                     ),
@@ -559,7 +605,7 @@ impl Renderer {
                 &self.queue,
                 delta,
                 &view,
-                &mut self.imgui_params,
+                self.imgui_params.clone(),
             );
         }
 
@@ -575,7 +621,7 @@ impl Renderer {
     }
 
     async fn create_png(&self, png_output_path: &str, submission_index: wgpu::SubmissionIndex) {
-        let buffer_slice = self.output_buffer.slice(..);
+        let buffer_slice = self.frame_content_copy_dest.buffer.slice(..);
         // Sets the buffer up for mapping, sending over the result of the mapping back to us when it is finished.
         let (sender, receiver) = futures_intrusive::channel::shared::oneshot_channel();
         buffer_slice.map_async(wgpu::MapMode::Read, move |v| sender.send(v).unwrap());
@@ -594,21 +640,32 @@ impl Renderer {
 
             let mut png_encoder = png::Encoder::new(
                 File::create(png_output_path).unwrap(),
-                self.buffer_dimensions.width as u32,
-                self.buffer_dimensions.height as u32,
+                self.frame_content_copy_dest.dimensions.width as u32,
+                self.frame_content_copy_dest.dimensions.height as u32,
             );
             png_encoder.set_depth(png::BitDepth::Eight);
             png_encoder.set_color(png::ColorType::Rgba);
             let mut png_writer = png_encoder
                 .write_header()
                 .unwrap()
-                .into_stream_writer_with_size(self.buffer_dimensions.unpadded_bytes_per_row)
+                .into_stream_writer_with_size(
+                    self.frame_content_copy_dest
+                        .dimensions
+                        .unpadded_bytes_per_row,
+                )
                 .unwrap();
 
             // from the padded_buffer we write just the unpadded bytes into the image
-            for chunk in padded_buffer.chunks(self.buffer_dimensions.padded_bytes_per_row) {
+            for chunk in
+                padded_buffer.chunks(self.frame_content_copy_dest.dimensions.padded_bytes_per_row)
+            {
                 png_writer
-                    .write_all(&chunk[..self.buffer_dimensions.unpadded_bytes_per_row])
+                    .write_all(
+                        &chunk[..self
+                            .frame_content_copy_dest
+                            .dimensions
+                            .unpadded_bytes_per_row],
+                    )
                     .unwrap();
             }
             png_writer.finish().unwrap();
@@ -617,7 +674,7 @@ impl Renderer {
             // dropped before we unmap the buffer.
             drop(padded_buffer);
 
-            self.output_buffer.unmap();
+            self.frame_content_copy_dest.buffer.unmap();
         }
     }
 

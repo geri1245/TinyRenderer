@@ -69,17 +69,17 @@ var t_diffuse: texture_2d<f32>;
 var s_diffuse: sampler;
 
 struct GBufferOutput {
-  @location(0) position : vec4<f32>,
-  @location(1) normal : vec4<f32>,
-  @location(2) albedo : vec4<f32>,
+  @location(0) position: vec4<f32>,
+  @location(1) normal: vec4<f32>,
+  @location(2) albedo: vec4<f32>,
 }
 
 @fragment
 fn fs_main(in: VertexOutput) -> GBufferOutput {
-  var output: GBufferOutput;
-  output.position = in.world_position;
-  output.normal = vec4(in.world_normal, 1.0);
-  output.albedo = textureSample(t_diffuse, s_diffuse, in.tex_coord);
+    var output: GBufferOutput;
+    output.position = in.world_position;
+    output.normal = vec4(in.world_normal, 1.0);
+    output.albedo = textureSample(t_diffuse, s_diffuse, in.tex_coord);
 
-  return output;
+    return output;
 }

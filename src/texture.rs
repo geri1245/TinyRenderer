@@ -16,6 +16,26 @@ pub struct Texture {
 impl Texture {
     pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 
+    pub fn get_texture_bind_group_entry<'a>(
+        &'a self,
+        binding_index: u32,
+    ) -> wgpu::BindGroupEntry<'a> {
+        wgpu::BindGroupEntry {
+            binding: binding_index,
+            resource: wgpu::BindingResource::TextureView(&self.view),
+        }
+    }
+
+    pub fn get_sampler_bind_group_entry<'a>(
+        &'a self,
+        binding_index: u32,
+    ) -> wgpu::BindGroupEntry<'a> {
+        wgpu::BindGroupEntry {
+            binding: binding_index,
+            resource: wgpu::BindingResource::Sampler(&self.sampler),
+        }
+    }
+
     pub fn from_bytes(
         device: &wgpu::Device,
         queue: &wgpu::Queue,

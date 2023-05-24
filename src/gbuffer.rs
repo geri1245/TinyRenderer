@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use wgpu::{
-    BindGroup, Buffer, RenderPassColorAttachment, RenderPassDepthStencilAttachment, TextureFormat,
+    BindGroup, Buffer, RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPipeline,
+    TextureFormat,
 };
 
 use crate::{
@@ -13,12 +14,16 @@ use crate::{
     vertex,
 };
 
-pub struct GBuffer {
-    pub position_texture: Texture,
-    pub normal_texture: Texture,
-    pub albedo_and_specular_texture: Texture,
+pub struct GBufferTextures {
+    pub position: Texture,
+    pub normal: Texture,
+    pub albedo_and_specular: Texture,
     pub depth_texture: Texture,
-    pub render_pipeline: wgpu::RenderPipeline,
+}
+
+pub struct GBuffer {
+    pub textures: GBufferTextures,
+    render_pipeline: wgpu::RenderPipeline,
     pub bind_group: wgpu::BindGroup,
 }
 
@@ -34,12 +39,75 @@ fn default_color_write_state(format: wgpu::TextureFormat) -> Option<wgpu::ColorT
 }
 
 impl GBuffer {
-    pub fn new(
+    fn create_pipeline(
         device: &wgpu::Device,
         bind_group_layouts: &HashMap<BindGroupLayoutType, wgpu::BindGroupLayout>,
-        width: u32,
-        height: u32,
-    ) -> Self {
+        textures: &GBufferTextures,
+    ) -> RenderPipeline {
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Fill gbuffer pipeline layout"),
+            bind_group_layouts: &[
+                &bind_group_layouts
+                    .get(&BindGroupLayoutType::DiffuseTexture)
+                    .unwrap(),
+                &bind_group_layouts
+                    .get(&BindGroupLayoutType::Camera)
+                    .unwrap(),
+            ],
+            push_constant_ranges: &[],
+        });
+
+        let gbuffer_shader_desc = wgpu::ShaderModuleDescriptor {
+            label: Some("Fill gbuffer shader desc"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/fill_gbuffer.wgsl").into()),
+        };
+
+        let gbuffer_shader = device.create_shader_module(gbuffer_shader_desc);
+
+        let gbuffer_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("gbuffer pipeline"),
+            layout: Some(&pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &gbuffer_shader,
+                entry_point: "vs_main",
+                buffers: &[
+                    vertex::VertexRaw::buffer_layout(),
+                    instance::InstanceRaw::buffer_layout(),
+                ],
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &gbuffer_shader,
+                entry_point: "fs_main",
+                targets: &[
+                    default_color_write_state(textures.position.format),
+                    default_color_write_state(textures.normal.format),
+                    default_color_write_state(textures.albedo_and_specular.format),
+                ],
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: Some(wgpu::Face::Back),
+                unclipped_depth: device
+                    .features()
+                    .contains(wgpu::Features::DEPTH_CLIP_CONTROL),
+                ..Default::default()
+            },
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: texture::Texture::DEPTH_FORMAT,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::LessEqual,
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            }),
+            multisample: wgpu::MultisampleState::default(),
+            multiview: None,
+        });
+
+        gbuffer_pipeline
+    }
+
+    pub fn create_textures(device: &wgpu::Device, width: u32, height: u32) -> GBufferTextures {
         let position_texture = Texture::new(
             device,
             TextureFormat::Rgba16Float,
@@ -65,111 +133,61 @@ impl GBuffer {
         let depth_texture =
             Texture::create_depth_texture(device, width, height, "GBuffer depth texture");
 
-        let gbuffer_pipeline = {
-            let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Fill gbuffer pipeline layout"),
-                bind_group_layouts: &[
-                    &bind_group_layouts
-                        .get(&BindGroupLayoutType::DiffuseTexture)
-                        .unwrap(),
-                    &bind_group_layouts
-                        .get(&BindGroupLayoutType::Camera)
-                        .unwrap(),
-                ],
-                push_constant_ranges: &[],
-            });
+        GBufferTextures {
+            position: position_texture,
+            normal: normal_texture,
+            albedo_and_specular: albedo_and_specular_texture,
+            depth_texture,
+        }
+    }
 
-            let gbuffer_shader_desc = wgpu::ShaderModuleDescriptor {
-                label: Some("Fill gbuffer shader desc"),
-                source: wgpu::ShaderSource::Wgsl(include_str!("shaders/fill_gbuffer.wgsl").into()),
-            };
-
-            let gbuffer_shader = device.create_shader_module(gbuffer_shader_desc);
-
-            let gbuffer_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                label: Some("gbuffer pipeline"),
-                layout: Some(&pipeline_layout),
-                vertex: wgpu::VertexState {
-                    module: &gbuffer_shader,
-                    entry_point: "vs_main",
-                    buffers: &[
-                        vertex::VertexRaw::buffer_layout(),
-                        instance::InstanceRaw::buffer_layout(),
-                    ],
-                },
-                fragment: Some(wgpu::FragmentState {
-                    module: &gbuffer_shader,
-                    entry_point: "fs_main",
-                    targets: &[
-                        default_color_write_state(position_texture.format),
-                        default_color_write_state(normal_texture.format),
-                        default_color_write_state(albedo_and_specular_texture.format),
-                    ],
-                }),
-                primitive: wgpu::PrimitiveState {
-                    topology: wgpu::PrimitiveTopology::TriangleList,
-                    front_face: wgpu::FrontFace::Ccw,
-                    cull_mode: Some(wgpu::Face::Back),
-                    unclipped_depth: device
-                        .features()
-                        .contains(wgpu::Features::DEPTH_CLIP_CONTROL),
-                    ..Default::default()
-                },
-                depth_stencil: Some(wgpu::DepthStencilState {
-                    format: texture::Texture::DEPTH_FORMAT,
-                    depth_write_enabled: true,
-                    depth_compare: wgpu::CompareFunction::LessEqual,
-                    stencil: wgpu::StencilState::default(),
-                    bias: wgpu::DepthBiasState::default(),
-                }),
-                multisample: wgpu::MultisampleState::default(),
-                multiview: None,
-            });
-
-            gbuffer_pipeline
-        };
-
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+    fn create_bind_group(
+        device: &wgpu::Device,
+        bind_group_layouts: &HashMap<BindGroupLayoutType, wgpu::BindGroupLayout>,
+        textures: &GBufferTextures,
+    ) -> wgpu::BindGroup {
+        device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: bind_group_layouts
                 .get(&BindGroupLayoutType::GBuffer)
                 .unwrap(),
             entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&position_texture.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&position_texture.sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::TextureView(&normal_texture.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 3,
-                    resource: wgpu::BindingResource::Sampler(&normal_texture.sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 4,
-                    resource: wgpu::BindingResource::TextureView(&albedo_and_specular_texture.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 5,
-                    resource: wgpu::BindingResource::Sampler(&albedo_and_specular_texture.sampler),
-                },
+                textures.position.get_texture_bind_group_entry(0),
+                textures.position.get_sampler_bind_group_entry(1),
+                textures.normal.get_texture_bind_group_entry(2),
+                textures.normal.get_sampler_bind_group_entry(3),
+                textures.albedo_and_specular.get_texture_bind_group_entry(4),
+                textures.albedo_and_specular.get_sampler_bind_group_entry(5),
             ],
             label: Some("GBuffer bind group"),
-        });
+        })
+    }
+
+    pub fn new(
+        device: &wgpu::Device,
+        bind_group_layouts: &HashMap<BindGroupLayoutType, wgpu::BindGroupLayout>,
+        width: u32,
+        height: u32,
+    ) -> Self {
+        let textures = Self::create_textures(device, width, height);
+        let pipeline = Self::create_pipeline(device, bind_group_layouts, &textures);
+        let bind_group = Self::create_bind_group(device, bind_group_layouts, &textures);
 
         GBuffer {
-            position_texture,
-            normal_texture,
-            albedo_and_specular_texture,
-            render_pipeline: gbuffer_pipeline,
-            depth_texture,
+            textures,
+            render_pipeline: pipeline,
             bind_group,
         }
+    }
+
+    pub fn resize(
+        &mut self,
+        device: &wgpu::Device,
+        bind_group_layouts: &HashMap<BindGroupLayoutType, wgpu::BindGroupLayout>,
+        width: u32,
+        height: u32,
+    ) {
+        self.textures = Self::create_textures(device, width, height);
+        self.bind_group = Self::create_bind_group(device, bind_group_layouts, &self.textures);
     }
 
     pub fn render(
@@ -184,7 +202,7 @@ impl GBuffer {
             label: Some("GBuffer pass"),
             color_attachments: &[
                 Some(RenderPassColorAttachment {
-                    view: &self.position_texture.view,
+                    view: &self.textures.position.view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
@@ -197,7 +215,7 @@ impl GBuffer {
                     },
                 }),
                 Some(RenderPassColorAttachment {
-                    view: &self.normal_texture.view,
+                    view: &self.textures.normal.view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
@@ -210,7 +228,7 @@ impl GBuffer {
                     },
                 }),
                 Some(RenderPassColorAttachment {
-                    view: &self.albedo_and_specular_texture.view,
+                    view: &self.textures.albedo_and_specular.view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
@@ -224,7 +242,7 @@ impl GBuffer {
                 }),
             ],
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                view: &self.depth_texture.view,
+                view: &self.textures.depth_texture.view,
                 depth_ops: Some(wgpu::Operations {
                     load: wgpu::LoadOp::Clear(1.0),
                     store: true,

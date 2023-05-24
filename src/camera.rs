@@ -1,7 +1,11 @@
 use glam::{EulerRot, Quat, Vec2, Vec3};
+use std::cell::RefCell;
 use std::f32::consts::PI;
+use std::rc::Rc;
 use std::time::Duration;
 use winit::event::*;
+
+use crate::imgui::ImguiParams;
 
 const REFERENCE_DIRECTION: Vec3 = Vec3::new(1.0, 0.0, 0.0);
 const CAMERA_UP_VECTOR: Vec3 = Vec3::new(0 as f32, 1 as f32, 0 as f32);
@@ -14,7 +18,6 @@ pub struct Camera {
     pub position: Vec3,
     pub up: Vec3,
     pub aspect: f32,
-    pub fovy: f32,
     pub znear: f32,
     pub zfar: f32,
     pub orientation: (f32, f32, f32),
@@ -22,10 +25,11 @@ pub struct Camera {
     current_speed_positive: Vec3,
     current_speed_negative: Vec3,
     movement_sensitivity: Vec3,
+    pub imgui_params: Rc<RefCell<ImguiParams>>,
 }
 
 impl Camera {
-    pub fn new(aspect_ratio: f32) -> Self {
+    pub fn new(aspect_ratio: f32, imgui_params: Rc<RefCell<ImguiParams>>) -> Self {
         let eye: Vec3 = Vec3::new(-12.0, 10.0, 0.0);
         let target: Vec3 = Vec3::new(0.0, 0.0, 0.0);
         let view_dir = (target - eye).normalize();
@@ -42,7 +46,6 @@ impl Camera {
             position: eye,
             up: CAMERA_UP_VECTOR,
             aspect: aspect_ratio,
-            fovy: 45.0,
             znear: 0.1,
             zfar: 100.0,
             orientation,
@@ -54,6 +57,7 @@ impl Camera {
             ),
             current_speed_positive: Vec3::ZERO,
             current_speed_negative: Vec3::ZERO,
+            imgui_params,
         }
     }
 

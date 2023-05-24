@@ -14,7 +14,7 @@ pub struct Instance {
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct InstanceRaw {
     pub model_matrix: [[f32; 4]; 4],
-    pub normal: [[f32; 3]; 3],
+    pub rotation_only_matrix: [[f32; 3]; 3],
 }
 
 impl Instance {
@@ -26,7 +26,7 @@ impl Instance {
                 self.position,
             )
             .to_cols_array_2d(),
-            normal: Mat3::from_quat(self.rotation).to_cols_array_2d(),
+            rotation_only_matrix: Mat3::from_quat(self.rotation).to_cols_array_2d(),
         }
     }
 }

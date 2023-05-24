@@ -1,5 +1,6 @@
 use std::{ops::Range, rc::Rc};
 
+use crate::basic_renderable::BasicRenderable;
 use crate::drawable::Drawable;
 use crate::texture;
 
@@ -20,6 +21,20 @@ pub struct Mesh {
     pub index_buffer: wgpu::Buffer,
     pub index_count: u32,
     pub material: Option<Rc<Material>>,
+}
+
+impl BasicRenderable for Mesh {
+    fn get_vertex_buffer(&self) -> &wgpu::Buffer {
+        &self.vertex_buffer
+    }
+
+    fn get_index_buffer(&self) -> &wgpu::Buffer {
+        &self.index_buffer
+    }
+
+    fn get_index_count(&self) -> u32 {
+        self.index_count
+    }
 }
 
 impl<'a, 'b> Drawable<'a, 'b> for Mesh

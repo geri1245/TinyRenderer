@@ -1,6 +1,6 @@
-use std::{borrow::Cow, collections::HashMap};
+use std::borrow::Cow;
 
-use crate::{camera_controller::CameraController, renderer::BindGroupLayoutType, texture};
+use crate::{bind_group_layout_descriptors, camera_controller::CameraController, texture};
 
 pub struct Skybox {
     bind_group: wgpu::BindGroup,
@@ -12,14 +12,11 @@ impl Skybox {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         texture_format: wgpu::TextureFormat,
-        bind_group_layouts: &HashMap<BindGroupLayoutType, wgpu::BindGroupLayout>,
     ) -> Self {
         let texture = texture::Texture::create_skybox_texture(&device, &queue);
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &bind_group_layouts
-                .get(&BindGroupLayoutType::SkyBox)
-                .unwrap(),
+            layout: &device.create_bind_group_layout(&bind_group_layout_descriptors::SKYBOX),
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
@@ -36,12 +33,8 @@ impl Skybox {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Skybox pipeline layout"),
             bind_group_layouts: &[
-                &bind_group_layouts
-                    .get(&BindGroupLayoutType::SkyBox)
-                    .unwrap(),
-                &bind_group_layouts
-                    .get(&BindGroupLayoutType::Camera)
-                    .unwrap(),
+                &device.create_bind_group_layout(&bind_group_layout_descriptors::SKYBOX),
+                &device.create_bind_group_layout(&bind_group_layout_descriptors::CAMERA),
             ],
             push_constant_ranges: &[],
         });

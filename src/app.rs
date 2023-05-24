@@ -3,9 +3,8 @@ use crate::{
     frame_timer::FrameTimer,
     imgui::ImguiParams,
     light_controller::{LightController, PointLight},
-    renderer::{BindGroupLayoutType, Renderer},
+    renderer::Renderer,
 };
-use bevy_ecs::world::World;
 use std::{cell::RefCell, rc::Rc, time::Duration};
 use winit::event::{DeviceEvent, ElementState, MouseButton, VirtualKeyCode, WindowEvent};
 use winit::window::Window;
@@ -21,6 +20,7 @@ pub struct App {
     pub light_controller: LightController,
     pub frame_timer: FrameTimer,
     _imgui_params: Rc<RefCell<ImguiParams>>,
+    // world: World,
 }
 
 impl App {
@@ -36,13 +36,11 @@ impl App {
                 target: [0.0, 0.0, 0.0],
             },
             &renderer.device,
-            &renderer
-                .bind_group_layouts
-                .get(&BindGroupLayoutType::Light)
-                .unwrap(),
         );
 
         let frame_timer = FrameTimer::new();
+
+        // let world = World::new();
 
         Self {
             renderer,
@@ -50,6 +48,7 @@ impl App {
             light_controller,
             frame_timer,
             _imgui_params: imgui_params,
+            // world,
         }
     }
 

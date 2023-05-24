@@ -91,7 +91,7 @@ impl Imgui {
         self.context.io_mut().update_delta_time(delta);
 
         self.platform
-            .prepare_frame(self.context.io_mut(), &window)
+            .prepare_frame(self.context.io_mut(), window)
             .expect("Failed to prepare frame");
         let ui = self.context.frame();
 

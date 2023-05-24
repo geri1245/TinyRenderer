@@ -2,7 +2,7 @@ use std::io::{BufReader, Cursor};
 use std::rc::Rc;
 use wgpu::util::DeviceExt;
 
-use crate::model;
+use crate::{bind_group_layout_descriptors, model};
 use crate::{texture, vertex};
 
 pub async fn load_string(file_name: &str) -> anyhow::Result<String> {
@@ -50,7 +50,6 @@ pub async fn load_model<'a>(
     file_name: &str,
     device: &wgpu::Device,
     queue: &wgpu::Queue,
-    layout: &wgpu::BindGroupLayout,
 ) -> anyhow::Result<model::Model> {
     let obj_text = load_string(file_name).await?;
     let obj_cursor = Cursor::new(obj_text);
@@ -74,7 +73,8 @@ pub async fn load_model<'a>(
     for m in obj_materials? {
         let diffuse_texture = load_texture(&m.diffuse_texture, device, queue).await?;
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout,
+            layout: &device
+                .create_bind_group_layout(&bind_group_layout_descriptors::DIFFUSE_TEXTURE),
             entries: &[
                 diffuse_texture.get_texture_bind_group_entry(0),
                 diffuse_texture.get_sampler_bind_group_entry(1),

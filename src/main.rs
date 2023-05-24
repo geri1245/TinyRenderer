@@ -23,11 +23,13 @@ mod primitive_shapes;
 mod render_pipeline;
 mod render_pipeline_layout;
 mod renderer;
+mod resource_map;
 mod resources;
 mod shadow_pipeline;
 mod skybox_pipeline;
 mod texture;
 mod vertex;
+mod world;
 
 const CLEAR_COLOR: wgpu::Color = wgpu::Color {
     r: 0.1,

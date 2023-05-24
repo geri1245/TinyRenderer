@@ -1,9 +1,6 @@
 use async_std::task::block_on;
 use glam::{Quat, Vec3};
-use std::{
-    cell::RefCell, collections::HashMap, f32::consts, fs::File, hash::Hash, io::Write, rc::Rc,
-    time::Duration,
-};
+use std::{cell::RefCell, f32::consts, fs::File, io::Write, rc::Rc, time::Duration};
 use wgpu::{util::DeviceExt, InstanceDescriptor, RenderPassDepthStencilAttachment};
 
 use crate::{
@@ -15,8 +12,8 @@ use crate::{
     imgui::{Imgui, ImguiParams},
     instance::{self, Instance},
     light_controller::LightController,
-    model::Model,
-    primitive_shapes::{self, TexturedPrimitive},
+    model::{Material, Mesh, Model},
+    primitive_shapes,
     render_pipeline::RenderPipeline,
     resources,
     shadow_pipeline::Shadow,
@@ -27,16 +24,6 @@ use crate::{
 
 pub const MAX_LIGHTS: usize = 10;
 const NUM_INSTANCES_PER_ROW: u32 = 10;
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub enum BindGroupLayoutType {
-    Camera,
-    Light,
-    DiffuseTexture,
-    DepthTexture,
-    SkyBox,
-    GBuffer,
-}
 
 struct BufferDimensions {
     width: usize,
@@ -90,7 +77,6 @@ pub struct Renderer {
     pub queue: wgpu::Queue,
     pub config: wgpu::SurfaceConfiguration,
     pub size: winit::dpi::PhysicalSize<u32>,
-    pub bind_group_layouts: HashMap<BindGroupLayoutType, wgpu::BindGroupLayout>,
 
     surface: wgpu::Surface,
 
@@ -113,7 +99,7 @@ pub struct Renderer {
     should_capture_frame_content: bool,
     should_draw_imgui: bool,
 
-    square: TexturedPrimitive,
+    square: Mesh,
     square_instance_buffer: wgpu::Buffer,
 
     imgui: crate::imgui::Imgui,
@@ -185,8 +171,6 @@ impl Renderer {
 
         let imgui = Imgui::new(&window, &device, &queue, format);
 
-        let bind_group_layouts = Self::create_bind_group_layouts(&device);
-
         let texture_extent = wgpu::Extent3d {
             width: config.width,
             height: config.height,
@@ -210,7 +194,7 @@ impl Renderer {
             source: wgpu::ShaderSource::Wgsl(include_str!("shaders/shader.wgsl").into()),
         };
 
-        let shadow = crate::shadow_pipeline::Shadow::new(&device, &bind_group_layouts);
+        let shadow = crate::shadow_pipeline::Shadow::new(&device);
 
         let main_shader = device.create_shader_module(shader_desc);
 
@@ -218,16 +202,10 @@ impl Renderer {
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Main Render Pipeline Layout"),
                 bind_group_layouts: &[
-                    &bind_group_layouts.get(&BindGroupLayoutType::Light).unwrap(),
-                    &bind_group_layouts
-                        .get(&BindGroupLayoutType::Camera)
-                        .unwrap(),
-                    &bind_group_layouts
-                        .get(&BindGroupLayoutType::GBuffer)
-                        .unwrap(),
-                    &bind_group_layouts
-                        .get(&BindGroupLayoutType::DepthTexture)
-                        .unwrap(),
+                    &device.create_bind_group_layout(&bind_group_layout_descriptors::LIGHT),
+                    &device.create_bind_group_layout(&bind_group_layout_descriptors::CAMERA),
+                    &device.create_bind_group_layout(&bind_group_layout_descriptors::GBUFFER),
+                    &device.create_bind_group_layout(&bind_group_layout_descriptors::DEPTH_TEXTURE),
                 ],
                 push_constant_ranges: &[],
             });
@@ -246,10 +224,8 @@ impl Renderer {
             let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Light Pipeline Layout"),
                 bind_group_layouts: &[
-                    &bind_group_layouts.get(&BindGroupLayoutType::Light).unwrap(),
-                    &bind_group_layouts
-                        .get(&BindGroupLayoutType::Camera)
-                        .unwrap(),
+                    &device.create_bind_group_layout(&bind_group_layout_descriptors::LIGHT),
+                    &device.create_bind_group_layout(&bind_group_layout_descriptors::CAMERA),
                 ],
                 push_constant_ranges: &[],
             });
@@ -304,38 +280,29 @@ impl Renderer {
             usage: wgpu::BufferUsages::VERTEX,
         });
 
-        let obj_model = resources::load_model(
-            "cube.obj",
-            &device,
-            &queue,
-            &bind_group_layouts
-                .get(&BindGroupLayoutType::DiffuseTexture)
-                .unwrap(),
-        )
-        .await
-        .unwrap();
+        let obj_model = resources::load_model("cube.obj", &device, &queue)
+            .await
+            .unwrap();
 
         let texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &bind_group_layouts
-                .get(&BindGroupLayoutType::DiffuseTexture)
-                .unwrap(),
+            layout: &device
+                .create_bind_group_layout(&bind_group_layout_descriptors::DIFFUSE_TEXTURE),
             entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&tree_texture.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&tree_texture.sampler),
-                },
+                tree_texture.get_texture_bind_group_entry(0),
+                tree_texture.get_sampler_bind_group_entry(1),
             ],
             label: Some("diffuse_bind_group"),
         });
 
-        let square = TexturedPrimitive {
-            primitive_shape: primitive_shapes::PrimitiveShape::square(&device),
-            texture_bind_group,
-        };
+        let square = primitive_shapes::square(
+            &device,
+            Material {
+                name: "Tree texture material".into(),
+                diffuse_texture: tree_texture,
+                bind_group: texture_bind_group,
+            },
+        );
+        // texture_bind_group,
 
         let square_instances = vec![Instance {
             position: Vec3::new(0.0, -10.0, 0.0),
@@ -358,10 +325,9 @@ impl Renderer {
             usage: wgpu::BufferUsages::VERTEX,
         });
 
-        let skybox =
-            skybox_pipeline::Skybox::new(&device, &queue, config.format, &bind_group_layouts);
+        let skybox = skybox_pipeline::Skybox::new(&device, &queue, config.format);
 
-        let gbuffer = GBuffer::new(&device, &bind_group_layouts, config.width, config.height);
+        let gbuffer = GBuffer::new(&device, config.width, config.height);
 
         Renderer {
             surface,
@@ -369,7 +335,6 @@ impl Renderer {
             queue,
             config,
             size,
-            bind_group_layouts,
             render_pipeline,
             light_render_pipeline,
             obj_model,
@@ -390,50 +355,6 @@ impl Renderer {
         }
     }
 
-    fn create_bind_group_layouts(
-        render_device: &wgpu::Device,
-    ) -> HashMap<BindGroupLayoutType, wgpu::BindGroupLayout> {
-        let mut bind_group_layouts = HashMap::new();
-        bind_group_layouts.insert(
-            BindGroupLayoutType::Camera,
-            render_device.create_bind_group_layout(
-                &bind_group_layout_descriptors::CAMERA_BIND_GROUP_LAYOUT_DESCRIPTOR,
-            ),
-        );
-        bind_group_layouts.insert(
-            BindGroupLayoutType::DepthTexture,
-            render_device.create_bind_group_layout(
-                &bind_group_layout_descriptors::DEPTH_TEXTURE_BIND_GROUP_LAYOUT_DESCRIPTOR,
-            ),
-        );
-        bind_group_layouts.insert(
-            BindGroupLayoutType::DiffuseTexture,
-            render_device.create_bind_group_layout(
-                &bind_group_layout_descriptors::DIFFUSE_TEXTURE_BIND_GROUP_LAYOUT_DESCRIPTOR,
-            ),
-        );
-        bind_group_layouts.insert(
-            BindGroupLayoutType::Light,
-            render_device.create_bind_group_layout(
-                &bind_group_layout_descriptors::LIGHT_BIND_GROUP_LAYOUT_DESCRIPTOR,
-            ),
-        );
-        bind_group_layouts.insert(
-            BindGroupLayoutType::SkyBox,
-            render_device.create_bind_group_layout(
-                &bind_group_layout_descriptors::SKYBOX_BIND_GROUP_LAYOUT_DESCRIPTOR,
-            ),
-        );
-        bind_group_layouts.insert(
-            BindGroupLayoutType::GBuffer,
-            render_device.create_bind_group_layout(
-                &bind_group_layout_descriptors::GBUFFER_BIND_GROUP_LAYOUT_DESCRIPTOR,
-            ),
-        );
-
-        bind_group_layouts
-    }
-
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         self.size = new_size;
         self.config.width = new_size.width;
@@ -445,12 +366,8 @@ impl Renderer {
             self.config.height,
             "Depth texture",
         );
-        self.gbuffer.resize(
-            &self.device,
-            &self.bind_group_layouts,
-            new_size.width,
-            new_size.height,
-        );
+        self.gbuffer
+            .resize(&self.device, new_size.width, new_size.height);
         self.frame_content_copy_dest = OutputBuffer::new(
             &self.device,
             new_size.width as usize,

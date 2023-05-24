@@ -3,6 +3,8 @@ use core::f32::consts;
 use glam::{Mat4, Quat, Vec3};
 use wgpu::util::DeviceExt;
 
+use crate::bind_group_layout_descriptors;
+
 pub struct PointLight {
     pub position: [f32; 3],
     pub color: [f32; 3],
@@ -30,11 +32,7 @@ pub struct LightController {
 }
 
 impl LightController {
-    pub fn new(
-        light: PointLight,
-        render_device: &wgpu::Device,
-        bind_group_layout: &wgpu::BindGroupLayout,
-    ) -> LightController {
+    pub fn new(light: PointLight, render_device: &wgpu::Device) -> LightController {
         let buffer = render_device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Light Uniform Buffer"),
             contents: bytemuck::cast_slice(&[Self::to_raw(&light)]),
@@ -42,7 +40,7 @@ impl LightController {
         });
 
         let bind_group = render_device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &bind_group_layout,
+            layout: &render_device.create_bind_group_layout(&bind_group_layout_descriptors::LIGHT),
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
                 resource: buffer.as_entire_binding(),

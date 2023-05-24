@@ -4,9 +4,7 @@ use wgpu::util::DeviceExt;
 use winit::event::DeviceEvent;
 
 use crate::{
-    camera::Camera,
-    imgui::ImguiParams,
-    renderer::{BindGroupLayoutType, Renderer},
+    bind_group_layout_descriptors, camera::Camera, imgui::ImguiParams, renderer::Renderer,
 };
 
 /// Contains the rendering-related concepts of the camera
@@ -36,10 +34,9 @@ impl CameraController {
         let bind_group = renderer
             .device
             .create_bind_group(&wgpu::BindGroupDescriptor {
-                layout: renderer
-                    .bind_group_layouts
-                    .get(&BindGroupLayoutType::Camera)
-                    .unwrap(),
+                layout: &renderer
+                    .device
+                    .create_bind_group_layout(&bind_group_layout_descriptors::CAMERA),
                 entries: &[wgpu::BindGroupEntry {
                     binding: 0,
                     resource: binding_buffer.as_entire_binding(),

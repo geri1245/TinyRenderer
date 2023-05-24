@@ -1,15 +1,13 @@
-use std::collections::HashMap;
-
 use wgpu::{
     BindGroup, Buffer, RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPipeline,
     TextureFormat,
 };
 
 use crate::{
+    bind_group_layout_descriptors,
     buffer_content::BufferContent,
     instance,
     model::Model,
-    renderer::BindGroupLayoutType,
     texture::{self, Texture},
     vertex,
 };
@@ -39,20 +37,12 @@ fn default_color_write_state(format: wgpu::TextureFormat) -> Option<wgpu::ColorT
 }
 
 impl GBuffer {
-    fn create_pipeline(
-        device: &wgpu::Device,
-        bind_group_layouts: &HashMap<BindGroupLayoutType, wgpu::BindGroupLayout>,
-        textures: &GBufferTextures,
-    ) -> RenderPipeline {
+    fn create_pipeline(device: &wgpu::Device, textures: &GBufferTextures) -> RenderPipeline {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Fill gbuffer pipeline layout"),
             bind_group_layouts: &[
-                &bind_group_layouts
-                    .get(&BindGroupLayoutType::DiffuseTexture)
-                    .unwrap(),
-                &bind_group_layouts
-                    .get(&BindGroupLayoutType::Camera)
-                    .unwrap(),
+                &device.create_bind_group_layout(&bind_group_layout_descriptors::DIFFUSE_TEXTURE),
+                &device.create_bind_group_layout(&bind_group_layout_descriptors::CAMERA),
             ],
             push_constant_ranges: &[],
         });
@@ -141,15 +131,9 @@ impl GBuffer {
         }
     }
 
-    fn create_bind_group(
-        device: &wgpu::Device,
-        bind_group_layouts: &HashMap<BindGroupLayoutType, wgpu::BindGroupLayout>,
-        textures: &GBufferTextures,
-    ) -> wgpu::BindGroup {
+    fn create_bind_group(device: &wgpu::Device, textures: &GBufferTextures) -> wgpu::BindGroup {
         device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: bind_group_layouts
-                .get(&BindGroupLayoutType::GBuffer)
-                .unwrap(),
+            layout: &device.create_bind_group_layout(&bind_group_layout_descriptors::GBUFFER),
             entries: &[
                 textures.position.get_texture_bind_group_entry(0),
                 textures.position.get_sampler_bind_group_entry(1),
@@ -162,15 +146,10 @@ impl GBuffer {
         })
     }
 
-    pub fn new(
-        device: &wgpu::Device,
-        bind_group_layouts: &HashMap<BindGroupLayoutType, wgpu::BindGroupLayout>,
-        width: u32,
-        height: u32,
-    ) -> Self {
+    pub fn new(device: &wgpu::Device, width: u32, height: u32) -> Self {
         let textures = Self::create_textures(device, width, height);
-        let pipeline = Self::create_pipeline(device, bind_group_layouts, &textures);
-        let bind_group = Self::create_bind_group(device, bind_group_layouts, &textures);
+        let pipeline = Self::create_pipeline(device, &textures);
+        let bind_group = Self::create_bind_group(device, &textures);
 
         GBuffer {
             textures,
@@ -179,15 +158,9 @@ impl GBuffer {
         }
     }
 
-    pub fn resize(
-        &mut self,
-        device: &wgpu::Device,
-        bind_group_layouts: &HashMap<BindGroupLayoutType, wgpu::BindGroupLayout>,
-        width: u32,
-        height: u32,
-    ) {
+    pub fn resize(&mut self, device: &wgpu::Device, width: u32, height: u32) {
         self.textures = Self::create_textures(device, width, height);
-        self.bind_group = Self::create_bind_group(device, bind_group_layouts, &self.textures);
+        self.bind_group = Self::create_bind_group(device, &self.textures);
     }
 
     pub fn render(

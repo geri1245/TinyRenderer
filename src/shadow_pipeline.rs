@@ -1,9 +1,9 @@
-use std::{collections::HashMap, num::NonZeroU32};
+use std::num::NonZeroU32;
 
 use wgpu::{BindGroup, Buffer, RenderPassDepthStencilAttachment};
 
 use crate::{
-    buffer_content::BufferContent, instance, model::Model, renderer::BindGroupLayoutType,
+    bind_group_layout_descriptors, buffer_content::BufferContent, instance, model::Model,
     texture::Texture, vertex,
 };
 
@@ -20,10 +20,7 @@ pub struct Shadow {
 }
 
 impl Shadow {
-    pub fn new(
-        device: &wgpu::Device,
-        bind_group_layouts: &HashMap<BindGroupLayoutType, wgpu::BindGroupLayout>,
-    ) -> Shadow {
+    pub fn new(device: &wgpu::Device) -> Shadow {
         let shadow_texture = Texture::create_depth_texture(
             device,
             SHADOW_SIZE.width,
@@ -50,9 +47,9 @@ impl Shadow {
         let shadow_pipeline = {
             let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("shadow pipeline layout"),
-                bind_group_layouts: &[&bind_group_layouts
-                    .get(&BindGroupLayoutType::Light)
-                    .unwrap()],
+                bind_group_layouts: &[
+                    &device.create_bind_group_layout(&(bind_group_layout_descriptors::LIGHT))
+                ],
                 push_constant_ranges: &[],
             });
 
@@ -106,9 +103,7 @@ impl Shadow {
         };
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &bind_group_layouts
-                .get(&BindGroupLayoutType::DepthTexture)
-                .unwrap(),
+            layout: &device.create_bind_group_layout(&bind_group_layout_descriptors::DEPTH_TEXTURE),
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,

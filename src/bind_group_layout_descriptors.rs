@@ -1,159 +1,153 @@
-pub const CAMERA_BIND_GROUP_LAYOUT_DESCRIPTOR: wgpu::BindGroupLayoutDescriptor =
-    wgpu::BindGroupLayoutDescriptor {
-        label: Some("Camera bind group layout"),
-        entries: &[wgpu::BindGroupLayoutEntry {
+pub const CAMERA: wgpu::BindGroupLayoutDescriptor = wgpu::BindGroupLayoutDescriptor {
+    label: Some("Camera bind group layout"),
+    entries: &[wgpu::BindGroupLayoutEntry {
+        binding: 0,
+        visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+        ty: wgpu::BindingType::Buffer {
+            ty: wgpu::BufferBindingType::Uniform,
+            has_dynamic_offset: false,
+            min_binding_size: None,
+        },
+        count: None,
+    }],
+};
+
+pub const LIGHT: wgpu::BindGroupLayoutDescriptor = wgpu::BindGroupLayoutDescriptor {
+    label: Some("Light bind group layout descriptor"),
+    entries: &[wgpu::BindGroupLayoutEntry {
+        binding: 0,
+        visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+        ty: wgpu::BindingType::Buffer {
+            ty: wgpu::BufferBindingType::Uniform,
+            has_dynamic_offset: false,
+            min_binding_size: None,
+        },
+        count: None,
+    }],
+};
+
+pub const DIFFUSE_TEXTURE: wgpu::BindGroupLayoutDescriptor = wgpu::BindGroupLayoutDescriptor {
+    label: Some("Diffuse texture bind group layout descriptor"),
+    entries: &[
+        wgpu::BindGroupLayoutEntry {
             binding: 0,
-            visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-            ty: wgpu::BindingType::Buffer {
-                ty: wgpu::BufferBindingType::Uniform,
-                has_dynamic_offset: false,
-                min_binding_size: None,
+            visibility: wgpu::ShaderStages::FRAGMENT,
+            ty: wgpu::BindingType::Texture {
+                multisampled: false,
+                view_dimension: wgpu::TextureViewDimension::D2,
+                sample_type: wgpu::TextureSampleType::Float { filterable: true },
             },
             count: None,
-        }],
-    };
+        },
+        wgpu::BindGroupLayoutEntry {
+            binding: 1,
+            visibility: wgpu::ShaderStages::FRAGMENT,
+            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+            count: None,
+        },
+    ],
+};
 
-pub const LIGHT_BIND_GROUP_LAYOUT_DESCRIPTOR: wgpu::BindGroupLayoutDescriptor =
-    wgpu::BindGroupLayoutDescriptor {
-        label: Some("Light bind group layout descriptor"),
-        entries: &[wgpu::BindGroupLayoutEntry {
+pub const DEPTH_TEXTURE: wgpu::BindGroupLayoutDescriptor = wgpu::BindGroupLayoutDescriptor {
+    label: Some("Shadow texture and its sampler"),
+    entries: &[
+        wgpu::BindGroupLayoutEntry {
             binding: 0,
-            visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-            ty: wgpu::BindingType::Buffer {
-                ty: wgpu::BufferBindingType::Uniform,
-                has_dynamic_offset: false,
-                min_binding_size: None,
+            visibility: wgpu::ShaderStages::FRAGMENT,
+            ty: wgpu::BindingType::Texture {
+                multisampled: false,
+                sample_type: wgpu::TextureSampleType::Depth,
+                view_dimension: wgpu::TextureViewDimension::D2,
             },
             count: None,
-        }],
-    };
+        },
+        wgpu::BindGroupLayoutEntry {
+            binding: 1,
+            visibility: wgpu::ShaderStages::FRAGMENT,
+            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Comparison),
+            count: None,
+        },
+    ],
+};
 
-pub const DIFFUSE_TEXTURE_BIND_GROUP_LAYOUT_DESCRIPTOR: wgpu::BindGroupLayoutDescriptor =
-    wgpu::BindGroupLayoutDescriptor {
-        label: Some("Diffuse texture bind group layout descriptor"),
-        entries: &[
-            wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Texture {
-                    multisampled: false,
-                    view_dimension: wgpu::TextureViewDimension::D2,
-                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                },
-                count: None,
+pub const SKYBOX: wgpu::BindGroupLayoutDescriptor = wgpu::BindGroupLayoutDescriptor {
+    label: Some("Skybox texture with its sampler"),
+    entries: &[
+        wgpu::BindGroupLayoutEntry {
+            binding: 0,
+            visibility: wgpu::ShaderStages::FRAGMENT,
+            ty: wgpu::BindingType::Texture {
+                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                multisampled: false,
+                view_dimension: wgpu::TextureViewDimension::Cube,
             },
-            wgpu::BindGroupLayoutEntry {
-                binding: 1,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                count: None,
-            },
-        ],
-    };
+            count: None,
+        },
+        wgpu::BindGroupLayoutEntry {
+            binding: 1,
+            visibility: wgpu::ShaderStages::FRAGMENT,
+            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+            count: None,
+        },
+    ],
+};
 
-pub const DEPTH_TEXTURE_BIND_GROUP_LAYOUT_DESCRIPTOR: wgpu::BindGroupLayoutDescriptor =
-    wgpu::BindGroupLayoutDescriptor {
-        label: Some("Shadow texture and its sampler"),
-        entries: &[
-            wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Texture {
-                    multisampled: false,
-                    sample_type: wgpu::TextureSampleType::Depth,
-                    view_dimension: wgpu::TextureViewDimension::D2,
-                },
-                count: None,
+pub const GBUFFER: wgpu::BindGroupLayoutDescriptor = wgpu::BindGroupLayoutDescriptor {
+    label: Some("GBuffer textures with their samplers"),
+    entries: &[
+        // Position texture
+        wgpu::BindGroupLayoutEntry {
+            binding: 0,
+            visibility: wgpu::ShaderStages::FRAGMENT,
+            ty: wgpu::BindingType::Texture {
+                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                multisampled: false,
+                view_dimension: wgpu::TextureViewDimension::D2,
             },
-            wgpu::BindGroupLayoutEntry {
-                binding: 1,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Comparison),
-                count: None,
+            count: None,
+        },
+        // Position texture sampler
+        wgpu::BindGroupLayoutEntry {
+            binding: 1,
+            visibility: wgpu::ShaderStages::FRAGMENT,
+            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+            count: None,
+        },
+        // Normal texture
+        wgpu::BindGroupLayoutEntry {
+            binding: 2,
+            visibility: wgpu::ShaderStages::FRAGMENT,
+            ty: wgpu::BindingType::Texture {
+                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                multisampled: false,
+                view_dimension: wgpu::TextureViewDimension::D2,
             },
-        ],
-    };
-
-pub const SKYBOX_BIND_GROUP_LAYOUT_DESCRIPTOR: wgpu::BindGroupLayoutDescriptor =
-    wgpu::BindGroupLayoutDescriptor {
-        label: Some("Skybox texture with its sampler"),
-        entries: &[
-            wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Texture {
-                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                    multisampled: false,
-                    view_dimension: wgpu::TextureViewDimension::Cube,
-                },
-                count: None,
+            count: None,
+        },
+        // Normal texture sampler
+        wgpu::BindGroupLayoutEntry {
+            binding: 3,
+            visibility: wgpu::ShaderStages::FRAGMENT,
+            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+            count: None,
+        },
+        // Albedo texture
+        wgpu::BindGroupLayoutEntry {
+            binding: 4,
+            visibility: wgpu::ShaderStages::FRAGMENT,
+            ty: wgpu::BindingType::Texture {
+                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                multisampled: false,
+                view_dimension: wgpu::TextureViewDimension::D2,
             },
-            wgpu::BindGroupLayoutEntry {
-                binding: 1,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                count: None,
-            },
-        ],
-    };
-
-pub const GBUFFER_BIND_GROUP_LAYOUT_DESCRIPTOR: wgpu::BindGroupLayoutDescriptor =
-    wgpu::BindGroupLayoutDescriptor {
-        label: Some("GBuffer textures with their samplers"),
-        entries: &[
-            // Position texture
-            wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Texture {
-                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                    multisampled: false,
-                    view_dimension: wgpu::TextureViewDimension::D2,
-                },
-                count: None,
-            },
-            // Position texture sampler
-            wgpu::BindGroupLayoutEntry {
-                binding: 1,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                count: None,
-            },
-            // Normal texture
-            wgpu::BindGroupLayoutEntry {
-                binding: 2,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Texture {
-                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                    multisampled: false,
-                    view_dimension: wgpu::TextureViewDimension::D2,
-                },
-                count: None,
-            },
-            // Normal texture sampler
-            wgpu::BindGroupLayoutEntry {
-                binding: 3,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                count: None,
-            },
-            // Albedo texture
-            wgpu::BindGroupLayoutEntry {
-                binding: 4,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Texture {
-                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                    multisampled: false,
-                    view_dimension: wgpu::TextureViewDimension::D2,
-                },
-                count: None,
-            },
-            // Albedo texture sampler
-            wgpu::BindGroupLayoutEntry {
-                binding: 5,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                count: None,
-            },
-        ],
-    };
+            count: None,
+        },
+        // Albedo texture sampler
+        wgpu::BindGroupLayoutEntry {
+            binding: 5,
+            visibility: wgpu::ShaderStages::FRAGMENT,
+            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+            count: None,
+        },
+    ],
+};

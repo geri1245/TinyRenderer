@@ -39,7 +39,7 @@ fn default_color_write_state(format: wgpu::TextureFormat) -> Option<wgpu::ColorT
 impl GBuffer {
     fn create_pipeline(device: &wgpu::Device, textures: &GBufferTextures) -> RenderPipeline {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("Fill gbuffer pipeline layout"),
+            label: Some("Geometry pass pipeline layout"),
             bind_group_layouts: &[
                 &device.create_bind_group_layout(&bind_group_layout_descriptors::DIFFUSE_TEXTURE),
                 &device.create_bind_group_layout(&bind_group_layout_descriptors::CAMERA),
@@ -48,8 +48,8 @@ impl GBuffer {
         });
 
         let gbuffer_shader_desc = wgpu::ShaderModuleDescriptor {
-            label: Some("Fill gbuffer shader desc"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/fill_gbuffer.wgsl").into()),
+            label: Some("Geometry pass shader desc"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/geometry_pass.wgsl").into()),
         };
 
         let gbuffer_shader = device.create_shader_module(gbuffer_shader_desc);

@@ -31,7 +31,6 @@ fn vs_sky(@builtin(vertex_index) vertex_index: u32) -> SkyOutput {
         1.0
     );
 
-    // transposition = inversion for this orthonormal matrix
     let view_inv = to_mat3(camera.view_inv);
     let unprojected = view_inv * (camera.proj_inv * pos).xyz;
 

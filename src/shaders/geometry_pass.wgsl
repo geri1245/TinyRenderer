@@ -1,3 +1,6 @@
+/// Renders into offscreen buffers:
+/// Fills up the GBuffer, doesn't do any lighting calculations
+
 @group(1) @binding(0)
 var<uniform> camera: CameraUniform;
 

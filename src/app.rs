@@ -1,9 +1,6 @@
 use crate::{
-    camera_controller::CameraController,
-    frame_timer::FrameTimer,
-    imgui::ImguiParams,
-    light_controller::{LightController, PointLight},
-    renderer::Renderer,
+    camera_controller::CameraController, frame_timer::FrameTimer, gui::GuiParams,
+    light_controller::LightController, renderer::Renderer,
 };
 use std::{cell::RefCell, rc::Rc, time::Duration};
 use winit::event::{DeviceEvent, ElementState, MouseButton, VirtualKeyCode, WindowEvent};
@@ -19,24 +16,17 @@ pub struct App {
     pub camera_controller: CameraController,
     pub light_controller: LightController,
     pub frame_timer: FrameTimer,
-    _imgui_params: Rc<RefCell<ImguiParams>>,
+    _imgui_params: Rc<RefCell<GuiParams>>,
     // world: World,
 }
 
 impl App {
     pub async fn new(window: &Window) -> Self {
-        let imgui_params = Rc::new(RefCell::new(ImguiParams::new()));
+        let imgui_params = Rc::new(RefCell::new(GuiParams::new()));
 
         let renderer = Renderer::new(window, imgui_params.clone()).await;
         let camera_controller = CameraController::new(&renderer, imgui_params.clone());
-        let light_controller = LightController::new(
-            PointLight {
-                position: [20.0, 30.0, 0.0],
-                color: [1.0, 1.0, 1.0],
-                target: [0.0, 0.0, 0.0],
-            },
-            &renderer.device,
-        );
+        let light_controller = LightController::new(&renderer.device);
 
         let frame_timer = FrameTimer::new();
 

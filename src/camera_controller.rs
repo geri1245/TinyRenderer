@@ -3,9 +3,7 @@ use std::{cell::RefCell, rc::Rc, time};
 use wgpu::util::DeviceExt;
 use winit::event::DeviceEvent;
 
-use crate::{
-    bind_group_layout_descriptors, camera::Camera, imgui::ImguiParams, renderer::Renderer,
-};
+use crate::{bind_group_layout_descriptors, camera::Camera, gui::GuiParams, renderer::Renderer};
 
 /// Contains the rendering-related concepts of the camera
 pub struct CameraController {
@@ -16,7 +14,7 @@ pub struct CameraController {
 }
 
 impl CameraController {
-    pub fn new(renderer: &Renderer, imgui_params: Rc<RefCell<ImguiParams>>) -> CameraController {
+    pub fn new(renderer: &Renderer, imgui_params: Rc<RefCell<GuiParams>>) -> CameraController {
         let camera = Camera::new(
             renderer.config.width as f32 / renderer.config.height as f32,
             imgui_params.clone(),

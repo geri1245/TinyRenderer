@@ -1,6 +1,6 @@
 use async_std::task::block_on;
 use glam::{Quat, Vec3};
-use std::{cell::RefCell, f32::consts, fs::File, io::Write, rc::Rc, time::Duration};
+use std::{cell::RefCell, f32::consts, fs::File, io::Write, rc::Rc};
 use wgpu::{util::DeviceExt, InstanceDescriptor, RenderPassDepthStencilAttachment};
 
 use crate::{
@@ -9,7 +9,7 @@ use crate::{
     camera_controller::CameraController,
     color,
     gbuffer::GBuffer,
-    imgui::{Imgui, ImguiParams},
+    gui::{Gui, GuiParams},
     instance::{self, Instance},
     light_controller::LightController,
     model::{Material, Mesh, Model},
@@ -97,19 +97,19 @@ pub struct Renderer {
     gbuffer: GBuffer,
 
     should_capture_frame_content: bool,
-    should_draw_imgui: bool,
+    should_draw_gui: bool,
 
     square: Mesh,
     square_instance_buffer: wgpu::Buffer,
 
-    imgui: crate::imgui::Imgui,
-    imgui_params: Rc<RefCell<crate::imgui::ImguiParams>>,
+    gui: crate::gui::Gui,
+    imgui_params: Rc<RefCell<crate::gui::GuiParams>>,
 }
 
 impl Renderer {
     pub async fn new(
         window: &winit::window::Window,
-        imgui_params: Rc<RefCell<ImguiParams>>,
+        imgui_params: Rc<RefCell<GuiParams>>,
     ) -> Renderer {
         let size = window.inner_size();
 
@@ -157,7 +157,7 @@ impl Renderer {
 
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
-            format: format,
+            format,
             width: size.width,
             height: size.height,
             present_mode: wgpu::PresentMode::Fifo,
@@ -190,8 +190,8 @@ impl Renderer {
         );
 
         let shader_desc = wgpu::ShaderModuleDescriptor {
-            label: Some("Main Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/shader.wgsl").into()),
+            label: Some("GBuffer processing shader"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/gbuffer_pass.wgsl").into()),
         };
 
         let shadow = crate::shadow_pipeline::Shadow::new(&device);
@@ -294,15 +294,13 @@ impl Renderer {
             label: Some("diffuse_bind_group"),
         });
 
-        let square = primitive_shapes::square(
-            &device,
-            Material {
-                name: "Tree texture material".into(),
-                diffuse_texture: tree_texture,
-                bind_group: texture_bind_group,
-            },
-        );
-        // texture_bind_group,
+        let square_material = Some(Rc::new(Material {
+            name: "Tree texture material".into(),
+            diffuse_texture: tree_texture,
+            bind_group: texture_bind_group,
+        }));
+
+        let square = primitive_shapes::square(&device, square_material);
 
         let square_instances = vec![Instance {
             position: Vec3::new(0.0, -10.0, 0.0),
@@ -344,10 +342,10 @@ impl Renderer {
             frame_content_copy_dest: output_buffer,
             texture_extent,
             should_capture_frame_content: false,
-            should_draw_imgui: false,
+            should_draw_gui: true,
             square,
             square_instance_buffer,
-            imgui,
+            gui: imgui,
             imgui_params,
             shadow,
             skybox,
@@ -500,10 +498,7 @@ impl Renderer {
                 layout: wgpu::ImageDataLayout {
                     offset: 0,
                     bytes_per_row: Some(
-                        std::num::NonZeroU32::new(
-                            self.frame_content_copy_dest.dimensions.padded_bytes_per_row as u32,
-                        )
-                        .unwrap(),
+                        self.frame_content_copy_dest.dimensions.padded_bytes_per_row as u32,
                     ),
                     rows_per_image: None,
                 },

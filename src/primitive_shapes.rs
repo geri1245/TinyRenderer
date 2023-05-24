@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use wgpu::util::DeviceExt;
 
 use crate::model::{Material, Mesh};
@@ -28,7 +30,7 @@ const SQUARE_VERTICES: &'static [VertexRaw] = &[
 
 const SQUARE_INDICES: &'static [u32] = &[3, 2, 1, 2, 0, 1];
 
-pub fn square(render_device: &wgpu::Device, texture: Material) -> Mesh {
+pub fn square(render_device: &wgpu::Device, material: Option<Rc<Material>>) -> Mesh {
     let vertex_buffer = render_device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("Square Vertex Buffer"),
         contents: bytemuck::cast_slice(&SQUARE_VERTICES),
@@ -45,6 +47,6 @@ pub fn square(render_device: &wgpu::Device, texture: Material) -> Mesh {
         index_buffer,
         index_count: SQUARE_INDICES.len() as u32,
         vertex_buffer,
-        material: None,
+        material,
     }
 }

@@ -1,5 +1,3 @@
-use std::num::NonZeroU32;
-
 use wgpu::{BindGroup, Buffer, RenderPassDepthStencilAttachment};
 
 use crate::{
@@ -41,7 +39,7 @@ impl Shadow {
                 base_mip_level: 0,
                 mip_level_count: None,
                 base_array_layer: 0,
-                array_layer_count: NonZeroU32::new(1),
+                array_layer_count: Some(1),
             });
 
         let shadow_pipeline = {

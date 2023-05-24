@@ -1,3 +1,5 @@
+/// Draws a fullscreen quad, samples the GBuffer and calculates the final fragment values
+
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) tex_coords: vec2<f32>,
@@ -14,7 +16,7 @@ fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
     // 2 -> 0, 2
 
     let uv = vec2(u, v);
-    // Flip the y coordinate
+    // Flip the y coordinate (not sure why 1-y is correct here instead of 2-y 🤔)
     output.tex_coords = vec2(uv.x, 1.0 - uv.y);
     output.position = vec4(uv * 2.0 - 1.0, 0.0, 1.0);
 

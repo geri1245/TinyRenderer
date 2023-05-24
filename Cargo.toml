@@ -9,9 +9,9 @@ edition = "2021"
 winit = "0.27"
 env_logger = "0.9"
 log = "0.4"
-wgpu = "0.15"
+wgpu = "0.16"
 async-std = "1.12"
-bytemuck = { version = "1.9", features = [ "derive" ] }
+bytemuck = { version = "1.13", features = [ "derive" ] }
 anyhow = "1.0"
 glam = "0.21"
 futures-intrusive = "0.4"

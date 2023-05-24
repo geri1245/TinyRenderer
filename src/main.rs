@@ -15,7 +15,7 @@ mod color;
 mod drawable;
 mod frame_timer;
 mod gbuffer;
-mod imgui;
+mod gui;
 mod instance;
 mod light_controller;
 mod model;

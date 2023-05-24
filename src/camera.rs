@@ -5,7 +5,7 @@ use std::rc::Rc;
 use std::time::Duration;
 use winit::event::*;
 
-use crate::imgui::ImguiParams;
+use crate::gui::GuiParams;
 
 const REFERENCE_DIRECTION: Vec3 = Vec3::new(1.0, 0.0, 0.0);
 const CAMERA_UP_VECTOR: Vec3 = Vec3::new(0 as f32, 1 as f32, 0 as f32);
@@ -25,11 +25,11 @@ pub struct Camera {
     current_speed_positive: Vec3,
     current_speed_negative: Vec3,
     movement_sensitivity: Vec3,
-    pub imgui_params: Rc<RefCell<ImguiParams>>,
+    pub imgui_params: Rc<RefCell<GuiParams>>,
 }
 
 impl Camera {
-    pub fn new(aspect_ratio: f32, imgui_params: Rc<RefCell<ImguiParams>>) -> Self {
+    pub fn new(aspect_ratio: f32, imgui_params: Rc<RefCell<GuiParams>>) -> Self {
         let eye: Vec3 = Vec3::new(-12.0, 10.0, 0.0);
         let target: Vec3 = Vec3::new(0.0, 0.0, 0.0);
         let view_dir = (target - eye).normalize();

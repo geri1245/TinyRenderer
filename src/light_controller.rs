@@ -5,6 +5,13 @@ use wgpu::util::DeviceExt;
 
 use crate::bind_group_layout_descriptors;
 
+const DEFAULT_LIGHT: PointLight = PointLight {
+    position: [20.0, 30.0, 0.0],
+    color: [1.0, 1.0, 1.0],
+    target: [0.0, 0.0, 0.0],
+};
+
+#[derive(Debug, Copy, Clone)]
 pub struct PointLight {
     pub position: [f32; 3],
     pub color: [f32; 3],
@@ -32,10 +39,10 @@ pub struct LightController {
 }
 
 impl LightController {
-    pub fn new(light: PointLight, render_device: &wgpu::Device) -> LightController {
+    pub fn new(render_device: &wgpu::Device) -> LightController {
         let buffer = render_device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Light Uniform Buffer"),
-            contents: bytemuck::cast_slice(&[Self::to_raw(&light)]),
+            contents: bytemuck::cast_slice(&[Self::to_raw(&DEFAULT_LIGHT)]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
@@ -49,7 +56,7 @@ impl LightController {
         });
 
         Self {
-            light,
+            light: DEFAULT_LIGHT.clone(),
             uniform_buffer: buffer,
             bind_group,
         }

@@ -14,10 +14,10 @@ pub struct CameraController {
 }
 
 impl CameraController {
-    pub fn new(renderer: &Renderer, imgui_params: Rc<RefCell<GuiParams>>) -> CameraController {
+    pub fn new(renderer: &Renderer, gui_params: Rc<RefCell<GuiParams>>) -> CameraController {
         let camera = Camera::new(
             renderer.config.width as f32 / renderer.config.height as f32,
-            imgui_params.clone(),
+            gui_params.clone(),
         );
 
         let binding_buffer =
@@ -85,7 +85,7 @@ impl CameraController {
     fn get_raw(camera: &Camera) -> CameraRaw {
         let view = Mat4::look_at_rh(camera.position, camera.get_target(), camera.up);
         let proj = Mat4::perspective_rh(
-            camera.imgui_params.borrow().fov_y,
+            camera.gui_params.borrow().fov_y,
             camera.aspect,
             camera.znear,
             camera.zfar,

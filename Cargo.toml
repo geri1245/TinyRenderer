@@ -9,19 +9,21 @@ edition = "2021"
 winit = "0.27"
 env_logger = "0.9"
 log = "0.4"
-wgpu = "0.16"
 async-std = "1.12"
-bytemuck = { version = "1.13", features = [ "derive" ] }
 anyhow = "1.0"
 glam = "0.21"
 futures-intrusive = "0.4"
 png = "0.17"
 
-imgui = "0.10"
-imgui-winit-support = "0.10"
-imgui-wgpu = "0.22"
+wgpu = "0.16"
+bytemuck = { version = "1.13", features = [ "derive" ] }
+imgui = "0.11"
+
+imgui-winit-support = "0.11"
 
 tobj = { version = "3.2", features = ["async"]}
+
+imgui_wgpu = { path = "crates/imgui_wgpu" }
 
 [build-dependencies]
 anyhow = "1.0"

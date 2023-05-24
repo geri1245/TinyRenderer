@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc, time::Duration};
+use std::{cell::RefCell, path::PathBuf, rc::Rc, str::FromStr, time::Duration};
 
 use imgui::MouseCursor;
 use imgui_wgpu::{Renderer, RendererConfig};
@@ -7,15 +7,15 @@ use imgui_winit_support::WinitPlatform;
 use crate::color;
 
 #[derive(Default)]
-pub struct ImguiParams {
+pub struct GuiParams {
     pub clear_color: [f32; 4],
     pub fov_x: f32,
     pub fov_y: f32,
 }
 
-impl ImguiParams {
+impl GuiParams {
     pub fn new() -> Self {
-        ImguiParams {
+        GuiParams {
             clear_color: color::wgpu_color_to_f32_array_rgba(crate::CLEAR_COLOR),
             fov_x: 90.0,
             fov_y: 45.0,
@@ -23,7 +23,7 @@ impl ImguiParams {
     }
 }
 
-pub struct Imgui {
+pub struct Gui {
     context: imgui::Context,
     renderer: Renderer,
     platform: WinitPlatform,
@@ -31,7 +31,7 @@ pub struct Imgui {
     last_cursor_position: Option<MouseCursor>,
 }
 
-impl Imgui {
+impl Gui {
     pub fn new(
         window: &winit::window::Window,
         device: &wgpu::Device,
@@ -46,7 +46,7 @@ impl Imgui {
             &window,
             imgui_winit_support::HiDpiMode::Default,
         );
-        context.set_ini_filename(None);
+        context.set_ini_filename(Some(PathBuf::from_str("imgui_config.ini").unwrap()));
 
         let hidpi_factor = window.scale_factor();
         let font_size = (13.0 * hidpi_factor) as f32;
@@ -70,7 +70,7 @@ impl Imgui {
 
         let renderer = Renderer::new(&mut context, &device, &queue, renderer_config);
 
-        Imgui {
+        Gui {
             context,
             renderer,
             platform,
@@ -86,7 +86,7 @@ impl Imgui {
         queue: &wgpu::Queue,
         delta: Duration,
         current_frame_texture_view: &wgpu::TextureView,
-        params: Rc<RefCell<ImguiParams>>,
+        params: Rc<RefCell<GuiParams>>,
     ) {
         self.context.io_mut().update_delta_time(delta);
 

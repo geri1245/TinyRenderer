@@ -25,7 +25,7 @@ pub struct Camera {
     current_speed_positive: Vec3,
     current_speed_negative: Vec3,
     movement_sensitivity: Vec3,
-    pub imgui_params: Rc<RefCell<GuiParams>>,
+    pub gui_params: Rc<RefCell<GuiParams>>,
 }
 
 impl Camera {
@@ -57,7 +57,7 @@ impl Camera {
             ),
             current_speed_positive: Vec3::ZERO,
             current_speed_negative: Vec3::ZERO,
-            imgui_params,
+            gui_params: imgui_params,
         }
     }
 

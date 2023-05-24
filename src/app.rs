@@ -16,16 +16,16 @@ pub struct App {
     pub camera_controller: CameraController,
     pub light_controller: LightController,
     pub frame_timer: FrameTimer,
-    _imgui_params: Rc<RefCell<GuiParams>>,
+    _gui_params: Rc<RefCell<GuiParams>>,
     // world: World,
 }
 
 impl App {
     pub async fn new(window: &Window) -> Self {
-        let imgui_params = Rc::new(RefCell::new(GuiParams::new()));
+        let gui_params = Rc::new(RefCell::new(GuiParams::new()));
 
-        let renderer = Renderer::new(window, imgui_params.clone()).await;
-        let camera_controller = CameraController::new(&renderer, imgui_params.clone());
+        let renderer = Renderer::new(window, gui_params.clone()).await;
+        let camera_controller = CameraController::new(&renderer, gui_params.clone());
         let light_controller = LightController::new(&renderer.device);
 
         let frame_timer = FrameTimer::new();
@@ -37,7 +37,7 @@ impl App {
             camera_controller,
             light_controller,
             frame_timer,
-            _imgui_params: imgui_params,
+            _gui_params: gui_params,
             // world,
         }
     }
@@ -83,7 +83,7 @@ impl App {
                 if input.state == ElementState::Pressed
                     && input.virtual_keycode == Some(VirtualKeyCode::F)
                 {
-                    self.renderer.toggle_should_draw_imgui();
+                    self.renderer.toggle_should_draw_gui();
                 }
             }
 

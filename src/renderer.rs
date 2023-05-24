@@ -1,6 +1,6 @@
 use async_std::task::block_on;
 use glam::{Quat, Vec3};
-use std::{cell::RefCell, f32::consts, fs::File, io::Write, rc::Rc};
+use std::{cell::RefCell, f32::consts, fs::File, io::Write, rc::Rc, time::Duration};
 use wgpu::{util::DeviceExt, InstanceDescriptor, RenderPassDepthStencilAttachment};
 
 use crate::{
@@ -51,15 +51,16 @@ impl BufferDimensions {
 struct OutputBuffer {
     dimensions: BufferDimensions,
     buffer: wgpu::Buffer,
+    texture_extent: wgpu::Extent3d,
 }
 
 impl OutputBuffer {
-    fn new(device: &wgpu::Device, width: usize, height: usize) -> Self {
+    fn new(device: &wgpu::Device, width: u32, height: u32) -> Self {
         // It is a WebGPU requirement that ImageCopyBuffer.layout.bytes_per_row % wgpu::COPY_BYTES_PER_ROW_ALIGNMENT == 0
         // So we calculate padded_bytes_per_row by rounding unpadded_bytes_per_row
         // up to the next multiple of wgpu::COPY_BYTES_PER_ROW_ALIGNMENT.
         // https://en.wikipedia.org/wiki/Data_structure_alignment#Computing_padding
-        let dimensions = BufferDimensions::new(width, height);
+        let dimensions = BufferDimensions::new(width as usize, height as usize);
         // The output buffer lets us retrieve the data as an array
         let buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Buffer to copy frame content into"),
@@ -68,7 +69,17 @@ impl OutputBuffer {
             mapped_at_creation: false,
         });
 
-        OutputBuffer { dimensions, buffer }
+        let texture_extent = wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        };
+
+        OutputBuffer {
+            dimensions,
+            buffer,
+            texture_extent,
+        }
     }
 }
 
@@ -89,7 +100,6 @@ pub struct Renderer {
 
     instances: Vec<Instance>,
     instance_buffer: wgpu::Buffer,
-    texture_extent: wgpu::Extent3d,
 
     frame_content_copy_dest: OutputBuffer,
 
@@ -103,13 +113,13 @@ pub struct Renderer {
     square_instance_buffer: wgpu::Buffer,
 
     gui: crate::gui::Gui,
-    imgui_params: Rc<RefCell<crate::gui::GuiParams>>,
+    gui_params: Rc<RefCell<crate::gui::GuiParams>>,
 }
 
 impl Renderer {
     pub async fn new(
         window: &winit::window::Window,
-        imgui_params: Rc<RefCell<GuiParams>>,
+        gui_params: Rc<RefCell<GuiParams>>,
     ) -> Renderer {
         let size = window.inner_size();
 
@@ -166,16 +176,9 @@ impl Renderer {
         };
         surface.configure(&device, &config);
 
-        let output_buffer =
-            OutputBuffer::new(&device, config.width as usize, config.height as usize);
+        let output_buffer = OutputBuffer::new(&device, config.width, config.height);
 
-        let imgui = Imgui::new(&window, &device, &queue, format);
-
-        let texture_extent = wgpu::Extent3d {
-            width: config.width,
-            height: config.height,
-            depth_or_array_layers: 1,
-        };
+        let gui = Gui::new(&window, &device, &queue, format);
 
         let tree_texture_raw = include_bytes!("../assets/happy-tree.png");
 
@@ -340,13 +343,12 @@ impl Renderer {
             instances,
             instance_buffer,
             frame_content_copy_dest: output_buffer,
-            texture_extent,
             should_capture_frame_content: false,
             should_draw_gui: true,
             square,
             square_instance_buffer,
-            gui: imgui,
-            imgui_params,
+            gui,
+            gui_params,
             shadow,
             skybox,
             gbuffer,
@@ -366,11 +368,8 @@ impl Renderer {
         );
         self.gbuffer
             .resize(&self.device, new_size.width, new_size.height);
-        self.frame_content_copy_dest = OutputBuffer::new(
-            &self.device,
-            new_size.width as usize,
-            new_size.height as usize,
-        );
+        self.frame_content_copy_dest =
+            OutputBuffer::new(&self.device, new_size.width, new_size.height);
     }
 
     pub fn render(
@@ -415,7 +414,7 @@ impl Renderer {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(color::f32_array_rgba_to_wgpu_color(
-                            self.imgui_params.borrow().clear_color,
+                            self.gui_params.borrow().clear_color,
                         )),
                         store: true,
                     },
@@ -465,7 +464,7 @@ impl Renderer {
         //             resolve_target: None,
         //             ops: wgpu::Operations {
         //                 load: wgpu::LoadOp::Clear(color::f32_array_rgba_to_wgpu_color(
-        //                     self.imgui_params.clear_color,
+        //                     self.gui_params.clear_color,
         //                 )),
         //                 store: true,
         //             },
@@ -503,21 +502,21 @@ impl Renderer {
                     rows_per_image: None,
                 },
             },
-            self.texture_extent,
+            self.frame_content_copy_dest.texture_extent,
         );
 
         let submission_index = self.queue.submit(Some(encoder.finish()));
 
-        // Draw imgui
+        // Draw GUI
 
-        if self.should_draw_imgui {
-            self.imgui.render(
+        if self.should_draw_gui {
+            self.gui.render(
                 &window,
                 &self.device,
                 &self.queue,
                 delta,
                 &view,
-                self.imgui_params.clone(),
+                self.gui_params.clone(),
             );
         }
 
@@ -595,10 +594,10 @@ impl Renderer {
         window: &winit::window::Window,
         event: &winit::event::Event<'a, T>,
     ) {
-        self.imgui.handle_event(window, event);
+        self.gui.handle_event(window, event);
     }
 
-    pub fn toggle_should_draw_imgui(&mut self) {
-        self.should_draw_imgui = !self.should_draw_imgui
+    pub fn toggle_should_draw_gui(&mut self) {
+        self.should_draw_gui = !self.should_draw_gui
     }
 }

@@ -41,8 +41,11 @@ const CLEAR_COLOR: wgpu::Color = wgpu::Color {
 pub async fn run() {
     env_logger::init();
     let event_loop = EventLoop::new();
+
     let window = WindowBuilder::new().build(&event_loop).unwrap();
+    window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
     window.set_title("Awesome application");
+
     let mut app = app::App::new(&window).await;
 
     event_loop.run(move |event, _, control_flow| {
@@ -71,6 +74,15 @@ pub async fn run() {
             Event::DeviceEvent {
                 event, device_id, ..
             } => {
+                if let DeviceEvent::Key(input) = event {
+                    if input.virtual_keycode.is_some()
+                        && input.virtual_keycode.unwrap() == VirtualKeyCode::Escape
+                    {
+                        *control_flow = ControlFlow::Exit;
+                        return;
+                    }
+                }
+
                 app.handle_device_event(&window, device_id, event);
             }
             _ => {}

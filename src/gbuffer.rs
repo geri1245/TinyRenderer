@@ -1,15 +1,22 @@
 use wgpu::{
-    BindGroup, Buffer, RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPipeline,
-    TextureFormat,
+    BindGroup, Buffer, RenderPass, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
+    RenderPipeline, TextureFormat,
 };
 
 use crate::{
     bind_group_layout_descriptors,
     buffer_content::BufferContent,
     instance,
-    model::Model,
+    model::{Mesh, Model},
     texture::{self, Texture},
     vertex,
+};
+
+const CLEAR_COLOR: wgpu::Color = wgpu::Color {
+    r: 0.0,
+    g: 0.0,
+    b: 0.0,
+    a: 0.0,
 };
 
 pub struct GBufferTextures {
@@ -163,78 +170,94 @@ impl GBuffer {
         self.bind_group = Self::create_bind_group(device, &self.textures);
     }
 
-    pub fn render(
-        &self,
+    pub fn render_model(
+        &mut self,
         encoder: &mut wgpu::CommandEncoder,
         model: &Model,
         camera_bind_group: &BindGroup,
         instances: usize,
         instance_buffer: &Buffer,
     ) {
-        let mut gbuffer_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        let mut render_pass = Self::create_render_pass(&self.textures, encoder);
+
+        render_pass.set_pipeline(&self.render_pipeline);
+        render_pass.set_bind_group(1, &camera_bind_group, &[]);
+        render_pass.set_vertex_buffer(1, instance_buffer.slice(..));
+
+        for mesh in &model.meshes {
+            self.render_mesh_internal(&mut render_pass, mesh, instances);
+        }
+    }
+
+    pub fn render_mesh(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        mesh: &Mesh,
+        camera_bind_group: &BindGroup,
+        instances: usize,
+        instance_buffer: &Buffer,
+    ) {
+        let mut render_pass = Self::create_render_pass(&self.textures, encoder);
+
+        render_pass.set_pipeline(&self.render_pipeline);
+        render_pass.set_bind_group(1, &camera_bind_group, &[]);
+        render_pass.set_vertex_buffer(1, instance_buffer.slice(..));
+
+        self.render_mesh_internal(&mut render_pass, mesh, instances);
+    }
+
+    fn render_mesh_internal<'a>(
+        &self,
+        render_pass: &mut RenderPass<'a>,
+        mesh: &'a Mesh,
+        instances: usize,
+    ) {
+        render_pass.set_bind_group(0, &mesh.material.as_ref().unwrap().bind_group, &[]);
+        render_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
+        render_pass.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+        render_pass.draw_indexed(0..mesh.index_count, 0, 0..instances as u32);
+    }
+
+    fn create_render_pass<'a>(
+        textures: &'a GBufferTextures,
+        encoder: &'a mut wgpu::CommandEncoder,
+    ) -> RenderPass<'a> {
+        encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("GBuffer pass"),
             color_attachments: &[
                 Some(RenderPassColorAttachment {
-                    view: &self.textures.position.view,
+                    view: &textures.position.view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.0,
-                            g: 0.0,
-                            b: 0.0,
-                            a: 0.0,
-                        }),
+                        load: wgpu::LoadOp::Clear(CLEAR_COLOR),
                         store: true,
                     },
                 }),
                 Some(RenderPassColorAttachment {
-                    view: &self.textures.normal.view,
+                    view: &textures.normal.view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.0,
-                            g: 0.0,
-                            b: 0.0,
-                            a: 0.0,
-                        }),
+                        load: wgpu::LoadOp::Clear(CLEAR_COLOR),
                         store: true,
                     },
                 }),
                 Some(RenderPassColorAttachment {
-                    view: &self.textures.albedo_and_specular.view,
+                    view: &textures.albedo_and_specular.view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.0,
-                            g: 0.0,
-                            b: 0.0,
-                            a: 0.0,
-                        }),
+                        load: wgpu::LoadOp::Clear(CLEAR_COLOR),
                         store: true,
                     },
                 }),
             ],
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                view: &self.textures.depth_texture.view,
+                view: &textures.depth_texture.view,
                 depth_ops: Some(wgpu::Operations {
                     load: wgpu::LoadOp::Clear(1.0),
                     store: true,
                 }),
                 stencil_ops: None,
             }),
-        });
-
-        gbuffer_pass.set_pipeline(&self.render_pipeline);
-
-        gbuffer_pass.set_bind_group(1, &camera_bind_group, &[]);
-
-        gbuffer_pass.set_vertex_buffer(1, instance_buffer.slice(..));
-
-        for mesh in &model.meshes {
-            gbuffer_pass.set_bind_group(0, &mesh.material.as_ref().unwrap().bind_group, &[]);
-            gbuffer_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
-            gbuffer_pass.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-            gbuffer_pass.draw_indexed(0..mesh.index_count, 0, 0..instances as u32);
-        }
+        })
     }
 }

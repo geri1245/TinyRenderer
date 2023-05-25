@@ -29,7 +29,7 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn new(aspect_ratio: f32, imgui_params: Rc<RefCell<GuiParams>>) -> Self {
+    pub fn new(aspect_ratio: f32, gui_params: Rc<RefCell<GuiParams>>) -> Self {
         let eye: Vec3 = Vec3::new(-12.0, 10.0, 0.0);
         let target: Vec3 = Vec3::new(0.0, 0.0, 0.0);
         let view_dir = (target - eye).normalize();
@@ -57,7 +57,7 @@ impl Camera {
             ),
             current_speed_positive: Vec3::ZERO,
             current_speed_negative: Vec3::ZERO,
-            gui_params: imgui_params,
+            gui_params,
         }
     }
 

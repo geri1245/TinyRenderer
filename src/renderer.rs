@@ -393,12 +393,20 @@ impl Renderer {
             &self.instance_buffer,
         );
 
-        self.gbuffer.render(
+        self.gbuffer.render_model(
             &mut encoder,
             &self.obj_model,
             &camera_controller.bind_group,
             self.instances.len(),
             &self.instance_buffer,
+        );
+
+        self.gbuffer.render_mesh(
+            &mut encoder,
+            &self.square,
+            &camera_controller.bind_group,
+            1,
+            &self.square_instance_buffer,
         );
 
         let output = self.surface.get_current_texture()?;

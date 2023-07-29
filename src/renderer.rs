@@ -8,6 +8,7 @@ use crate::{
     buffer_content::BufferContent,
     camera_controller::CameraController,
     color,
+    forward_pass::ForwardPass,
     gbuffer::GBuffer,
     gui::{Gui, GuiParams},
     instance::{self, Instance},
@@ -92,7 +93,7 @@ pub struct Renderer {
     surface: wgpu::Surface,
 
     render_pipeline: RenderPipeline,
-    light_render_pipeline: RenderPipeline,
+    forward_pass: ForwardPass,
     obj_model: Model,
     depth_texture: texture::Texture,
 
@@ -223,31 +224,6 @@ impl Renderer {
             &main_shader,
         );
 
-        let light_render_pipeline = {
-            let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Light Pipeline Layout"),
-                bind_group_layouts: &[
-                    &device.create_bind_group_layout(&bind_group_layout_descriptors::LIGHT),
-                    &device.create_bind_group_layout(&bind_group_layout_descriptors::CAMERA),
-                ],
-                push_constant_ranges: &[],
-            });
-            let light_shader_desc = wgpu::ShaderModuleDescriptor {
-                label: Some("Light Shader"),
-                source: wgpu::ShaderSource::Wgsl(include_str!("shaders/light.wgsl").into()),
-            };
-            let light_shader = device.create_shader_module(light_shader_desc);
-            RenderPipeline::new(
-                Some("Light render pipeline"),
-                &device,
-                &layout,
-                config.format,
-                Some(texture::Texture::DEPTH_FORMAT),
-                &[vertex::VertexRaw::buffer_layout()],
-                &light_shader,
-            )
-        };
-
         const SPACE_BETWEEN: f32 = 4.0;
         const SCALE: Vec3 = Vec3::new(1.0, 1.0, 1.0);
         let instances = (0..NUM_INSTANCES_PER_ROW)
@@ -329,6 +305,7 @@ impl Renderer {
         let skybox = skybox_pipeline::Skybox::new(&device, &queue, config.format);
 
         let gbuffer = GBuffer::new(&device, config.width, config.height);
+        let forward_pass = ForwardPass::new(&device, config.format);
 
         Renderer {
             surface,
@@ -337,7 +314,7 @@ impl Renderer {
             config,
             size,
             render_pipeline,
-            light_render_pipeline,
+            forward_pass,
             obj_model,
             depth_texture,
             instances,
@@ -393,21 +370,24 @@ impl Renderer {
             &self.instance_buffer,
         );
 
-        self.gbuffer.render_model(
-            &mut encoder,
-            &self.obj_model,
-            &camera_controller.bind_group,
-            self.instances.len(),
-            &self.instance_buffer,
-        );
+        {
+            let mut render_pass = self.gbuffer.begin_render(&mut encoder);
+            self.gbuffer.render_model(
+                &mut render_pass,
+                &self.obj_model,
+                &camera_controller.bind_group,
+                self.instances.len(),
+                &self.instance_buffer,
+            );
 
-        self.gbuffer.render_mesh(
-            &mut encoder,
-            &self.square,
-            &camera_controller.bind_group,
-            1,
-            &self.square_instance_buffer,
-        );
+            self.gbuffer.render_mesh(
+                &mut render_pass,
+                &self.square,
+                &camera_controller.bind_group,
+                1,
+                &self.square_instance_buffer,
+            );
+        }
 
         let output = self.surface.get_current_texture()?;
         let view = output

@@ -13,6 +13,7 @@ mod camera;
 mod camera_controller;
 mod color;
 mod drawable;
+mod forward_pass;
 mod frame_timer;
 mod gbuffer;
 mod gui;

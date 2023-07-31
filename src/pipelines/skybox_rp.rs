@@ -2,12 +2,12 @@ use std::borrow::Cow;
 
 use crate::{bind_group_layout_descriptors, camera_controller::CameraController, texture};
 
-pub struct Skybox {
+pub struct SkyboxRP {
     bind_group: wgpu::BindGroup,
     pipeline: wgpu::RenderPipeline,
 }
 
-impl Skybox {
+impl SkyboxRP {
     pub fn new(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
@@ -41,7 +41,7 @@ impl Skybox {
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Skybox shader"),
-            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shaders/skybox.wgsl"))),
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("../shaders/skybox.wgsl"))),
         });
 
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -79,7 +79,7 @@ impl Skybox {
             multiview: None,
         });
 
-        Skybox {
+        SkyboxRP {
             bind_group,
             pipeline,
         }

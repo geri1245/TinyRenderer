@@ -3,20 +3,18 @@ use crate::{
     light_controller::LightController, texture,
 };
 
-use super::render_pipeline;
-
-pub struct MainPass {
+pub struct MainRP {
     render_pipeline: wgpu::RenderPipeline,
 }
 
-impl MainPass {
+impl MainRP {
     pub fn new(device: &wgpu::Device, color_format: wgpu::TextureFormat) -> Self {
         let shader_desc = wgpu::ShaderModuleDescriptor {
             label: Some("GBuffer processing shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/gbuffer_pass.wgsl").into()),
         };
 
-        let main_shader = device.create_shader_module(shader_desc);
+        let shader = device.create_shader_module(shader_desc);
 
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -30,15 +28,40 @@ impl MainPass {
                 push_constant_ranges: &[],
             });
 
-        let render_pipeline = render_pipeline::new(
-            Some("Main render pipeline"),
-            &device,
-            &render_pipeline_layout,
-            color_format,
-            Some(texture::Texture::DEPTH_FORMAT),
-            &[],
-            &main_shader,
-        );
+        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Main render pipeline"),
+            layout: Some(&render_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: "vs_main",
+                buffers: &[],
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: "fs_main",
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: color_format,
+                    blend: Some(wgpu::BlendState {
+                        alpha: wgpu::BlendComponent::REPLACE,
+                        color: wgpu::BlendComponent::REPLACE,
+                    }),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+            }),
+            primitive: wgpu::PrimitiveState {
+                front_face: wgpu::FrontFace::Cw,
+                ..Default::default()
+            },
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: texture::Texture::DEPTH_FORMAT,
+                depth_write_enabled: false,
+                depth_compare: wgpu::CompareFunction::LessEqual,
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            }),
+            multisample: wgpu::MultisampleState::default(),
+            multiview: None,
+        });
 
         Self { render_pipeline }
     }
@@ -51,8 +74,6 @@ impl MainPass {
         gbuffer_bind_group: &'a wgpu::BindGroup,
         shadow_bind_group: &'a wgpu::BindGroup,
     ) {
-        render_pass.push_debug_group("Cubes rendering from GBuffer");
-
         render_pass.set_pipeline(&self.render_pipeline);
 
         render_pass.set_bind_group(1, &camera_controller.bind_group, &[]);
@@ -61,7 +82,5 @@ impl MainPass {
         render_pass.set_bind_group(3, shadow_bind_group, &[]);
 
         render_pass.draw(0..3, 0..1);
-
-        render_pass.pop_debug_group();
     }
 }

@@ -11,14 +11,14 @@ const SHADOW_SIZE: wgpu::Extent3d = wgpu::Extent3d {
     depth_or_array_layers: crate::renderer::MAX_LIGHTS as u32,
 };
 
-pub struct Shadow {
+pub struct ShadowRP {
     shadow_target_view: wgpu::TextureView,
     shadow_pipeline: wgpu::RenderPipeline,
     pub bind_group: wgpu::BindGroup,
 }
 
-impl Shadow {
-    pub fn new(device: &wgpu::Device) -> Shadow {
+impl ShadowRP {
+    pub fn new(device: &wgpu::Device) -> ShadowRP {
         let shadow_texture = Texture::create_depth_texture(
             device,
             SHADOW_SIZE.width,
@@ -54,7 +54,7 @@ impl Shadow {
             let shadow_shader_desc = wgpu::ShaderModuleDescriptor {
                 label: Some("Shadow bake shader"),
                 source: wgpu::ShaderSource::Wgsl(
-                    include_str!("shaders/shadow_bake_vert.wgsl").into(),
+                    include_str!("../shaders/shadow_bake_vert.wgsl").into(),
                 ),
             };
 
@@ -115,7 +115,7 @@ impl Shadow {
             label: None,
         });
 
-        Shadow {
+        ShadowRP {
             bind_group,
             shadow_pipeline,
             shadow_target_view,

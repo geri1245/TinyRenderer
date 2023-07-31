@@ -26,7 +26,7 @@ pub struct GBufferTextures {
     pub depth_texture: Texture,
 }
 
-pub struct GBuffer {
+pub struct GBufferGeometryRP {
     pub textures: GBufferTextures,
     render_pipeline: wgpu::RenderPipeline,
     pub bind_group: wgpu::BindGroup,
@@ -43,7 +43,7 @@ fn default_color_write_state(format: wgpu::TextureFormat) -> Option<wgpu::ColorT
     })
 }
 
-impl GBuffer {
+impl GBufferGeometryRP {
     fn create_pipeline(device: &wgpu::Device, textures: &GBufferTextures) -> RenderPipeline {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Geometry pass pipeline layout"),
@@ -56,7 +56,7 @@ impl GBuffer {
 
         let gbuffer_shader_desc = wgpu::ShaderModuleDescriptor {
             label: Some("Geometry pass shader desc"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/geometry_pass.wgsl").into()),
+            source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/geometry_pass.wgsl").into()),
         };
 
         let gbuffer_shader = device.create_shader_module(gbuffer_shader_desc);
@@ -158,7 +158,7 @@ impl GBuffer {
         let pipeline = Self::create_pipeline(device, &textures);
         let bind_group = Self::create_bind_group(device, &textures);
 
-        GBuffer {
+        Self {
             textures,
             render_pipeline: pipeline,
             bind_group,

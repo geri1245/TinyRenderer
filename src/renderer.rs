@@ -7,17 +7,11 @@ use crate::{
     bind_group_layout_descriptors,
     camera_controller::CameraController,
     color,
-    forward_pass::ForwardPass,
-    gbuffer::GBuffer,
     gui::{Gui, GuiParams},
     instance::{self, Instance},
     light_controller::LightController,
     model::{Material, Mesh, Model},
-    primitive_shapes,
-    render_pipeline::RenderPipeline,
-    resources,
-    shadow_pipeline::Shadow,
-    skybox_pipeline,
+    pipelines, primitive_shapes, resources,
     texture::{self, Texture},
 };
 
@@ -90,20 +84,19 @@ pub struct Renderer {
 
     surface: wgpu::Surface,
 
-    render_pipeline: RenderPipeline,
-    forward_pass: ForwardPass,
+    main_rp: pipelines::MainRP,
+    forward_rp: pipelines::ForwardRP,
+    skybox_rp: pipelines::SkyboxRP,
+    shadow_rp: pipelines::ShadowRP,
+    gbuffer_rp: pipelines::GBufferGeometryRP,
+
     obj_model: Model,
     depth_texture: texture::Texture,
-
-    skybox: skybox_pipeline::Skybox,
 
     instances: Vec<Instance>,
     instance_buffer: wgpu::Buffer,
 
     frame_content_copy_dest: OutputBuffer,
-
-    shadow: Shadow,
-    gbuffer: GBuffer,
 
     should_capture_frame_content: bool,
     should_draw_gui: bool,
@@ -191,37 +184,6 @@ impl Renderer {
             "depth_texture",
         );
 
-        let shader_desc = wgpu::ShaderModuleDescriptor {
-            label: Some("GBuffer processing shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/gbuffer_pass.wgsl").into()),
-        };
-
-        let shadow = crate::shadow_pipeline::Shadow::new(&device);
-
-        let main_shader = device.create_shader_module(shader_desc);
-
-        let render_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Main Render Pipeline Layout"),
-                bind_group_layouts: &[
-                    &device.create_bind_group_layout(&bind_group_layout_descriptors::LIGHT),
-                    &device.create_bind_group_layout(&bind_group_layout_descriptors::CAMERA),
-                    &device.create_bind_group_layout(&bind_group_layout_descriptors::GBUFFER),
-                    &device.create_bind_group_layout(&bind_group_layout_descriptors::DEPTH_TEXTURE),
-                ],
-                push_constant_ranges: &[],
-            });
-
-        let render_pipeline = RenderPipeline::new(
-            Some("Main render pipeline"),
-            &device,
-            &render_pipeline_layout,
-            config.format,
-            Some(texture::Texture::DEPTH_FORMAT),
-            &[],
-            &main_shader,
-        );
-
         const SPACE_BETWEEN: f32 = 4.0;
         const SCALE: Vec3 = Vec3::new(1.0, 1.0, 1.0);
         let instances = (0..NUM_INSTANCES_PER_ROW)
@@ -300,10 +262,11 @@ impl Renderer {
             usage: wgpu::BufferUsages::VERTEX,
         });
 
-        let skybox = skybox_pipeline::Skybox::new(&device, &queue, config.format);
-
-        let gbuffer = GBuffer::new(&device, config.width, config.height);
-        let forward_pass = ForwardPass::new(&device, config.format);
+        let main_rp = pipelines::MainRP::new(&device, config.format);
+        let skybox_rp = pipelines::SkyboxRP::new(&device, &queue, config.format);
+        let gbuffer_rp = pipelines::GBufferGeometryRP::new(&device, config.width, config.height);
+        let forward_rp = pipelines::ForwardRP::new(&device, config.format);
+        let shadow_rp = crate::pipelines::ShadowRP::new(&device);
 
         Renderer {
             surface,
@@ -311,8 +274,8 @@ impl Renderer {
             queue,
             config,
             size,
-            render_pipeline,
-            forward_pass,
+            main_rp,
+            forward_rp,
             obj_model,
             depth_texture,
             instances,
@@ -324,9 +287,9 @@ impl Renderer {
             square_instance_buffer,
             gui,
             gui_params,
-            shadow,
-            skybox,
-            gbuffer,
+            shadow_rp,
+            skybox_rp,
+            gbuffer_rp,
         }
     }
 
@@ -341,7 +304,7 @@ impl Renderer {
             self.config.height,
             "Depth texture",
         );
-        self.gbuffer
+        self.gbuffer_rp
             .resize(&self.device, new_size.width, new_size.height);
         self.frame_content_copy_dest =
             OutputBuffer::new(&self.device, new_size.width, new_size.height);
@@ -360,7 +323,7 @@ impl Renderer {
                 label: Some("Render Encoder"),
             });
 
-        self.shadow.render(
+        self.shadow_rp.render(
             &mut encoder,
             &self.obj_model,
             &light_controller.bind_group,
@@ -369,8 +332,8 @@ impl Renderer {
         );
 
         {
-            let mut render_pass = self.gbuffer.begin_render(&mut encoder);
-            self.gbuffer.render_model(
+            let mut render_pass = self.gbuffer_rp.begin_render(&mut encoder);
+            self.gbuffer_rp.render_model(
                 &mut render_pass,
                 &self.obj_model,
                 &camera_controller.bind_group,
@@ -378,7 +341,7 @@ impl Renderer {
                 &self.instance_buffer,
             );
 
-            self.gbuffer.render_mesh(
+            self.gbuffer_rp.render_mesh(
                 &mut render_pass,
                 &self.square,
                 &camera_controller.bind_group,
@@ -406,7 +369,7 @@ impl Renderer {
                     },
                 })],
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                    view: &self.gbuffer.textures.depth_texture.view,
+                    view: &self.gbuffer_rp.textures.depth_texture.view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Load,
                         store: false,
@@ -421,14 +384,13 @@ impl Renderer {
             {
                 render_pass.push_debug_group("Cubes rendering from GBuffer");
 
-                render_pass.set_pipeline(&self.render_pipeline.pipeline);
-
-                render_pass.set_bind_group(1, &camera_controller.bind_group, &[]);
-                render_pass.set_bind_group(0, &light_controller.bind_group, &[]);
-                render_pass.set_bind_group(2, &self.gbuffer.bind_group, &[]);
-                render_pass.set_bind_group(3, &self.shadow.bind_group, &[]);
-
-                render_pass.draw(0..3, 0..1);
+                self.main_rp.render(
+                    &mut render_pass,
+                    camera_controller,
+                    light_controller,
+                    &self.gbuffer_rp.bind_group,
+                    &self.shadow_rp.bind_group,
+                );
 
                 render_pass.pop_debug_group();
             }
@@ -436,7 +398,7 @@ impl Renderer {
             {
                 render_pass.push_debug_group("Skybox rendering");
 
-                self.skybox.render(&mut render_pass, camera_controller);
+                self.skybox_rp.render(&mut render_pass, camera_controller);
 
                 render_pass.pop_debug_group();
             }

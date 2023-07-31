@@ -10,11 +10,11 @@ use crate::{
     texture, vertex,
 };
 
-pub struct ForwardPass {
+pub struct ForwardRP {
     render_pipeline: wgpu::RenderPipeline,
 }
 
-impl ForwardPass {
+impl ForwardRP {
     pub fn new(device: &wgpu::Device, color_format: wgpu::TextureFormat) -> Self {
         let render_pipeline = {
             let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -28,7 +28,7 @@ impl ForwardPass {
             let shader = wgpu::ShaderModuleDescriptor {
                 label: Some("Light Shader"),
                 source: wgpu::ShaderSource::Wgsl(
-                    include_str!("shaders/forward_pass_with_color.wgsl").into(),
+                    include_str!("../shaders/forward_pass_with_color.wgsl").into(),
                 ),
             };
             let shader = device.create_shader_module(shader);
@@ -69,7 +69,7 @@ impl ForwardPass {
             })
         };
 
-        ForwardPass { render_pipeline }
+        ForwardRP { render_pipeline }
     }
 
     pub fn begin_render<'a>(

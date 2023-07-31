@@ -1,3 +1,4 @@
+./imgui_config.ini
 /target
 crates/*/target
 crates/*/cargo.lock

@@ -5,7 +5,6 @@ use wgpu::{util::DeviceExt, InstanceDescriptor, RenderPassDepthStencilAttachment
 
 use crate::{
     bind_group_layout_descriptors,
-    buffer_content::BufferContent,
     camera_controller::CameraController,
     color,
     forward_pass::ForwardPass,
@@ -20,7 +19,6 @@ use crate::{
     shadow_pipeline::Shadow,
     skybox_pipeline,
     texture::{self, Texture},
-    vertex,
 };
 
 pub const MAX_LIGHTS: usize = 10;

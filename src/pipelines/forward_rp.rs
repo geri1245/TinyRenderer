@@ -1,11 +1,9 @@
-use wgpu::{
-    BindGroup, Buffer, RenderPass, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
-    TextureView,
-};
+use wgpu::{BindGroup, Buffer, RenderPass};
 
 use crate::{
     bind_group_layout_descriptors,
     buffer_content::BufferContent,
+    instance,
     model::{Mesh, Model},
     texture, vertex,
 };
@@ -39,7 +37,10 @@ impl ForwardRP {
                 vertex: wgpu::VertexState {
                     module: &shader,
                     entry_point: "vs_main",
-                    buffers: &[vertex::VertexRaw::buffer_layout()],
+                    buffers: &[
+                        vertex::VertexRaw::buffer_layout(),
+                        instance::InstanceRaw::buffer_layout(),
+                    ],
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: &shader,
@@ -72,33 +73,6 @@ impl ForwardRP {
         ForwardRP { render_pipeline }
     }
 
-    pub fn begin_render<'a>(
-        &'a self,
-        encoder: &'a mut wgpu::CommandEncoder,
-        color_attachment: &'a TextureView,
-        depth_attachment: &'a TextureView,
-    ) -> RenderPass<'a> {
-        encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("GBuffer pass"),
-            color_attachments: &[Some(RenderPassColorAttachment {
-                view: color_attachment,
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Load,
-                    store: true,
-                },
-            })],
-            depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                view: depth_attachment,
-                depth_ops: Some(wgpu::Operations {
-                    load: wgpu::LoadOp::Load,
-                    store: true,
-                }),
-                stencil_ops: None,
-            }),
-        })
-    }
-
     pub fn render_model<'a>(
         &'a self,
         render_pass: &mut RenderPass<'a>,
@@ -119,7 +93,7 @@ impl ForwardRP {
         }
     }
 
-    pub fn render_mesh<'a>(
+    pub fn _render_mesh<'a>(
         &'a self,
         render_pass: &mut RenderPass<'a>,
         mesh: &'a Mesh,
@@ -156,7 +130,7 @@ impl ForwardRP {
         mesh: &'a Mesh,
         instances: usize,
     ) {
-        render_pass.set_bind_group(0, &mesh.material.as_ref().unwrap().bind_group, &[]);
+        // render_pass.set_bind_group(0, &mesh.material.as_ref().unwrap().bind_group, &[]);
         render_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
         render_pass.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
         render_pass.draw_indexed(0..mesh.index_count, 0, 0..instances as u32);

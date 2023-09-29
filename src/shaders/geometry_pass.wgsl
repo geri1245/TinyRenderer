@@ -1,9 +1,6 @@
 /// Renders into offscreen buffers:
 /// Fills up the GBuffer, doesn't do any lighting calculations
 
-@group(1) @binding(0)
-var<uniform> camera: CameraUniform;
-
 struct InstanceInput {
     @location(5) model_matrix_0: vec4<f32>,
     @location(6) model_matrix_1: vec4<f32>,
@@ -35,6 +32,9 @@ struct VertexOutput {
     @location(1) world_position: vec4<f32>,
     @location(2) tex_coord: vec2<f32>,
 };
+
+@group(1) @binding(0)
+var<uniform> camera: CameraUniform;
 
 @vertex
 fn vs_main(

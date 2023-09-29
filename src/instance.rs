@@ -38,6 +38,7 @@ impl BufferContent for InstanceRaw {
             step_mode: wgpu::VertexStepMode::Instance,
             // We pass matrices to the shader column-by-column. We will reassemble it in the shader
             attributes: &[
+                // Model matrix
                 wgpu::VertexAttribute {
                     offset: 0,
                     shader_location: 5,
@@ -58,6 +59,7 @@ impl BufferContent for InstanceRaw {
                     shader_location: 8,
                     format: wgpu::VertexFormat::Float32x4,
                 },
+                // Normal vectors
                 wgpu::VertexAttribute {
                     offset: mem::size_of::<[f32; 16]>() as wgpu::BufferAddress,
                     shader_location: 9,

@@ -378,9 +378,6 @@ impl Renderer {
                 }),
             });
 
-            // render_pass.set_vertex_buffer(1, self.square_instance_buffer.slice(..));
-            // self.square.draw_instanced(&mut render_pass, 0..1);
-
             {
                 render_pass.push_debug_group("Cubes rendering from GBuffer");
 
@@ -402,41 +399,21 @@ impl Renderer {
 
                 render_pass.pop_debug_group();
             }
+
+            {
+                render_pass.push_debug_group("Forward rendering light debug objects");
+                self.forward_rp.render_model(
+                    &mut render_pass,
+                    &self.obj_model,
+                    &camera_controller.bind_group,
+                    &light_controller.bind_group,
+                    1,
+                    &light_controller.light_instance_buffer,
+                );
+
+                render_pass.pop_debug_group();
+            }
         }
-
-        // {
-        //     let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-        //         label: Some("Forward Render Pass"),
-        //         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-        //             view: &view,
-        //             resolve_target: None,
-        //             ops: wgpu::Operations {
-        //                 load: wgpu::LoadOp::Clear(color::f32_array_rgba_to_wgpu_color(
-        //                     self.gui_params.clear_color,
-        //                 )),
-        //                 store: true,
-        //             },
-        //         })],
-        //         depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-        //             view: &self.gbuffer.depth_texture.view,
-        //             depth_ops: Some(wgpu::Operations {
-        //                 load: wgpu::LoadOp::Load,
-        //                 store: true,
-        //             }),
-        //             stencil_ops: None,
-        //         }),
-        //     });
-
-        //     render_pass.push_debug_group("Light rendering");
-        //     use crate::model::DrawLight;
-        //     render_pass.set_pipeline(&self.light_render_pipeline.pipeline);
-        //     render_pass.draw_light_model(
-        //         &self.obj_model,
-        //         &camera_controller.bind_group,
-        //         &light_controller.bind_group,
-        //     );
-        //     render_pass.pop_debug_group();
-        // }
 
         encoder.copy_texture_to_buffer(
             output.texture.as_image_copy(),

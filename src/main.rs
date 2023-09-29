@@ -18,6 +18,7 @@ mod instance;
 mod light_controller;
 mod model;
 mod pipelines;
+mod point_light;
 mod primitive_shapes;
 mod render_pipeline_layout;
 mod renderer;

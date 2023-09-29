@@ -30,44 +30,46 @@ var<uniform> light: Light;
 
 struct VertexInput {
     @location(0) position: vec3<f32>,
+    @location(1) tex_coord: vec2<f32>,
+    @location(2) normal: vec3<f32>,
 };
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
-    @location(0) color: vec3<f32>,
+    @location(0) normal: vec3<f32>,
+    @location(1) tex_coords: vec2<f32>,
 };
 
 @vertex
 fn vs_main(
     model: VertexInput,
-    // instance: InstanceInput,
+    instance: InstanceInput,
 ) -> VertexOutput {
-    // let model_matrix = mat4x4<f32>(
-    //     instance.model_matrix_0,
-    //     instance.model_matrix_1,
-    //     instance.model_matrix_2,
-    //     instance.model_matrix_3,
-    // );
+    let model_matrix = mat4x4<f32>(
+        instance.model_matrix_0,
+        instance.model_matrix_1,
+        instance.model_matrix_2,
+        instance.model_matrix_3,
+    );
 
-    // let normal_matrix = mat3x3<f32>(
-    //     instance.normal_matrix_0,
-    //     instance.normal_matrix_1,
-    //     instance.normal_matrix_2,
-    // );
+    let normal_matrix = mat3x3<f32>(
+        instance.normal_matrix_0,
+        instance.normal_matrix_1,
+        instance.normal_matrix_2,
+    );
 
-    let vertex_position = vec4<f32>(model.position + light.position, 1.0);
+    let vertex_position = vec4<f32>(model.position, 1.0);
 
     var out: VertexOutput;
-    // out.world_normal = normal_matrix * model.normal;
-    // out.world_position = model_matrix * vertex_position;
 
-    out.clip_position = camera.view_proj * vertex_position;
-    out.color = light.color;
+    out.clip_position = camera.view_proj * model_matrix * vertex_position;
+    out.normal = normal_matrix * model.normal;
+    out.tex_coords = model.tex_coord;
 
     return out;
 }
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    return vec4<f32>(in.color, 1.0);
+    return vec4<f32>(1.0, 1.0, 1.0, 1.0);
 }

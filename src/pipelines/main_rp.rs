@@ -11,7 +11,7 @@ impl MainRP {
     pub fn new(device: &wgpu::Device, color_format: wgpu::TextureFormat) -> Self {
         let shader_desc = wgpu::ShaderModuleDescriptor {
             label: Some("GBuffer processing shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/gbuffer_pass.wgsl").into()),
+            source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/main.wgsl").into()),
         };
 
         let shader = device.create_shader_module(shader_desc);

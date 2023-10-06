@@ -53,9 +53,7 @@ impl ShadowRP {
 
             let shadow_shader_desc = wgpu::ShaderModuleDescriptor {
                 label: Some("Shadow bake shader"),
-                source: wgpu::ShaderSource::Wgsl(
-                    include_str!("../shaders/shadow_bake_vert.wgsl").into(),
-                ),
+                source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/shadow.wgsl").into()),
             };
 
             let shadow_shader = device.create_shader_module(shadow_shader_desc);

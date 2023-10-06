@@ -56,7 +56,9 @@ impl GBufferGeometryRP {
 
         let gbuffer_shader_desc = wgpu::ShaderModuleDescriptor {
             label: Some("Geometry pass shader desc"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/geometry_pass.wgsl").into()),
+            source: wgpu::ShaderSource::Wgsl(
+                include_str!("../shaders/gbuffer_geometry.wgsl").into(),
+            ),
         };
 
         let gbuffer_shader = device.create_shader_module(gbuffer_shader_desc);

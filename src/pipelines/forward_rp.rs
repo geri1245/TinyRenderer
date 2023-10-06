@@ -25,9 +25,7 @@ impl ForwardRP {
             });
             let shader = wgpu::ShaderModuleDescriptor {
                 label: Some("Light Shader"),
-                source: wgpu::ShaderSource::Wgsl(
-                    include_str!("../shaders/forward_pass_with_color.wgsl").into(),
-                ),
+                source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/forward.wgsl").into()),
             };
             let shader = device.create_shader_module(shader);
 

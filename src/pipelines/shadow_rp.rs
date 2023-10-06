@@ -6,8 +6,8 @@ use crate::{
 };
 
 const SHADOW_SIZE: wgpu::Extent3d = wgpu::Extent3d {
-    width: 1024,
-    height: 1024,
+    width: 4096,
+    height: 4096,
     depth_or_array_layers: crate::renderer::MAX_LIGHTS as u32,
 };
 

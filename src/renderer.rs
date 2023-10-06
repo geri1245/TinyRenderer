@@ -1,22 +1,18 @@
 use async_std::task::block_on;
-use glam::{Quat, Vec3};
-use std::{cell::RefCell, f32::consts, fs::File, io::Write, rc::Rc, time::Duration};
-use wgpu::{util::DeviceExt, InstanceDescriptor, RenderPassDepthStencilAttachment};
+use std::{cell::RefCell, fs::File, io::Write, rc::Rc, time::Duration};
+use wgpu::{InstanceDescriptor, RenderPassDepthStencilAttachment};
 
 use crate::{
-    bind_group_layout_descriptors,
     camera_controller::CameraController,
     color,
     gui::{Gui, GuiParams},
-    instance::{self, Instance},
     light_controller::LightController,
-    model::{Material, Mesh, Model},
-    pipelines, primitive_shapes, resources,
+    pipelines,
     texture::{self, Texture},
+    world::World,
 };
 
 pub const MAX_LIGHTS: usize = 10;
-const NUM_INSTANCES_PER_ROW: u32 = 10;
 
 struct BufferDimensions {
     width: usize,
@@ -90,19 +86,12 @@ pub struct Renderer {
     shadow_rp: pipelines::ShadowRP,
     gbuffer_rp: pipelines::GBufferGeometryRP,
 
-    obj_model: Model,
     depth_texture: texture::Texture,
-
-    instances: Vec<Instance>,
-    instance_buffer: wgpu::Buffer,
 
     frame_content_copy_dest: OutputBuffer,
 
     should_capture_frame_content: bool,
     should_draw_gui: bool,
-
-    square: Mesh,
-    square_instance_buffer: wgpu::Buffer,
 
     gui: crate::gui::Gui,
     gui_params: Rc<RefCell<crate::gui::GuiParams>>,
@@ -172,95 +161,12 @@ impl Renderer {
 
         let gui = Gui::new(&window, &device, &queue, format);
 
-        let tree_texture_raw = include_bytes!("../assets/happy-tree.png");
-
-        let tree_texture =
-            texture::Texture::from_bytes(&device, &queue, tree_texture_raw, "treeTexture").unwrap();
-
         let depth_texture = texture::Texture::create_depth_texture(
             &device,
             config.width,
             config.height,
             "depth_texture",
         );
-
-        const SPACE_BETWEEN: f32 = 4.0;
-        const SCALE: Vec3 = Vec3::new(1.0, 1.0, 1.0);
-        let instances = (0..NUM_INSTANCES_PER_ROW)
-            .flat_map(|z| {
-                (0..NUM_INSTANCES_PER_ROW).map(move |x| {
-                    let x = SPACE_BETWEEN * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
-                    let z = SPACE_BETWEEN * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
-
-                    let position = Vec3 { x, y: 0.0, z };
-
-                    let rotation = if position == Vec3::ZERO {
-                        Quat::from_axis_angle(Vec3::Z, 0.0)
-                    } else {
-                        Quat::from_axis_angle(position.normalize(), consts::FRAC_PI_4)
-                    };
-
-                    Instance {
-                        position,
-                        rotation,
-                        scale: SCALE,
-                    }
-                })
-            })
-            .collect::<Vec<_>>();
-
-        let instance_data = instances
-            .iter()
-            .map(instance::Instance::to_raw)
-            .collect::<Vec<_>>();
-        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Instance Buffer"),
-            contents: bytemuck::cast_slice(&instance_data),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-
-        let obj_model = resources::load_model("cube.obj", &device, &queue)
-            .await
-            .unwrap();
-
-        let texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &device
-                .create_bind_group_layout(&bind_group_layout_descriptors::DIFFUSE_TEXTURE),
-            entries: &[
-                tree_texture.get_texture_bind_group_entry(0),
-                tree_texture.get_sampler_bind_group_entry(1),
-            ],
-            label: Some("diffuse_bind_group"),
-        });
-
-        let square_material = Some(Rc::new(Material {
-            name: "Tree texture material".into(),
-            diffuse_texture: tree_texture,
-            bind_group: texture_bind_group,
-        }));
-
-        let square = primitive_shapes::square(&device, square_material);
-
-        let square_instances = vec![Instance {
-            position: Vec3::new(0.0, -10.0, 0.0),
-            rotation: Quat::IDENTITY,
-            scale: 100.0_f32
-                * Vec3 {
-                    x: 1.0_f32,
-                    y: 1.0,
-                    z: 1.0,
-                },
-        }];
-
-        let square_instance_raw = square_instances
-            .iter()
-            .map(|instance| instance.to_raw())
-            .collect::<Vec<_>>();
-        let square_instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Square Instance Buffer"),
-            contents: bytemuck::cast_slice(&square_instance_raw),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
 
         let main_rp = pipelines::MainRP::new(&device, config.format);
         let skybox_rp = pipelines::SkyboxRP::new(&device, &queue, config.format);
@@ -276,15 +182,10 @@ impl Renderer {
             size,
             main_rp,
             forward_rp,
-            obj_model,
             depth_texture,
-            instances,
-            instance_buffer,
             frame_content_copy_dest: output_buffer,
             should_capture_frame_content: false,
             should_draw_gui: true,
-            square,
-            square_instance_buffer,
             gui,
             gui_params,
             shadow_rp,
@@ -315,6 +216,7 @@ impl Renderer {
         window: &winit::window::Window,
         camera_controller: &CameraController,
         light_controller: &LightController,
+        world: &World,
         delta: Duration,
     ) -> Result<(), wgpu::SurfaceError> {
         let mut encoder = self
@@ -325,28 +227,28 @@ impl Renderer {
 
         self.shadow_rp.render(
             &mut encoder,
-            &self.obj_model,
+            &world.obj_model,
             &light_controller.bind_group,
-            self.instances.len(),
-            &self.instance_buffer,
+            world.instances.len(),
+            &world.instance_buffer,
         );
 
         {
             let mut render_pass = self.gbuffer_rp.begin_render(&mut encoder);
             self.gbuffer_rp.render_model(
                 &mut render_pass,
-                &self.obj_model,
+                &world.obj_model,
                 &camera_controller.bind_group,
-                self.instances.len(),
-                &self.instance_buffer,
+                world.instances.len(),
+                &world.instance_buffer,
             );
 
             self.gbuffer_rp.render_mesh(
                 &mut render_pass,
-                &self.square,
+                &world.square,
                 &camera_controller.bind_group,
                 1,
-                &self.square_instance_buffer,
+                &world.square_instance_buffer,
             );
         }
 
@@ -404,7 +306,7 @@ impl Renderer {
                 render_pass.push_debug_group("Forward rendering light debug objects");
                 self.forward_rp.render_model(
                     &mut render_pass,
-                    &self.obj_model,
+                    &world.obj_model,
                     &camera_controller.bind_group,
                     &light_controller.bind_group,
                     1,

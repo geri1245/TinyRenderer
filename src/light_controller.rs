@@ -19,6 +19,7 @@ pub struct LightController {
     pub light: PointLight,
     pub uniform_buffer: wgpu::Buffer,
     pub bind_group: wgpu::BindGroup,
+    // Used for drawing the debug visualizations of the lights
     pub light_instance_buffer: wgpu::Buffer,
 }
 

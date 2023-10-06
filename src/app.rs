@@ -1,3 +1,4 @@
+use crate::world::World;
 use crate::{
     camera_controller::CameraController, frame_timer::FrameTimer, gui::GuiParams,
     light_controller::LightController, renderer::Renderer,
@@ -17,7 +18,7 @@ pub struct App {
     pub light_controller: LightController,
     pub frame_timer: FrameTimer,
     _gui_params: Rc<RefCell<GuiParams>>,
-    // world: World,
+    world: World,
 }
 
 impl App {
@@ -27,10 +28,9 @@ impl App {
         let renderer = Renderer::new(window, gui_params.clone()).await;
         let camera_controller = CameraController::new(&renderer, gui_params.clone());
         let light_controller = LightController::new(&renderer.device);
+        let world: World = World::new(&renderer).await;
 
         let frame_timer = FrameTimer::new();
-
-        // let world = World::new();
 
         Self {
             renderer,
@@ -38,7 +38,7 @@ impl App {
             light_controller,
             frame_timer,
             _gui_params: gui_params,
-            // world,
+            world,
         }
     }
 
@@ -113,6 +113,7 @@ impl App {
             window,
             &self.camera_controller,
             &self.light_controller,
+            &self.world,
             delta,
         )
     }

@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-winit = "0.27"
+winit = "0.29"
 env_logger = "0.9"
 log = "0.4"
 async-std = "1.12"
@@ -15,15 +15,14 @@ glam = "0.21"
 futures-intrusive = "0.4"
 png = "0.17"
 
-wgpu = "0.17"
-bytemuck = { version = "1.13", features = [ "derive" ] }
+wgpu = "0.18"
+bytemuck = { version = "1.14", features = [ "derive" ] }
 imgui = "0.11"
-
-imgui-winit-support = "0.11"
 
 tobj = { version = "3.2", features = ["async"]}
 
 imgui_wgpu = { path = "crates/imgui_wgpu" }
+imgui-winit-support = { path = "crates/imgui_winit_support" }
 
 [build-dependencies]
 anyhow = "1.0"

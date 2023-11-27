@@ -1,7 +1,8 @@
 use app::WindowEventHandlingResult;
 use winit::{
     event::*,
-    event_loop::{ControlFlow, EventLoop},
+    event_loop::EventLoop,
+    keyboard::{KeyCode, PhysicalKey},
     window::WindowBuilder,
 };
 
@@ -37,7 +38,7 @@ const CLEAR_COLOR: wgpu::Color = wgpu::Color {
 
 pub async fn run() {
     env_logger::init();
-    let event_loop = EventLoop::new();
+    let event_loop = EventLoop::new().unwrap();
 
     let window = WindowBuilder::new().build(&event_loop).unwrap();
     window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
@@ -45,37 +46,44 @@ pub async fn run() {
 
     let mut app = app::App::new(&window).await;
 
-    event_loop.run(move |event, _, control_flow| {
+    event_loop.run(move |event, control_flow| {
         app.handle_event(&window, &event);
 
         match event {
             Event::WindowEvent { event, window_id } if window_id == window.id() => {
+                match event {
+                    WindowEvent::Resized(newSize) => app.resize(newSize),
+                    WindowEvent::CloseRequested => control_flow.exit(),
+                    // WindowEvent::ScaleFactorChanged {
+                    //     scale_factor,
+                    //     inner_size_writer,
+                    // } => todo!(),
+                    WindowEvent::RedrawRequested => {
+                        match app.request_redraw(&window) {
+                            Ok(_) => (),
+                            // Reconfigure the surface if lost
+                            Err(wgpu::SurfaceError::Lost) => app.resize(app.renderer.size),
+                            // The system is out of memory, we should probably quit
+                            Err(wgpu::SurfaceError::OutOfMemory) => control_flow.exit(),
+                            // All other errors (Outdated, Timeout) should be resolved by the next frame
+                            Err(e) => eprintln!("{:?}", e),
+                        }
+                    }
+                    _ => {}
+                }
                 if let WindowEventHandlingResult::RequestExit = app.handle_window_event(event) {
-                    *control_flow = ControlFlow::Exit;
+                    control_flow.exit();
                 }
             }
-            Event::RedrawRequested(window_id) if window_id == window.id() => {
-                match app.request_redraw(&window) {
-                    Ok(_) => (),
-                    // Reconfigure the surface if lost
-                    Err(wgpu::SurfaceError::Lost) => app.resize(app.renderer.size),
-                    // The system is out of memory, we should probably quit
-                    Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
-                    // All other errors (Outdated, Timeout) should be resolved by the next frame
-                    Err(e) => eprintln!("{:?}", e),
-                }
-            }
-            Event::MainEventsCleared => {
+            Event::AboutToWait => {
                 window.request_redraw();
             }
             Event::DeviceEvent {
                 event, device_id, ..
             } => {
-                if let DeviceEvent::Key(input) = event {
-                    if input.virtual_keycode.is_some()
-                        && input.virtual_keycode.unwrap() == VirtualKeyCode::Escape
-                    {
-                        *control_flow = ControlFlow::Exit;
+                if let DeviceEvent::Key(ref input) = event {
+                    if input.physical_key == PhysicalKey::Code(KeyCode::Escape) {
+                        control_flow.exit();
                         return;
                     }
                 }

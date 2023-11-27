@@ -109,7 +109,7 @@ impl Renderer {
             backends: wgpu::Backends::DX12,
             ..Default::default()
         });
-        let surface = unsafe { instance.create_surface(window) }.unwrap();
+        let surface = instance.create_surface(window).unwrap();
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::default(),
@@ -260,6 +260,8 @@ impl Renderer {
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render pass that uses the GBuffer"),
+                timestamp_writes: None,
+                occlusion_query_set: None,
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &view,
                     resolve_target: None,
@@ -267,14 +269,14 @@ impl Renderer {
                         load: wgpu::LoadOp::Clear(color::f32_array_rgba_to_wgpu_color(
                             self.gui_params.borrow().clear_color,
                         )),
-                        store: true,
+                        store: wgpu::StoreOp::Store,
                     },
                 })],
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &self.gbuffer_rp.textures.depth_texture.view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Load,
-                        store: false,
+                        store: wgpu::StoreOp::Store,
                     }),
                     stencil_ops: None,
                 }),
@@ -416,10 +418,10 @@ impl Renderer {
         }
     }
 
-    pub fn handle_event<'a, T>(
+    pub fn handle_event<T>(
         &mut self,
         window: &winit::window::Window,
-        event: &winit::event::Event<'a, T>,
+        event: &winit::event::Event<T>,
     ) {
         self.gui.handle_event(window, event);
     }

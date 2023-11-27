@@ -4,7 +4,8 @@ use crate::{
     light_controller::LightController, renderer::Renderer,
 };
 use std::{cell::RefCell, rc::Rc, time::Duration};
-use winit::event::{DeviceEvent, ElementState, MouseButton, VirtualKeyCode, WindowEvent};
+use winit::event::{DeviceEvent, ElementState, MouseButton, WindowEvent};
+use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::Window;
 
 pub enum WindowEventHandlingResult {
@@ -53,7 +54,7 @@ impl App {
     pub fn handle_event<'a, T>(
         &mut self,
         window: &winit::window::Window,
-        event: &winit::event::Event<'a, T>,
+        event: &winit::event::Event<T>,
     ) {
         self.renderer.handle_event(window, event);
     }
@@ -79,9 +80,9 @@ impl App {
         match event {
             WindowEvent::CloseRequested => return WindowEventHandlingResult::RequestExit,
 
-            WindowEvent::KeyboardInput { input, .. } => {
-                if input.state == ElementState::Pressed
-                    && input.virtual_keycode == Some(VirtualKeyCode::F)
+            WindowEvent::KeyboardInput { event, .. } => {
+                if event.state == ElementState::Pressed
+                    && event.physical_key == PhysicalKey::Code(KeyCode::KeyF)
                 {
                     self.renderer.toggle_should_draw_gui();
                 }
@@ -90,8 +91,8 @@ impl App {
             WindowEvent::Resized(new_size) => {
                 self.resize(new_size);
             }
-            WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                self.resize(*new_inner_size);
+            WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
+                // self.resize(inner_size_writer); // TODO Handle scale factor change
             }
             WindowEvent::MouseInput { state, button, .. } if button == MouseButton::Right => {
                 self.camera_controller

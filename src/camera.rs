@@ -4,6 +4,7 @@ use std::f32::consts::PI;
 use std::rc::Rc;
 use std::time::Duration;
 use winit::event::*;
+use winit::keyboard::{KeyCode, PhysicalKey};
 
 use crate::gui::GuiParams;
 
@@ -83,30 +84,30 @@ impl Camera {
         self.aspect = aspect;
     }
 
-    fn handle_keyboard_event(&mut self, keyboard_event: &KeyboardInput) {
+    fn handle_keyboard_event(&mut self, keyboard_event: &RawKeyEvent) {
         match keyboard_event.state {
             ElementState::Pressed => {
-                if let Some(keycode) = keyboard_event.virtual_keycode {
+                if let PhysicalKey::Code(keycode) = keyboard_event.physical_key {
                     match keycode {
-                        VirtualKeyCode::W => self.current_speed_positive.z = 1.0,
-                        VirtualKeyCode::S => self.current_speed_negative.z = 1.0,
-                        VirtualKeyCode::A => self.current_speed_negative.x = 1.0,
-                        VirtualKeyCode::D => self.current_speed_positive.x = 1.0,
-                        VirtualKeyCode::Q => self.current_speed_positive.y = 1.0,
-                        VirtualKeyCode::E => self.current_speed_negative.y = 1.0,
+                        KeyCode::KeyW => self.current_speed_positive.z = 1.0,
+                        KeyCode::KeyS => self.current_speed_negative.z = 1.0,
+                        KeyCode::KeyA => self.current_speed_negative.x = 1.0,
+                        KeyCode::KeyD => self.current_speed_positive.x = 1.0,
+                        KeyCode::KeyQ => self.current_speed_positive.y = 1.0,
+                        KeyCode::KeyE => self.current_speed_negative.y = 1.0,
                         _ => (),
                     }
                 }
             }
             ElementState::Released => {
-                if let Some(keycode) = keyboard_event.virtual_keycode {
+                if let PhysicalKey::Code(keycode) = keyboard_event.physical_key {
                     match keycode {
-                        VirtualKeyCode::W => self.current_speed_positive.z = 0.0,
-                        VirtualKeyCode::S => self.current_speed_negative.z = 0.0,
-                        VirtualKeyCode::A => self.current_speed_negative.x = 0.0,
-                        VirtualKeyCode::D => self.current_speed_positive.x = 0.0,
-                        VirtualKeyCode::Q => self.current_speed_positive.y = 0.0,
-                        VirtualKeyCode::E => self.current_speed_negative.y = 0.0,
+                        KeyCode::KeyW => self.current_speed_positive.z = 0.0,
+                        KeyCode::KeyS => self.current_speed_negative.z = 0.0,
+                        KeyCode::KeyA => self.current_speed_negative.x = 0.0,
+                        KeyCode::KeyD => self.current_speed_positive.x = 0.0,
+                        KeyCode::KeyQ => self.current_speed_positive.y = 0.0,
+                        KeyCode::KeyE => self.current_speed_negative.y = 0.0,
                         _ => (),
                     }
                 }

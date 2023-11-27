@@ -207,7 +207,7 @@ impl GBufferGeometryRP {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(CLEAR_COLOR),
-                        store: true,
+                        store: wgpu::StoreOp::Store,
                     },
                 }),
                 Some(RenderPassColorAttachment {
@@ -215,7 +215,7 @@ impl GBufferGeometryRP {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(CLEAR_COLOR),
-                        store: true,
+                        store: wgpu::StoreOp::Store,
                     },
                 }),
                 Some(RenderPassColorAttachment {
@@ -223,7 +223,7 @@ impl GBufferGeometryRP {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(CLEAR_COLOR),
-                        store: true,
+                        store: wgpu::StoreOp::Store,
                     },
                 }),
             ],
@@ -231,10 +231,12 @@ impl GBufferGeometryRP {
                 view: &self.textures.depth_texture.view,
                 depth_ops: Some(wgpu::Operations {
                     load: wgpu::LoadOp::Clear(1.0),
-                    store: true,
+                    store: wgpu::StoreOp::Store,
                 }),
                 stencil_ops: None,
             }),
+            timestamp_writes: None,
+            occlusion_query_set: None,
         })
     }
 

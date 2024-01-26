@@ -91,9 +91,9 @@ impl App {
             WindowEvent::Resized(new_size) => {
                 self.resize(new_size);
             }
-            WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
-                // self.resize(inner_size_writer); // TODO Handle scale factor change
-            }
+            // WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
+            // self.resize(); // TODO Handle scale factor change
+            // }
             WindowEvent::MouseInput { state, button, .. } if button == MouseButton::Right => {
                 self.camera_controller
                     .set_is_movement_enabled(state == ElementState::Pressed);

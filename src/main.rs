@@ -25,6 +25,7 @@ mod render_pipeline_layout;
 mod renderer;
 mod resource_map;
 mod resources;
+mod skybox;
 mod texture;
 mod vertex;
 mod world;

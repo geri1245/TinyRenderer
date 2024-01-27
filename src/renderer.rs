@@ -82,7 +82,6 @@ pub struct Renderer {
 
     main_rp: pipelines::MainRP,
     forward_rp: pipelines::ForwardRP,
-    skybox_rp: pipelines::SkyboxRP,
     shadow_rp: pipelines::ShadowRP,
     gbuffer_rp: pipelines::GBufferGeometryRP,
 
@@ -174,7 +173,6 @@ impl Renderer {
         );
 
         let main_rp = pipelines::MainRP::new(&device, config.format);
-        let skybox_rp = pipelines::SkyboxRP::new(&device, &queue, config.format);
         let gbuffer_rp = pipelines::GBufferGeometryRP::new(&device, config.width, config.height);
         let forward_rp = pipelines::ForwardRP::new(&device, config.format);
         let shadow_rp = crate::pipelines::ShadowRP::new(&device);
@@ -194,7 +192,6 @@ impl Renderer {
             gui,
             gui_params,
             shadow_rp,
-            skybox_rp,
             gbuffer_rp,
         }
     }
@@ -297,14 +294,6 @@ impl Renderer {
                     &self.gbuffer_rp.bind_group,
                     &self.shadow_rp.bind_group,
                 );
-
-                render_pass.pop_debug_group();
-            }
-
-            {
-                render_pass.push_debug_group("Skybox rendering");
-
-                self.skybox_rp.render(&mut render_pass, camera_controller);
 
                 render_pass.pop_debug_group();
             }

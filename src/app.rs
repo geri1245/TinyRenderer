@@ -15,8 +15,6 @@ pub enum WindowEventHandlingResult {
 
 pub struct App {
     pub renderer: Renderer,
-    pub camera_controller: CameraController,
-    pub light_controller: LightController,
     pub frame_timer: FrameTimer,
     _gui_params: Rc<RefCell<GuiParams>>,
     world: World,
@@ -27,16 +25,13 @@ impl App {
         let gui_params = Rc::new(RefCell::new(GuiParams::new()));
 
         let renderer = Renderer::new(window, gui_params.clone()).await;
-        let camera_controller = CameraController::new(&renderer, gui_params.clone());
-        let light_controller = LightController::new(&renderer.device);
-        let world: World = World::new(&renderer).await;
+
+        let world: World = World::new(&renderer, gui_params.clone()).await;
 
         let frame_timer = FrameTimer::new();
 
         Self {
             renderer,
-            camera_controller,
-            light_controller,
             frame_timer,
             _gui_params: gui_params,
             world,
@@ -46,8 +41,8 @@ impl App {
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         if new_size.width > 0 && new_size.height > 0 && new_size != self.renderer.size {
             self.renderer.resize(new_size);
-            self.camera_controller
-                .resize(new_size.width as f32 / new_size.height as f32)
+            self.world
+                .resize_main_camera(new_size.width as f32 / new_size.height as f32);
         }
     }
 
@@ -73,7 +68,7 @@ impl App {
             },
         );
 
-        self.camera_controller.process_device_events(event);
+        self.world.camera_controller.process_device_events(event);
     }
 
     pub fn handle_window_event(&mut self, event: WindowEvent) -> WindowEventHandlingResult {
@@ -95,7 +90,8 @@ impl App {
             // self.resize(); // TODO Handle scale factor change
             // }
             WindowEvent::MouseInput { state, button, .. } if button == MouseButton::Right => {
-                self.camera_controller
+                self.world
+                    .camera_controller
                     .set_is_movement_enabled(state == ElementState::Pressed);
             }
             _ => {}
@@ -110,18 +106,18 @@ impl App {
     ) -> Result<(), wgpu::SurfaceError> {
         let delta = self.frame_timer.get_delta_and_reset_timer();
         self.update(delta);
+
+        self.world.render(&self.renderer);
         self.renderer.render(
             window,
-            &self.camera_controller,
-            &self.light_controller,
+            &self.world.camera_controller,
+            &self.world.light_controller,
             &self.world,
             delta,
         )
     }
 
     pub fn update(&mut self, delta: Duration) {
-        self.camera_controller.update(delta, &self.renderer.queue);
-
-        self.light_controller.update(delta, &self.renderer.queue);
+        self.world.update(delta, &self.renderer.queue);
     }
 }

@@ -1,15 +1,20 @@
-use std::{f32::consts, rc::Rc};
+use std::{cell::RefCell, f32::consts, rc::Rc, time};
 
 use glam::{Quat, Vec3};
-use wgpu::util::DeviceExt;
+use wgpu::{util::DeviceExt, RenderPass};
 
 use crate::{
     bind_group_layout_descriptors,
+    camera_controller::CameraController,
+    gui::GuiParams,
     instance::{self, Instance},
+    light_controller::LightController,
     model::{Material, Mesh, Model},
     primitive_shapes,
     renderer::Renderer,
-    resources, texture,
+    resources,
+    skybox::Skybox,
+    texture,
 };
 
 const NUM_INSTANCES_PER_ROW: u32 = 10;
@@ -20,10 +25,14 @@ pub struct World {
     pub instance_buffer: wgpu::Buffer,
     pub square: Mesh,
     pub square_instance_buffer: wgpu::Buffer,
+    pub skybox: Skybox,
+    pub camera_controller: CameraController,
+    pub light_controller: LightController,
+    pub gui_params: Rc<RefCell<GuiParams>>,
 }
 
 impl World {
-    pub async fn new(renderer: &Renderer) -> Self {
+    pub async fn new(renderer: &Renderer, gui_params: Rc<RefCell<GuiParams>>) -> Self {
         let tree_texture_raw = include_bytes!("../assets/happy-tree.png");
 
         let tree_texture = texture::Texture::from_bytes(
@@ -120,12 +129,35 @@ impl World {
                     usage: wgpu::BufferUsages::VERTEX,
                 });
 
+        let skybox = Skybox::new(&renderer);
+
+        let camera_controller = CameraController::new(&renderer, gui_params.clone());
+        let light_controller = LightController::new(&renderer.device);
+
         World {
             obj_model,
             instances,
             instance_buffer,
             square,
             square_instance_buffer,
+            skybox,
+            camera_controller,
+            light_controller,
+            gui_params,
         }
+    }
+
+    pub fn render(&self, renderer: &Renderer) {
+        // self.skybox.render(render_pass, &self.camera_controller)
+    }
+
+    pub fn resize_main_camera(&mut self, aspect_ratio: f32) {
+        self.camera_controller.resize(aspect_ratio);
+    }
+
+    pub fn update(&mut self, delta_time: time::Duration, render_queue: &wgpu::Queue) {
+        self.camera_controller.update(delta_time, &render_queue);
+
+        self.light_controller.update(delta_time, &render_queue);
     }
 }

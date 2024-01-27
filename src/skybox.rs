@@ -18,10 +18,10 @@ impl Skybox {
         Skybox { skybox_rp }
     }
 
-    pub fn render<'a>(
-        &'a self,
-        render_pass: &'a mut RenderPass<'a>,
-        camera_controller: &'a CameraController,
+    pub fn render<'a, 'b: 'a>(
+        &'b self,
+        render_pass: &mut RenderPass<'a>,
+        camera_controller: &'b CameraController,
     ) {
         render_pass.push_debug_group("Skybox rendering");
         self.skybox_rp.render(render_pass, camera_controller);

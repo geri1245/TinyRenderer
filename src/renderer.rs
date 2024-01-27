@@ -1,13 +1,14 @@
-use async_std::task::block_on;
-use std::{cell::RefCell, fs::File, io::Write, rc::Rc, time::Duration};
-use wgpu::{InstanceDescriptor, RenderPassDepthStencilAttachment};
+use std::{fs::File, io::Write, time::Duration};
+use wgpu::{
+    CommandEncoder, InstanceDescriptor, RenderPass, RenderPassDepthStencilAttachment,
+    SurfaceTexture, TextureFormat,
+};
 
 use crate::{
     camera_controller::CameraController,
     color,
-    gui::{Gui, GuiParams},
+    gui::GUI_PARAMS,
     light_controller::LightController,
-    pipelines,
     texture::{self, Texture},
     world::World,
 };
@@ -77,13 +78,9 @@ pub struct Renderer {
     pub queue: wgpu::Queue,
     pub config: wgpu::SurfaceConfiguration,
     pub size: winit::dpi::PhysicalSize<u32>,
+    pub surface_texture_format: TextureFormat,
 
     surface: wgpu::Surface<'static>,
-
-    main_rp: pipelines::MainRP,
-    forward_rp: pipelines::ForwardRP,
-    shadow_rp: pipelines::ShadowRP,
-    gbuffer_rp: pipelines::GBufferGeometryRP,
 
     depth_texture: texture::Texture,
 
@@ -91,16 +88,10 @@ pub struct Renderer {
 
     should_capture_frame_content: bool,
     should_draw_gui: bool,
-
-    gui: crate::gui::Gui,
-    gui_params: Rc<RefCell<crate::gui::GuiParams>>,
 }
 
 impl Renderer {
-    pub async fn new(
-        window: &winit::window::Window,
-        gui_params: Rc<RefCell<GuiParams>>,
-    ) -> Renderer {
+    pub async fn new(window: &winit::window::Window) -> Renderer {
         let size = window.inner_size();
 
         // Backends::all => Vulkan + Metal + DX12 + Browser WebGPU
@@ -147,11 +138,11 @@ impl Renderer {
             .unwrap();
 
         let surface_capabilities = surface.get_capabilities(&adapter);
-        let format = surface_capabilities.formats[0];
+        let surface_texture_format = surface_capabilities.formats[0];
 
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
-            format,
+            format: surface_texture_format,
             width: size.width,
             height: size.height,
             present_mode: wgpu::PresentMode::Fifo,
@@ -163,8 +154,6 @@ impl Renderer {
 
         let output_buffer = OutputBuffer::new(&device, config.width, config.height);
 
-        let gui = Gui::new(&window, &device, &queue, format);
-
         let depth_texture = texture::Texture::create_depth_texture(
             &device,
             config.width,
@@ -172,27 +161,17 @@ impl Renderer {
             "depth_texture",
         );
 
-        let main_rp = pipelines::MainRP::new(&device, config.format);
-        let gbuffer_rp = pipelines::GBufferGeometryRP::new(&device, config.width, config.height);
-        let forward_rp = pipelines::ForwardRP::new(&device, config.format);
-        let shadow_rp = crate::pipelines::ShadowRP::new(&device);
-
         Renderer {
             surface,
             device,
             queue,
             config,
             size,
-            main_rp,
-            forward_rp,
             depth_texture,
             frame_content_copy_dest: output_buffer,
             should_capture_frame_content: false,
             should_draw_gui: true,
-            gui,
-            gui_params,
-            shadow_rp,
-            gbuffer_rp,
+            surface_texture_format,
         }
     }
 
@@ -207,10 +186,56 @@ impl Renderer {
             self.config.height,
             "Depth texture",
         );
-        self.gbuffer_rp
-            .resize(&self.device, new_size.width, new_size.height);
         self.frame_content_copy_dest =
             OutputBuffer::new(&self.device, new_size.width, new_size.height);
+    }
+
+    pub fn begin_frame(&self) -> CommandEncoder {
+        self.device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Render Encoder"),
+            })
+    }
+
+    pub fn get_current_frame_texture(&self) -> Result<SurfaceTexture, wgpu::SurfaceError> {
+        self.surface.get_current_texture()
+    }
+
+    pub fn end_frame(&self, encoder: CommandEncoder, output_frame_content: SurfaceTexture) {
+        let submission_index = self.queue.submit(Some(encoder.finish()));
+
+        output_frame_content.present();
+    }
+
+    pub fn begin_main_render_pass<'a>(
+        &'a self,
+        encoder: &'a mut CommandEncoder,
+        view: &'a wgpu::TextureView,
+        depth_texture_view: &'a wgpu::TextureView,
+    ) -> RenderPass<'a> {
+        encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("Render pass that uses the GBuffer"),
+            timestamp_writes: None,
+            occlusion_query_set: None,
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(color::f32_array_rgba_to_wgpu_color(
+                        GUI_PARAMS.clear_color,
+                    )),
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                view: depth_texture_view,
+                depth_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Load,
+                    store: wgpu::StoreOp::Store,
+                }),
+                stencil_ops: None,
+            }),
+        })
     }
 
     pub fn render(
@@ -221,135 +246,39 @@ impl Renderer {
         world: &World,
         delta: Duration,
     ) -> Result<(), wgpu::SurfaceError> {
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Render Encoder"),
-            });
-
-        self.shadow_rp.render(
-            &mut encoder,
-            &world.obj_model,
-            &light_controller.bind_group,
-            world.instances.len(),
-            &world.instance_buffer,
-        );
-
-        {
-            let mut render_pass = self.gbuffer_rp.begin_render(&mut encoder);
-            self.gbuffer_rp.render_model(
-                &mut render_pass,
-                &world.obj_model,
-                &camera_controller.bind_group,
-                world.instances.len(),
-                &world.instance_buffer,
-            );
-
-            self.gbuffer_rp.render_mesh(
-                &mut render_pass,
-                &world.square,
-                &camera_controller.bind_group,
-                1,
-                &world.square_instance_buffer,
-            );
-        }
-
-        let output = self.surface.get_current_texture()?;
-        let view = output
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
-
-        {
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Render pass that uses the GBuffer"),
-                timestamp_writes: None,
-                occlusion_query_set: None,
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(color::f32_array_rgba_to_wgpu_color(
-                            self.gui_params.borrow().clear_color,
-                        )),
-                        store: wgpu::StoreOp::Store,
-                    },
-                })],
-                depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                    view: &self.gbuffer_rp.textures.depth_texture.view,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Load,
-                        store: wgpu::StoreOp::Store,
-                    }),
-                    stencil_ops: None,
-                }),
-            });
-
-            {
-                render_pass.push_debug_group("Cubes rendering from GBuffer");
-
-                self.main_rp.render(
-                    &mut render_pass,
-                    camera_controller,
-                    light_controller,
-                    &self.gbuffer_rp.bind_group,
-                    &self.shadow_rp.bind_group,
-                );
-
-                render_pass.pop_debug_group();
-            }
-
-            {
-                render_pass.push_debug_group("Forward rendering light debug objects");
-                self.forward_rp.render_model(
-                    &mut render_pass,
-                    &world.obj_model,
-                    &camera_controller.bind_group,
-                    &light_controller.bind_group,
-                    1,
-                    &light_controller.light_instance_buffer,
-                );
-
-                render_pass.pop_debug_group();
-            }
-        }
-
-        encoder.copy_texture_to_buffer(
-            output.texture.as_image_copy(),
-            wgpu::ImageCopyBuffer {
-                buffer: &self.frame_content_copy_dest.buffer,
-                layout: wgpu::ImageDataLayout {
-                    offset: 0,
-                    bytes_per_row: Some(
-                        self.frame_content_copy_dest.dimensions.padded_bytes_per_row as u32,
-                    ),
-                    rows_per_image: None,
-                },
-            },
-            self.frame_content_copy_dest.texture_extent,
-        );
-
-        let submission_index = self.queue.submit(Some(encoder.finish()));
+        // encoder.copy_texture_to_buffer(
+        //     output.texture.as_image_copy(),
+        //     wgpu::ImageCopyBuffer {
+        //         buffer: &self.frame_content_copy_dest.buffer,
+        //         layout: wgpu::ImageDataLayout {
+        //             offset: 0,
+        //             bytes_per_row: Some(
+        //                 self.frame_content_copy_dest.dimensions.padded_bytes_per_row as u32,
+        //             ),
+        //             rows_per_image: None,
+        //         },
+        //     },
+        //     self.frame_content_copy_dest.texture_extent,
+        // );
 
         // Draw GUI
 
-        if self.should_draw_gui {
-            self.gui.render(
-                &window,
-                &self.device,
-                &self.queue,
-                delta,
-                &view,
-                self.gui_params.clone(),
-            );
-        }
+        // if self.should_draw_gui {
+        //     self.gui.render(
+        //         &window,
+        //         &self.device,
+        //         &self.queue,
+        //         delta,
+        //         &view,
+        //         self.gui_params.clone(),
+        //     );
+        // }
 
-        output.present();
-
-        if self.should_capture_frame_content {
-            self.should_capture_frame_content = false;
-            let future = self.create_png("./frame.png", submission_index);
-            block_on(future);
-        }
+        // if self.should_capture_frame_content {
+        //     self.should_capture_frame_content = false;
+        //     let future = self.create_png("./frame.png", submission_index);
+        //     block_on(future);
+        // }
 
         Ok(())
     }
@@ -410,14 +339,6 @@ impl Renderer {
 
             self.frame_content_copy_dest.buffer.unmap();
         }
-    }
-
-    pub fn handle_event<T>(
-        &mut self,
-        window: &winit::window::Window,
-        event: &winit::event::Event<T>,
-    ) {
-        self.gui.handle_event(window, event);
     }
 
     pub fn toggle_should_draw_gui(&mut self) {

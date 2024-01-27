@@ -23,6 +23,7 @@ pub struct Mesh {
 }
 
 impl BasicRenderable for Mesh {
+    // pub fn render(&self, renderer: &Renderer) {}
     fn get_vertex_buffer(&self) -> &wgpu::Buffer {
         &self.vertex_buffer
     }

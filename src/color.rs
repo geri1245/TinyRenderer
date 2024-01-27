@@ -1,4 +1,4 @@
-pub fn wgpu_color_to_f32_array_rgba(color: wgpu::Color) -> [f32; 4] {
+pub const fn wgpu_color_to_f32_array_rgba(color: wgpu::Color) -> [f32; 4] {
     [
         color.r as f32,
         color.g as f32,
@@ -7,7 +7,7 @@ pub fn wgpu_color_to_f32_array_rgba(color: wgpu::Color) -> [f32; 4] {
     ]
 }
 
-pub fn f32_array_rgba_to_wgpu_color(color_array: [f32; 4]) -> wgpu::Color {
+pub const fn f32_array_rgba_to_wgpu_color(color_array: [f32; 4]) -> wgpu::Color {
     wgpu::Color {
         r: color_array[0] as f64,
         g: color_array[1] as f64,

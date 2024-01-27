@@ -1,15 +1,15 @@
-use std::{cell::RefCell, f32::consts, rc::Rc, time};
+use std::{f32::consts, rc::Rc, time};
 
 use glam::{Quat, Vec3};
-use wgpu::{util::DeviceExt, RenderPass};
+use wgpu::util::DeviceExt;
 
 use crate::{
     bind_group_layout_descriptors,
     camera_controller::CameraController,
-    gui::GuiParams,
     instance::{self, Instance},
     light_controller::LightController,
     model::{Material, Mesh, Model},
+    pipelines::{self, MainRP},
     primitive_shapes,
     renderer::Renderer,
     resources,
@@ -28,11 +28,13 @@ pub struct World {
     pub skybox: Skybox,
     pub camera_controller: CameraController,
     pub light_controller: LightController,
-    pub gui_params: Rc<RefCell<GuiParams>>,
+    main_rp: MainRP,
+    forward_rp: pipelines::ForwardRP,
+    gbuffer_rp: pipelines::GBufferGeometryRP,
 }
 
 impl World {
-    pub async fn new(renderer: &Renderer, gui_params: Rc<RefCell<GuiParams>>) -> Self {
+    pub async fn new(renderer: &Renderer) -> Self {
         let tree_texture_raw = include_bytes!("../assets/happy-tree.png");
 
         let tree_texture = texture::Texture::from_bytes(
@@ -131,8 +133,16 @@ impl World {
 
         let skybox = Skybox::new(&renderer);
 
-        let camera_controller = CameraController::new(&renderer, gui_params.clone());
+        let camera_controller = CameraController::new(&renderer);
         let light_controller = LightController::new(&renderer.device);
+
+        let main_rp = pipelines::MainRP::new(&renderer.device, renderer.config.format);
+        let gbuffer_rp = pipelines::GBufferGeometryRP::new(
+            &renderer.device,
+            renderer.config.width,
+            renderer.config.height,
+        );
+        let forward_rp = pipelines::ForwardRP::new(&renderer.device, renderer.config.format);
 
         World {
             obj_model,
@@ -143,16 +153,96 @@ impl World {
             skybox,
             camera_controller,
             light_controller,
-            gui_params,
+            main_rp,
+            gbuffer_rp,
+            forward_rp,
         }
     }
 
-    pub fn render(&self, renderer: &Renderer) {
-        // self.skybox.render(render_pass, &self.camera_controller)
+    pub fn render(&self, renderer: &Renderer) -> Result<(), wgpu::SurfaceError> {
+        let mut encoder = renderer.begin_frame();
+        let current_frame_texture = renderer.get_current_frame_texture()?;
+
+        {
+            let current_frame_texture_view = current_frame_texture
+                .texture
+                .create_view(&wgpu::TextureViewDescriptor::default());
+
+            self.light_controller.shadow_rp.render(
+                &mut encoder,
+                &self.obj_model,
+                &self.light_controller.bind_group,
+                self.instances.len(),
+                &self.instance_buffer,
+            );
+
+            {
+                let mut render_pass = self.gbuffer_rp.begin_render(&mut encoder);
+                self.gbuffer_rp.render_model(
+                    &mut render_pass,
+                    &self.obj_model,
+                    &self.camera_controller.bind_group,
+                    self.instances.len(),
+                    &self.instance_buffer,
+                );
+
+                self.gbuffer_rp.render_mesh(
+                    &mut render_pass,
+                    &self.square,
+                    &self.camera_controller.bind_group,
+                    1,
+                    &self.square_instance_buffer,
+                );
+            }
+
+            let mut render_pass = renderer.begin_main_render_pass(
+                &mut encoder,
+                &current_frame_texture_view,
+                &self.gbuffer_rp.textures.depth_texture.view,
+            );
+
+            // Lighting calculations from
+            {
+                render_pass.push_debug_group("Cubes rendering from GBuffer");
+
+                self.main_rp.render(
+                    &mut render_pass,
+                    &self.camera_controller,
+                    &self.light_controller,
+                    &self.gbuffer_rp.bind_group,
+                    &self.light_controller.shadow_rp.bind_group,
+                );
+
+                render_pass.pop_debug_group();
+            }
+
+            {
+                render_pass.push_debug_group("Forward rendering light debug objects");
+                self.forward_rp.render_model(
+                    &mut render_pass,
+                    &self.obj_model,
+                    &self.camera_controller.bind_group,
+                    &self.light_controller.bind_group,
+                    1,
+                    &self.light_controller.light_instance_buffer,
+                );
+
+                render_pass.pop_debug_group();
+            }
+
+            self.skybox
+                .render(&mut render_pass, &self.camera_controller);
+        }
+
+        renderer.end_frame(encoder, current_frame_texture);
+
+        Ok(())
     }
 
-    pub fn resize_main_camera(&mut self, aspect_ratio: f32) {
-        self.camera_controller.resize(aspect_ratio);
+    pub fn resize_main_camera(&mut self, renderer: &Renderer, width: u32, height: u32) {
+        self.gbuffer_rp.resize(&renderer.device, width, height);
+
+        self.camera_controller.resize(width as f32 / height as f32);
     }
 
     pub fn update(&mut self, delta_time: time::Duration, render_queue: &wgpu::Queue) {

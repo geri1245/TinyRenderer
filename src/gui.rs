@@ -6,6 +6,12 @@ use imgui_winit_support::WinitPlatform;
 
 use crate::color;
 
+pub static GUI_PARAMS: GuiParams = GuiParams {
+    clear_color: color::wgpu_color_to_f32_array_rgba(crate::CLEAR_COLOR),
+    fov_x: 90.0,
+    fov_y: 45.0,
+};
+
 #[derive(Default)]
 pub struct GuiParams {
     pub clear_color: [f32; 4],
@@ -102,8 +108,8 @@ impl Gui {
                 .build(|| {
                     ui.text("Hello world!");
                     ui.separator();
-                    ui.slider("FOV (vertical)", 40.0, 50.0, &mut params.borrow_mut().fov_x);
-                    ui.color_picker4("Clear color", &mut params.borrow_mut().clear_color);
+                    // ui.slider("FOV (vertical)", 40.0, 50.0, &mut GUI_PARAMS.fov_x);
+                    // ui.color_picker4("Clear color", &mut GUI_PARAMS.clear_color);
                 });
 
             ui.show_demo_window(&mut self.is_ui_open);

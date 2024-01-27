@@ -1,9 +1,9 @@
 use glam::{Mat4, Vec4};
-use std::{cell::RefCell, rc::Rc, time};
+use std::time;
 use wgpu::util::DeviceExt;
 use winit::event::DeviceEvent;
 
-use crate::{bind_group_layout_descriptors, camera::Camera, gui::GuiParams, renderer::Renderer};
+use crate::{bind_group_layout_descriptors, camera::Camera, gui::GUI_PARAMS, renderer::Renderer};
 
 /// Contains the rendering-related concepts of the camera
 pub struct CameraController {
@@ -14,11 +14,8 @@ pub struct CameraController {
 }
 
 impl CameraController {
-    pub fn new(renderer: &Renderer, gui_params: Rc<RefCell<GuiParams>>) -> CameraController {
-        let camera = Camera::new(
-            renderer.config.width as f32 / renderer.config.height as f32,
-            gui_params.clone(),
-        );
+    pub fn new(renderer: &Renderer) -> CameraController {
+        let camera = Camera::new(renderer.config.width as f32 / renderer.config.height as f32);
 
         let binding_buffer =
             renderer
@@ -84,12 +81,7 @@ impl CameraController {
 
     fn get_raw(camera: &Camera) -> CameraRaw {
         let view = Mat4::look_at_rh(camera.position, camera.get_target(), camera.up);
-        let proj = Mat4::perspective_rh(
-            camera.gui_params.borrow().fov_y,
-            camera.aspect,
-            camera.znear,
-            camera.zfar,
-        );
+        let proj = Mat4::perspective_rh(GUI_PARAMS.fov_y, camera.aspect, camera.znear, camera.zfar);
 
         let pos = camera.get_position();
         let pos_homogenous = Vec4::new(pos.x, pos.y, pos.z, 1.0_f32);

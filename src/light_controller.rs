@@ -6,6 +6,7 @@ use wgpu::util::DeviceExt;
 use crate::{
     bind_group_layout_descriptors,
     instance::{Instance, InstanceRaw},
+    pipelines,
     point_light::PointLight,
 };
 
@@ -21,6 +22,7 @@ pub struct LightController {
     pub bind_group: wgpu::BindGroup,
     // Used for drawing the debug visualizations of the lights
     pub light_instance_buffer: wgpu::Buffer,
+    pub shadow_rp: pipelines::ShadowRP,
 }
 
 impl LightController {
@@ -47,11 +49,14 @@ impl LightController {
             label: Some("Light bind group"),
         });
 
+        let shadow_rp = crate::pipelines::ShadowRP::new(&render_device);
+
         Self {
             light: DEFAULT_LIGHT.clone(),
             uniform_buffer: buffer,
             bind_group,
             light_instance_buffer,
+            shadow_rp,
         }
     }
 

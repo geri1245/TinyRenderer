@@ -85,10 +85,10 @@ impl SkyboxRP {
         }
     }
 
-    pub fn render<'a>(
-        &'a self,
+    pub fn render<'a, 'b: 'a>(
+        &'b self,
         render_pass: &mut wgpu::RenderPass<'a>,
-        camera_controller: &'a CameraController,
+        camera_controller: &'b CameraController,
     ) {
         render_pass.set_pipeline(&self.pipeline);
         render_pass.set_bind_group(1, &camera_controller.bind_group, &[]);

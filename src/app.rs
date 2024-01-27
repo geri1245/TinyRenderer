@@ -107,6 +107,17 @@ impl App {
         self.update(delta);
 
         self.world.render(&self.renderer)
+
+        // if self.should_draw_gui {
+        //     self.gui.render(
+        //         &window,
+        //         &self.device,
+        //         &self.queue,
+        //         delta,
+        //         &view,
+        //         self.gui_params.clone(),
+        //     );
+        // }
     }
 
     pub fn update(&mut self, delta: Duration) {

@@ -1,13 +1,17 @@
 use wgpu::{BindGroup, Buffer, CommandEncoder, RenderPassDepthStencilAttachment};
 
 use crate::{
-    bind_group_layout_descriptors, buffer_content::BufferContent, instance, model::Model,
-    texture::Texture, vertex,
+    bind_group_layout_descriptors,
+    buffer_content::BufferContent,
+    instance,
+    model::Model,
+    texture::{self, Texture},
+    vertex,
 };
 
 const SHADOW_SIZE: wgpu::Extent3d = wgpu::Extent3d {
-    width: 4096,
-    height: 4096,
+    width: 2048,
+    height: 2048,
     depth_or_array_layers: crate::renderer::MAX_LIGHTS as u32,
 };
 
@@ -33,7 +37,7 @@ impl ShadowRP {
             .texture
             .create_view(&wgpu::TextureViewDescriptor {
                 label: Some("shadow depth texture"),
-                format: None,
+                format: Some(texture::Texture::DEPTH_FORMAT),
                 dimension: Some(wgpu::TextureViewDimension::D2),
                 aspect: wgpu::TextureAspect::All,
                 base_mip_level: 0,

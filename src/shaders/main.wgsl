@@ -23,13 +23,22 @@ fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
     return output;
 }
 
-struct Light {
+struct PointLight {
     view_proj: mat4x4<f32>,
     position: vec3<f32>,
     color: vec3<f32>,
 }
+
+struct DirectionalLight {
+    view_proj: mat4x4<f32>,
+    position: vec3<f32>,
+    color: vec3<f32>,
+}
+
 @group(0) @binding(0)
-var<uniform> light: Light;
+var<uniform> point_light: PointLight;
+@group(0) @binding(1)
+var<uniform> directional_light: DirectionalLight;
 
 struct CameraUniform {
     view_proj: mat4x4<f32>,
@@ -98,19 +107,19 @@ fn fs_main(fragment_pos_and_coords: VertexOutput) -> @location(0) vec4<f32> {
     let shininess = albedo_and_shininess.a;
     let position = textureSample(t_position, s_position, uv);
 
-    let ambient_color = light.color * c_ambient_strength;
+    let ambient_color = point_light.color * c_ambient_strength;
 
-    let shadow = fetch_shadow(0u, light.view_proj * position);
+    let shadow = fetch_shadow(0u, point_light.view_proj * position);
 
-    let pixel_to_light = normalize(light.position - position.xyz);
+    let pixel_to_point_light = normalize(point_light.position - position.xyz);
     let pixel_to_camera = normalize(camera.position.xyz - position.xyz);
 
-    let diffuse_strength = max(dot(normal, pixel_to_light), 0.0);
-    let diffuse_color = light.color * diffuse_strength;
+    let diffuse_strength = max(dot(normal, pixel_to_point_light), 0.0);
+    let diffuse_color = point_light.color * diffuse_strength;
 
-    let half_dir = normalize(pixel_to_camera + pixel_to_light);
+    let half_dir = normalize(pixel_to_camera + pixel_to_point_light);
     let specular_strength = pow(max(dot(half_dir, normal), 0.0), 32.0);
-    let specular_color = specular_strength * light.color;
+    let specular_color = specular_strength * point_light.color;
 
     let result = (ambient_color + diffuse_color * shadow + specular_color * shadow) * albedo;
     return vec4(result, 1.0);

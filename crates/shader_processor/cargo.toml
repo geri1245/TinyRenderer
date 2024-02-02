@@ -1,0 +1,9 @@
+[package]
+name = "shader_processor"
+version = "0.1.0"
+edition = "2021"
+description = "wgsl shader preprocessor crate"
+license = "MIT OR Apache-2.0"
+categories = ["shader wgsl"]
+
+[dependencies]

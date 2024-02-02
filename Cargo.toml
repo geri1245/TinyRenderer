@@ -23,6 +23,7 @@ tobj = { version = "3.2", features = ["async"]}
 
 imgui_wgpu = { path = "crates/imgui_wgpu" }
 imgui-winit-support = { path = "crates/imgui_winit_support" }
+shader_processor = { path = "crates/shader_processor" }
 
 [build-dependencies]
 anyhow = "1.0"

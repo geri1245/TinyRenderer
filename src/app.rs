@@ -2,6 +2,7 @@ use crate::gui::Gui;
 use crate::world::World;
 use crate::{frame_timer::FrameTimer, renderer::Renderer};
 use std::time::Duration;
+use wgpu::TextureViewDescriptor;
 use winit::event::{DeviceEvent, ElementState, MouseButton, WindowEvent};
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::Window;
@@ -16,6 +17,7 @@ pub struct App {
     pub frame_timer: FrameTimer,
     gui: crate::gui::Gui,
     world: World,
+    should_draw_gui: bool,
 }
 
 impl App {
@@ -37,6 +39,7 @@ impl App {
             frame_timer,
             world,
             gui,
+            should_draw_gui: true,
         }
     }
 
@@ -81,7 +84,7 @@ impl App {
                 if event.state == ElementState::Pressed
                     && event.physical_key == PhysicalKey::Code(KeyCode::KeyF)
                 {
-                    self.renderer.toggle_should_draw_gui();
+                    self.toggle_should_draw_gui();
                 }
             }
 
@@ -102,25 +105,44 @@ impl App {
         WindowEventHandlingResult::Handled
     }
 
-    pub fn request_redraw(&mut self) -> Result<(), wgpu::SurfaceError> {
+    pub fn request_redraw(
+        &mut self,
+        window: &winit::window::Window,
+    ) -> Result<(), wgpu::SurfaceError> {
         let delta = self.frame_timer.get_delta_and_reset_timer();
         self.update(delta);
 
-        self.world.render(&self.renderer)
+        let mut encoder = self.renderer.begin_frame();
+        let current_frame_texture = self.renderer.get_current_frame_texture()?;
+        let current_frame_texture_view = current_frame_texture
+            .texture
+            .create_view(&TextureViewDescriptor::default());
 
-        // if self.should_draw_gui {
-        //     self.gui.render(
-        //         &window,
-        //         &self.device,
-        //         &self.queue,
-        //         delta,
-        //         &view,
-        //         self.gui_params.clone(),
-        //     );
-        // }
+        self.world
+            .render(&self.renderer, &mut encoder, &current_frame_texture_view)?;
+
+        self.renderer.queue.submit(Some(encoder.finish()));
+
+        if self.should_draw_gui {
+            self.gui.render(
+                &window,
+                &self.renderer.device,
+                &self.renderer.queue,
+                delta,
+                &current_frame_texture_view,
+            );
+        }
+
+        self.renderer.end_frame(current_frame_texture);
+
+        Ok(())
     }
 
     pub fn update(&mut self, delta: Duration) {
         self.world.update(delta, &self.renderer.queue);
+    }
+
+    pub fn toggle_should_draw_gui(&mut self) {
+        self.should_draw_gui = !self.should_draw_gui
     }
 }

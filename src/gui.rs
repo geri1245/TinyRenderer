@@ -6,27 +6,23 @@ use imgui_winit_support::WinitPlatform;
 
 use crate::color;
 
-pub static GUI_PARAMS: GuiParams = GuiParams {
-    clear_color: color::wgpu_color_to_f32_array_rgba(crate::CLEAR_COLOR),
-    fov_x: 90.0,
-    fov_y: 45.0,
-};
+thread_local! {
+    pub static GUI_PARAMS: Rc<RefCell<GuiParams>> = Rc::new(
+        RefCell::new(
+            GuiParams {
+                clear_color: color::wgpu_color_to_f32_array_rgba(crate::CLEAR_COLOR),
+                fov_x: 90.0,
+                fov_y: 45.0,
+            }
+        )
+    )
+}
 
 #[derive(Default)]
 pub struct GuiParams {
     pub clear_color: [f32; 4],
     pub fov_x: f32,
     pub fov_y: f32,
-}
-
-impl GuiParams {
-    pub fn new() -> Self {
-        GuiParams {
-            clear_color: color::wgpu_color_to_f32_array_rgba(crate::CLEAR_COLOR),
-            fov_x: 90.0,
-            fov_y: 45.0,
-        }
-    }
 }
 
 pub struct Gui {
@@ -92,7 +88,6 @@ impl Gui {
         queue: &wgpu::Queue,
         delta: Duration,
         current_frame_texture_view: &wgpu::TextureView,
-        params: Rc<RefCell<GuiParams>>,
     ) {
         self.context.io_mut().update_delta_time(delta);
 
@@ -108,8 +103,16 @@ impl Gui {
                 .build(|| {
                     ui.text("Hello world!");
                     ui.separator();
-                    // ui.slider("FOV (vertical)", 40.0, 50.0, &mut GUI_PARAMS.fov_x);
-                    // ui.color_picker4("Clear color", &mut GUI_PARAMS.clear_color);
+                    ui.slider(
+                        "FOV (vertical)",
+                        40.0,
+                        50.0,
+                        &mut GUI_PARAMS.with(|gui_params| gui_params.borrow_mut().fov_x),
+                    );
+                    ui.color_picker4(
+                        "Clear color",
+                        &mut GUI_PARAMS.with(|gui_params| gui_params.borrow_mut().clear_color),
+                    );
                 });
 
             ui.show_demo_window(&mut self.is_ui_open);

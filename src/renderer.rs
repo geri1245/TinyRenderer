@@ -1,6 +1,6 @@
 use wgpu::{
-    CommandEncoder, InstanceDescriptor, RenderPass, RenderPassDepthStencilAttachment,
-    SurfaceTexture, TextureFormat,
+    CommandEncoder, CommandEncoderDescriptor, InstanceDescriptor, RenderPass,
+    RenderPassDepthStencilAttachment, SurfaceTexture, TextureFormat,
 };
 
 use crate::{
@@ -21,8 +21,6 @@ pub struct Renderer {
     surface: wgpu::Surface<'static>,
 
     depth_texture: texture::Texture,
-
-    should_draw_gui: bool,
 }
 
 impl Renderer {
@@ -101,7 +99,6 @@ impl Renderer {
             config,
             size,
             depth_texture,
-            should_draw_gui: true,
             surface_texture_format,
         }
     }
@@ -119,9 +116,9 @@ impl Renderer {
         );
     }
 
-    pub fn begin_frame(&self) -> CommandEncoder {
+    pub fn begin_frame<'a>(&'a self) -> CommandEncoder {
         self.device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            .create_command_encoder(&CommandEncoderDescriptor {
                 label: Some("Render Encoder"),
             })
     }
@@ -130,9 +127,7 @@ impl Renderer {
         self.surface.get_current_texture()
     }
 
-    pub fn end_frame(&self, encoder: CommandEncoder, output_frame_content: SurfaceTexture) {
-        self.queue.submit(Some(encoder.finish()));
-
+    pub fn end_frame(&self, output_frame_content: SurfaceTexture) {
         output_frame_content.present();
     }
 
@@ -151,7 +146,7 @@ impl Renderer {
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(color::f32_array_rgba_to_wgpu_color(
-                        GUI_PARAMS.clear_color,
+                        GUI_PARAMS.with(|gui_params| gui_params.borrow_mut().clear_color),
                     )),
                     store: wgpu::StoreOp::Store,
                 },
@@ -165,9 +160,5 @@ impl Renderer {
                 stencil_ops: None,
             }),
         })
-    }
-
-    pub fn toggle_should_draw_gui(&mut self) {
-        self.should_draw_gui = !self.should_draw_gui
     }
 }

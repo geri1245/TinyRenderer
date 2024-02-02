@@ -1,4 +1,4 @@
-use wgpu::{BindGroup, Buffer, RenderPassDepthStencilAttachment};
+use wgpu::{BindGroup, Buffer, CommandEncoder, RenderPassDepthStencilAttachment};
 
 use crate::{
     bind_group_layout_descriptors, buffer_content::BufferContent, instance, model::Model,
@@ -122,7 +122,7 @@ impl ShadowRP {
 
     pub fn render(
         &self,
-        encoder: &mut wgpu::CommandEncoder,
+        encoder: &mut CommandEncoder,
         model: &Model,
         light_bind_group: &BindGroup,
         instances: usize,

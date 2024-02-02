@@ -1,7 +1,7 @@
 use std::{f32::consts, rc::Rc, time};
 
 use glam::{Quat, Vec3};
-use wgpu::util::DeviceExt;
+use wgpu::{util::DeviceExt, CommandEncoder, TextureView};
 
 use crate::{
     bind_group_layout_descriptors,
@@ -159,17 +159,15 @@ impl World {
         }
     }
 
-    pub fn render(&self, renderer: &Renderer) -> Result<(), wgpu::SurfaceError> {
-        let mut encoder = renderer.begin_frame();
-        let current_frame_texture = renderer.get_current_frame_texture()?;
-
+    pub fn render(
+        &self,
+        renderer: &Renderer,
+        encoder: &mut CommandEncoder,
+        current_frame_texture_view: &TextureView,
+    ) -> Result<(), wgpu::SurfaceError> {
         {
-            let current_frame_texture_view = current_frame_texture
-                .texture
-                .create_view(&wgpu::TextureViewDescriptor::default());
-
             self.light_controller.shadow_rp.render(
-                &mut encoder,
+                encoder,
                 &self.obj_model,
                 &self.light_controller.bind_group,
                 self.instances.len(),
@@ -177,7 +175,7 @@ impl World {
             );
 
             {
-                let mut render_pass = self.gbuffer_rp.begin_render(&mut encoder);
+                let mut render_pass = self.gbuffer_rp.begin_render(encoder);
                 self.gbuffer_rp.render_model(
                     &mut render_pass,
                     &self.obj_model,
@@ -195,46 +193,45 @@ impl World {
                 );
             }
 
-            let mut render_pass = renderer.begin_main_render_pass(
-                &mut encoder,
-                &current_frame_texture_view,
-                &self.gbuffer_rp.textures.depth_texture.view,
-            );
-
-            // Lighting calculations from
             {
-                render_pass.push_debug_group("Cubes rendering from GBuffer");
-
-                self.main_rp.render(
-                    &mut render_pass,
-                    &self.camera_controller,
-                    &self.light_controller,
-                    &self.gbuffer_rp.bind_group,
-                    &self.light_controller.shadow_rp.bind_group,
+                let mut render_pass = renderer.begin_main_render_pass(
+                    encoder,
+                    current_frame_texture_view,
+                    &self.gbuffer_rp.textures.depth_texture.view,
                 );
 
-                render_pass.pop_debug_group();
+                {
+                    render_pass.push_debug_group("Cubes rendering from GBuffer");
+
+                    self.main_rp.render(
+                        &mut render_pass,
+                        &self.camera_controller,
+                        &self.light_controller,
+                        &self.gbuffer_rp.bind_group,
+                        &self.light_controller.shadow_rp.bind_group,
+                    );
+
+                    render_pass.pop_debug_group();
+                }
+
+                {
+                    render_pass.push_debug_group("Forward rendering light debug objects");
+                    self.forward_rp.render_model(
+                        &mut render_pass,
+                        &self.obj_model,
+                        &self.camera_controller.bind_group,
+                        &self.light_controller.bind_group,
+                        1,
+                        &self.light_controller.light_instance_buffer,
+                    );
+
+                    render_pass.pop_debug_group();
+                }
+
+                self.skybox
+                    .render(&mut render_pass, &self.camera_controller);
             }
-
-            {
-                render_pass.push_debug_group("Forward rendering light debug objects");
-                self.forward_rp.render_model(
-                    &mut render_pass,
-                    &self.obj_model,
-                    &self.camera_controller.bind_group,
-                    &self.light_controller.bind_group,
-                    1,
-                    &self.light_controller.light_instance_buffer,
-                );
-
-                render_pass.pop_debug_group();
-            }
-
-            self.skybox
-                .render(&mut render_pass, &self.camera_controller);
         }
-
-        renderer.end_frame(encoder, current_frame_texture);
 
         Ok(())
     }

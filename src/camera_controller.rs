@@ -81,7 +81,12 @@ impl CameraController {
 
     fn get_raw(camera: &Camera) -> CameraRaw {
         let view = Mat4::look_at_rh(camera.position, camera.get_target(), camera.up);
-        let proj = Mat4::perspective_rh(GUI_PARAMS.fov_y, camera.aspect, camera.znear, camera.zfar);
+        let proj = Mat4::perspective_rh(
+            GUI_PARAMS.with(|gui_params| gui_params.borrow().fov_y),
+            camera.aspect,
+            camera.znear,
+            camera.zfar,
+        );
 
         let pos = camera.get_position();
         let pos_homogenous = Vec4::new(pos.x, pos.y, pos.z, 1.0_f32);

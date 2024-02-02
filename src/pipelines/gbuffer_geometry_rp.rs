@@ -1,6 +1,6 @@
 use wgpu::{
-    BindGroup, Buffer, RenderPass, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
-    RenderPipeline, TextureFormat,
+    BindGroup, Buffer, CommandEncoder, RenderPass, RenderPassColorAttachment,
+    RenderPassDepthStencilAttachment, RenderPipeline, TextureFormat,
 };
 
 use crate::{
@@ -198,7 +198,7 @@ impl GBufferGeometryRP {
         self.render_mesh_internal(render_pass, mesh, instances);
     }
 
-    pub fn begin_render<'a>(&'a self, encoder: &'a mut wgpu::CommandEncoder) -> RenderPass<'a> {
+    pub fn begin_render<'a>(&'a self, encoder: &'a mut CommandEncoder) -> RenderPass<'a> {
         encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("GBuffer pass"),
             color_attachments: &[

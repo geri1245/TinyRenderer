@@ -43,7 +43,7 @@ impl Camera {
             up: CAMERA_UP_VECTOR,
             aspect: aspect_ratio,
             znear: 0.1,
-            zfar: 100.0,
+            zfar: 300.0,
             orientation,
             look_sensitivity: Vec2::new(MOUSE_LOOK_SENSITIVITY, MOUSE_LOOK_SENSITIVITY),
             movement_sensitivity: Vec3::new(

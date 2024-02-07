@@ -14,20 +14,19 @@ struct VertexInput {
     @location(2) normal: vec3<f32>,
 };
 
-struct Light {
-    view_proj: mat4x4<f32>,
-    position: vec3<f32>,
-    color: vec3<f32>,
+struct LightViewProj {
+    view_proj: mat4x4<f32>
 }
 
 @group(0) @binding(0)
-var<uniform> light: Light;
+var<uniform> light: LightViewProj;
 
 @vertex
 fn vs_bake(
     model: VertexInput,
-    instance: InstanceInput,) -> @builtin(position) vec4<f32> {
-        let world_matrix = mat4x4<f32>(
+    instance: InstanceInput,
+) -> @builtin(position) vec4<f32> {
+    let world_matrix = mat4x4<f32>(
         instance.model_matrix_0,
         instance.model_matrix_1,
         instance.model_matrix_2,

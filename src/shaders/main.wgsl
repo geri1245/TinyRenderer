@@ -26,6 +26,7 @@ fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
 struct Light {
     view_proj: mat4x4<f32>,
     position_or_direction: vec3<f32>,
+    light_type: i32,
     color: vec3<f32>,
 }
 
@@ -58,7 +59,7 @@ var t_albedo: texture_2d<f32>;
 var s_albedo: sampler;
 
 @group(3) @binding(0)
-var t_shadow: texture_depth_2d;
+var t_shadow: texture_depth_2d_array;
 @group(3) @binding(1)
 var sampler_shadow: sampler_comparison;
 
@@ -79,7 +80,7 @@ fn fetch_shadow(light_id: u32, fragment_pos: vec4<f32>) -> f32 {
 
     if is_valid_tex_coord(tex_coord) {
         // Compare the shadow map sample against "the depth of the current fragment from the light's perspective"
-        return textureSampleCompareLevel(t_shadow, sampler_shadow, tex_coord, fragment_pos_ndc.z);
+        return textureSampleCompareLevel(t_shadow, sampler_shadow, tex_coord, light_id, fragment_pos_ndc.z);
     } else {
         return 1.0;
     }
@@ -129,11 +130,14 @@ fn fs_main(fragment_pos_and_coords: VertexOutput) -> @location(0) vec4<f32> {
 
     for (var i = 0u; i < 2; i += 1u) {
         let pixel_to_camera = normalize(camera.position.xyz - position.xyz);
-        let shadow = fetch_shadow(0u, lights[i].view_proj * position);
+        let shadow = fetch_shadow(i, lights[i].view_proj * position);
 
-        final_color += calculate_point_light_contribution(lights[i], pixel_to_camera, position.xyz, normal, shadow);
+        if lights[i].light_type == 1 {
+            final_color += calculate_point_light_contribution(lights[i], pixel_to_camera, position.xyz, normal, shadow);
+        } else if lights[i].light_type == 2 {
+            final_color += calculate_directional_light_contribution(lights[i], pixel_to_camera, normal, shadow);
+        }
     }
 
-    // let final_color = (ambient_color + diffuse_color + specular_color) * albedo;
     return vec4(final_color * albedo, 1.0);
 }

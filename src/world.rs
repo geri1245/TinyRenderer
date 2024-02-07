@@ -166,10 +166,9 @@ impl World {
         current_frame_texture_view: &TextureView,
     ) -> Result<(), wgpu::SurfaceError> {
         {
-            self.light_controller.shadow_rp.render(
+            self.light_controller.render_shadows(
                 encoder,
                 &self.obj_model,
-                &self.light_controller.bind_group,
                 self.instances.len(),
                 &self.instance_buffer,
             );
@@ -220,7 +219,7 @@ impl World {
                         &mut render_pass,
                         &self.obj_model,
                         &self.camera_controller.bind_group,
-                        &self.light_controller.bind_group,
+                        &self.light_controller.light_bind_group,
                         1,
                         &self.light_controller.light_instance_buffer,
                     );

@@ -129,8 +129,14 @@ impl GBufferGeometryRP {
             "GBuffer albedo texture",
         );
 
+        let depth_texture_extents = wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        };
+
         let depth_texture =
-            Texture::create_depth_texture(device, width, height, "GBuffer depth texture");
+            Texture::create_depth_texture(device, depth_texture_extents, "GBuffer depth texture");
 
         GBufferTextures {
             position: position_texture,

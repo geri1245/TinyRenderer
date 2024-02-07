@@ -1,57 +1,27 @@
 use wgpu::{BindGroup, Buffer, CommandEncoder, RenderPassDepthStencilAttachment};
 
 use crate::{
-    bind_group_layout_descriptors,
-    buffer_content::BufferContent,
-    instance,
-    model::Model,
-    texture::{self, Texture},
-    vertex,
-};
-
-const SHADOW_SIZE: wgpu::Extent3d = wgpu::Extent3d {
-    width: 2048,
-    height: 2048,
-    depth_or_array_layers: crate::renderer::MAX_LIGHTS as u32,
+    bind_group_layout_descriptors, buffer_content::BufferContent, instance, model::Model,
+    texture::Texture, vertex,
 };
 
 pub struct ShadowRP {
-    shadow_target_view: wgpu::TextureView,
     shadow_pipeline: wgpu::RenderPipeline,
     pub bind_group: wgpu::BindGroup,
 }
 
 impl ShadowRP {
-    pub fn new(device: &wgpu::Device) -> ShadowRP {
-        let shadow_texture = Texture::create_depth_texture(
-            device,
-            SHADOW_SIZE.width,
-            SHADOW_SIZE.height,
-            "Shadow texture",
-        );
-        let shadow_view = shadow_texture
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
-
-        let shadow_target_view = shadow_texture
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor {
-                label: Some("shadow depth texture"),
-                format: Some(texture::Texture::DEPTH_FORMAT),
-                dimension: Some(wgpu::TextureViewDimension::D2),
-                aspect: wgpu::TextureAspect::All,
-                base_mip_level: 0,
-                mip_level_count: None,
-                base_array_layer: 0,
-                array_layer_count: Some(1),
-            });
-
+    pub fn new(
+        device: &wgpu::Device,
+        shadow_texture: &Texture,
+        shadow_texture_view: wgpu::TextureView,
+    ) -> ShadowRP {
         let shadow_pipeline = {
             let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("shadow pipeline layout"),
-                bind_group_layouts: &[
-                    &device.create_bind_group_layout(&(bind_group_layout_descriptors::LIGHT))
-                ],
+                bind_group_layouts: &[&device.create_bind_group_layout(
+                    &(bind_group_layout_descriptors::LIGHT_WITH_DYNAMIC_OFFSET),
+                )],
                 push_constant_ranges: &[],
             });
 
@@ -107,7 +77,7 @@ impl ShadowRP {
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&shadow_view),
+                    resource: wgpu::BindingResource::TextureView(&shadow_texture_view),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
@@ -120,7 +90,6 @@ impl ShadowRP {
         ShadowRP {
             bind_group,
             shadow_pipeline,
-            shadow_target_view,
         }
     }
 
@@ -129,14 +98,16 @@ impl ShadowRP {
         encoder: &mut CommandEncoder,
         model: &Model,
         light_bind_group: &BindGroup,
-        instances: usize,
+        instance_count: usize,
         instance_buffer: &Buffer,
+        depth_target: &wgpu::TextureView,
+        light_bind_group_offset: u32,
     ) {
         let mut shadow_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Shadow pass"),
             color_attachments: &[],
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                view: &self.shadow_target_view,
+                view: depth_target,
                 depth_ops: Some(wgpu::Operations {
                     load: wgpu::LoadOp::Clear(1.0),
                     store: wgpu::StoreOp::Store,
@@ -149,14 +120,14 @@ impl ShadowRP {
 
         shadow_pass.set_pipeline(&self.shadow_pipeline);
 
-        shadow_pass.set_bind_group(0, &light_bind_group, &[]);
+        shadow_pass.set_bind_group(0, &light_bind_group, &[light_bind_group_offset]);
 
         shadow_pass.set_vertex_buffer(1, instance_buffer.slice(..));
 
         for mesh in &model.meshes {
             shadow_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
             shadow_pass.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-            shadow_pass.draw_indexed(0..mesh.index_count, 0, 0..instances as u32);
+            shadow_pass.draw_indexed(0..mesh.index_count, 0, 0..instance_count as u32);
         }
     }
 }

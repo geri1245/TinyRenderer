@@ -1,5 +1,5 @@
 use wgpu::{
-    CommandEncoder, CommandEncoderDescriptor, InstanceDescriptor, RenderPass,
+    CommandEncoder, CommandEncoderDescriptor, Device, Extent3d, InstanceDescriptor, RenderPass,
     RenderPassDepthStencilAttachment, SurfaceTexture, TextureFormat,
 };
 
@@ -85,12 +85,7 @@ impl Renderer {
         };
         surface.configure(&device, &config);
 
-        let depth_texture = texture::Texture::create_depth_texture(
-            &device,
-            config.width,
-            config.height,
-            "depth_texture",
-        );
+        let depth_texture = Renderer::create_depth_texture(&device, config.width, config.height);
 
         Renderer {
             surface,
@@ -103,17 +98,25 @@ impl Renderer {
         }
     }
 
+    fn create_depth_texture(device: &Device, width: u32, height: u32) -> Texture {
+        Texture::create_depth_texture(
+            device,
+            Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+            "Main depth texture",
+        )
+    }
+
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         self.size = new_size;
         self.config.width = new_size.width;
         self.config.height = new_size.height;
         self.surface.configure(&self.device, &self.config);
-        self.depth_texture = Texture::create_depth_texture(
-            &self.device,
-            self.config.width,
-            self.config.height,
-            "Depth texture",
-        );
+        self.depth_texture =
+            Renderer::create_depth_texture(&self.device, self.config.width, self.config.height);
     }
 
     pub fn begin_frame<'a>(&'a self) -> CommandEncoder {

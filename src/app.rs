@@ -1,6 +1,7 @@
-use crate::gui::Gui;
+use crate::gui::{Gui, GuiEvent};
 use crate::world::World;
 use crate::{frame_timer::FrameTimer, renderer::Renderer};
+use crossbeam_channel::{unbounded, Receiver};
 use std::time::Duration;
 use wgpu::TextureViewDescriptor;
 use winit::event::{DeviceEvent, ElementState, MouseButton, WindowEvent};
@@ -15,19 +16,23 @@ pub enum WindowEventHandlingResult {
 pub struct App {
     pub renderer: Renderer,
     pub frame_timer: FrameTimer,
-    gui: crate::gui::Gui,
+    gui: Gui,
     world: World,
     should_draw_gui: bool,
+    gui_event_receiver: Receiver<GuiEvent>,
 }
 
 impl App {
     pub async fn new(window: &Window) -> Self {
         let renderer = Renderer::new(window).await;
+        let (sender, receiver) = unbounded::<GuiEvent>();
+
         let gui = Gui::new(
             &window,
             &renderer.device,
             &renderer.queue,
             renderer.surface_texture_format,
+            sender,
         );
 
         let world: World = World::new(&renderer).await;
@@ -40,6 +45,7 @@ impl App {
             world,
             gui,
             should_draw_gui: true,
+            gui_event_receiver: receiver,
         }
     }
 
@@ -138,7 +144,18 @@ impl App {
         Ok(())
     }
 
+    pub fn handle_gui_events(&mut self) {
+        while let Ok(event) = self.gui_event_receiver.try_recv() {
+            match event {
+                GuiEvent::RecompileShaders => self
+                    .world
+                    .recompile_shaders_if_needed(&self.renderer.device),
+            }
+        }
+    }
+
     pub fn update(&mut self, delta: Duration) {
+        self.handle_gui_events();
         self.world.update(delta, &self.renderer.queue);
     }
 

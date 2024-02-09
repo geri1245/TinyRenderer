@@ -1,5 +1,6 @@
 use std::{cell::RefCell, path::PathBuf, rc::Rc, str::FromStr, time::Duration};
 
+use crossbeam_channel::Sender;
 use imgui::MouseCursor;
 use imgui_wgpu::{Renderer, RendererConfig};
 use imgui_winit_support::WinitPlatform;
@@ -18,6 +19,10 @@ thread_local! {
     )
 }
 
+pub enum GuiEvent {
+    RecompileShaders,
+}
+
 #[derive(Default)]
 pub struct GuiParams {
     pub clear_color: [f32; 4],
@@ -31,6 +36,7 @@ pub struct Gui {
     platform: WinitPlatform,
     is_ui_open: bool,
     last_cursor_position: Option<MouseCursor>,
+    sender: Sender<GuiEvent>,
 }
 
 impl Gui {
@@ -39,6 +45,7 @@ impl Gui {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         format: wgpu::TextureFormat,
+        sender: Sender<GuiEvent>,
     ) -> Self {
         let mut context = imgui::Context::create();
         let mut platform = imgui_winit_support::WinitPlatform::init(&mut context);
@@ -78,6 +85,7 @@ impl Gui {
             platform,
             is_ui_open: true,
             last_cursor_position: None,
+            sender,
         }
     }
 
@@ -102,6 +110,11 @@ impl Gui {
                 .size([300.0, 100.0], imgui::Condition::FirstUseEver)
                 .build(|| {
                     ui.text("Hello world!");
+
+                    if ui.button("Recompile shaders") {
+                        self.sender.send(GuiEvent::RecompileShaders).unwrap_or(());
+                    }
+
                     ui.separator();
                     ui.slider(
                         "FOV (vertical)",

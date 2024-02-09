@@ -1,7 +1,8 @@
 use std::{f32::consts, rc::Rc, time};
 
+use async_std::task::block_on;
 use glam::{Quat, Vec3};
-use wgpu::{util::DeviceExt, CommandEncoder, TextureView};
+use wgpu::{util::DeviceExt, CommandEncoder, Device, TextureView};
 
 use crate::{
     bind_group_layout_descriptors,
@@ -136,7 +137,7 @@ impl World {
         let camera_controller = CameraController::new(&renderer);
         let light_controller = LightController::new(&renderer.device);
 
-        let main_rp = pipelines::MainRP::new(&renderer.device, renderer.config.format);
+        let main_rp = pipelines::MainRP::new(&renderer.device, renderer.config.format).await;
         let gbuffer_rp = pipelines::GBufferGeometryRP::new(
             &renderer.device,
             renderer.config.width,
@@ -233,6 +234,14 @@ impl World {
         }
 
         Ok(())
+    }
+
+    pub fn recompile_shaders_if_needed(&mut self, device: &Device) {
+        let result = block_on(self.main_rp.try_recompile_shader(device));
+        match result {
+            Ok(render_pipeline) => self.main_rp = render_pipeline,
+            Err(_) => {}
+        }
     }
 
     pub fn resize_main_camera(&mut self, renderer: &Renderer, width: u32, height: u32) {

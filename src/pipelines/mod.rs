@@ -1,6 +1,7 @@
 mod forward_rp;
 mod gbuffer_geometry_rp;
 mod main_rp;
+mod render_pipeline_base;
 mod shadow_rp;
 mod skybox_rp;
 

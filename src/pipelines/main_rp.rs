@@ -1,36 +1,36 @@
+use std::os::windows::fs::MetadataExt;
+
+use anyhow::anyhow;
+use async_std::fs;
+use wgpu::{Device, PipelineLayout, RenderPipeline, ShaderModule, TextureFormat};
+
 use crate::{
     bind_group_layout_descriptors, camera_controller::CameraController,
     light_controller::LightController, texture,
 };
 
+use super::render_pipeline_base::RenderPipelineBase;
+
+const SHADER_SOURCE: &'static str = "src/shaders/main.wgsl";
+
 pub struct MainRP {
-    render_pipeline: wgpu::RenderPipeline,
+    render_pipeline: RenderPipeline,
+    shader_modification_time: u64,
+    color_format: wgpu::TextureFormat,
 }
 
+impl RenderPipelineBase for MainRP {}
+
 impl MainRP {
-    pub fn new(device: &wgpu::Device, color_format: wgpu::TextureFormat) -> Self {
-        let shader_desc = wgpu::ShaderModuleDescriptor {
-            label: Some("GBuffer processing shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/main.wgsl").into()),
-        };
-
-        let shader = device.create_shader_module(shader_desc);
-
-        let render_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("Main Render Pipeline Layout"),
-                bind_group_layouts: &[
-                    &device.create_bind_group_layout(&bind_group_layout_descriptors::LIGHT),
-                    &device.create_bind_group_layout(&bind_group_layout_descriptors::CAMERA),
-                    &device.create_bind_group_layout(&bind_group_layout_descriptors::GBUFFER),
-                    &device.create_bind_group_layout(&bind_group_layout_descriptors::DEPTH_TEXTURE),
-                ],
-                push_constant_ranges: &[],
-            });
-
-        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+    fn create_render_pipeline(
+        device: &wgpu::Device,
+        shader: &ShaderModule,
+        color_format: wgpu::TextureFormat,
+        render_pipeline_layout: &PipelineLayout,
+    ) -> RenderPipeline {
+        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Main render pipeline"),
-            layout: Some(&render_pipeline_layout),
+            layout: Some(render_pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: "vs_main",
@@ -61,9 +61,51 @@ impl MainRP {
             }),
             multisample: wgpu::MultisampleState::default(),
             multiview: None,
-        });
+        })
+    }
 
-        Self { render_pipeline }
+    pub fn create_pipeline_layout(device: &Device) -> PipelineLayout {
+        device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Main Render Pipeline Layout"),
+            bind_group_layouts: &[
+                &device.create_bind_group_layout(&bind_group_layout_descriptors::LIGHT),
+                &device.create_bind_group_layout(&bind_group_layout_descriptors::CAMERA),
+                &device.create_bind_group_layout(&bind_group_layout_descriptors::GBUFFER),
+                &device.create_bind_group_layout(&bind_group_layout_descriptors::DEPTH_TEXTURE),
+            ],
+            push_constant_ranges: &[],
+        })
+    }
+
+    pub async fn new(device: &Device, color_format: TextureFormat) -> Self {
+        let shader = Self::compile_shader(SHADER_SOURCE, device)
+            .await
+            .expect(&format!("Failed to compile {SHADER_SOURCE}"));
+
+        let render_pipeline_layout = Self::create_pipeline_layout(device);
+
+        let render_pipeline = Self::create_render_pipeline(
+            device,
+            &shader.shader_module,
+            color_format,
+            &render_pipeline_layout,
+        );
+
+        Self {
+            render_pipeline,
+            shader_modification_time: shader.last_write_time,
+            color_format,
+        }
+    }
+
+    pub async fn try_recompile_shader(&self, device: &Device) -> anyhow::Result<Self> {
+        let metadata = fs::metadata(SHADER_SOURCE).await.unwrap();
+        let last_write_time = metadata.last_write_time();
+        if last_write_time == self.shader_modification_time {
+            return Err(anyhow!("asd"));
+        }
+
+        Ok(Self::new(&device, self.color_format).await)
     }
 
     pub fn render<'a>(

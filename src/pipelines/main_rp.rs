@@ -1,6 +1,5 @@
 use std::os::windows::fs::MetadataExt;
 
-use anyhow::anyhow;
 use async_std::fs;
 use wgpu::{Device, PipelineLayout, RenderPipeline, ShaderModule, TextureFormat};
 
@@ -9,7 +8,10 @@ use crate::{
     light_controller::LightController, texture,
 };
 
-use super::render_pipeline_base::RenderPipelineBase;
+use super::{
+    render_pipeline_base::RenderPipelineBase,
+    shader_compilation_result::{CompiledShader, PipelineRecreationResult},
+};
 
 const SHADER_SOURCE: &'static str = "src/shaders/main.wgsl";
 
@@ -64,7 +66,7 @@ impl MainRP {
         })
     }
 
-    pub fn create_pipeline_layout(device: &Device) -> PipelineLayout {
+    fn create_pipeline_layout(device: &Device) -> PipelineLayout {
         device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Main Render Pipeline Layout"),
             bind_group_layouts: &[
@@ -77,11 +79,16 @@ impl MainRP {
         })
     }
 
-    pub async fn new(device: &Device, color_format: TextureFormat) -> Self {
-        let shader = Self::compile_shader(SHADER_SOURCE, device)
-            .await
-            .expect(&format!("Failed to compile {SHADER_SOURCE}"));
+    pub async fn new(device: &Device, color_format: TextureFormat) -> anyhow::Result<Self> {
+        let shader_compilation_result = Self::compile_shader(SHADER_SOURCE, device).await;
 
+        match shader_compilation_result {
+            Err(error) => return Err(error),
+            Ok(shader) => Result::Ok(Self::new_internal(&shader, device, color_format)),
+        }
+    }
+
+    fn new_internal(shader: &CompiledShader, device: &Device, color_format: TextureFormat) -> Self {
         let render_pipeline_layout = Self::create_pipeline_layout(device);
 
         let render_pipeline = Self::create_render_pipeline(
@@ -98,14 +105,21 @@ impl MainRP {
         }
     }
 
-    pub async fn try_recompile_shader(&self, device: &Device) -> anyhow::Result<Self> {
+    pub async fn try_recompile_shader(&self, device: &Device) -> PipelineRecreationResult<Self> {
         let metadata = fs::metadata(SHADER_SOURCE).await.unwrap();
         let last_write_time = metadata.last_write_time();
         if last_write_time == self.shader_modification_time {
-            return Err(anyhow!("asd"));
+            return PipelineRecreationResult::AlreadyUpToDate;
         }
 
-        Ok(Self::new(&device, self.color_format).await)
+        match Self::compile_shader(SHADER_SOURCE, device).await {
+            Ok(compiled_shader) => PipelineRecreationResult::Success(Self::new_internal(
+                &compiled_shader,
+                device,
+                self.color_format,
+            )),
+            Err(error) => PipelineRecreationResult::Failed(error),
+        }
     }
 
     pub fn render<'a>(

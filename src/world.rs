@@ -2,6 +2,7 @@ use std::{f32::consts, rc::Rc, time};
 
 use async_std::task::block_on;
 use glam::{Quat, Vec3};
+use pipelines::PipelineRecreationResult;
 use wgpu::{util::DeviceExt, CommandEncoder, Device, TextureView};
 
 use crate::{
@@ -137,7 +138,9 @@ impl World {
         let camera_controller = CameraController::new(&renderer);
         let light_controller = LightController::new(&renderer.device);
 
-        let main_rp = pipelines::MainRP::new(&renderer.device, renderer.config.format).await;
+        let main_rp = pipelines::MainRP::new(&renderer.device, renderer.config.format)
+            .await
+            .unwrap();
         let gbuffer_rp = pipelines::GBufferGeometryRP::new(
             &renderer.device,
             renderer.config.width,
@@ -236,11 +239,15 @@ impl World {
         Ok(())
     }
 
-    pub fn recompile_shaders_if_needed(&mut self, device: &Device) {
+    pub fn recompile_shaders_if_needed(&mut self, device: &Device) -> anyhow::Result<()> {
         let result = block_on(self.main_rp.try_recompile_shader(device));
         match result {
-            Ok(render_pipeline) => self.main_rp = render_pipeline,
-            Err(_) => {}
+            PipelineRecreationResult::AlreadyUpToDate => Ok(()),
+            PipelineRecreationResult::Success(new_pipeline) => {
+                self.main_rp = new_pipeline;
+                Ok(())
+            }
+            PipelineRecreationResult::Failed(error) => Err(error),
         }
     }
 

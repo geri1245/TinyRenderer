@@ -1,4 +1,4 @@
-use std::{cell::RefCell, path::PathBuf, rc::Rc, str::FromStr, time::Duration};
+use std::{path::PathBuf, str::FromStr, time::Duration};
 
 use crossbeam_channel::Sender;
 use imgui::MouseCursor;
@@ -6,18 +6,6 @@ use imgui_wgpu::{Renderer, RendererConfig};
 use imgui_winit_support::WinitPlatform;
 
 use crate::color;
-
-thread_local! {
-    pub static GUI_PARAMS: Rc<RefCell<GuiParams>> = Rc::new(
-        RefCell::new(
-            GuiParams {
-                clear_color: color::wgpu_color_to_f32_array_rgba(crate::CLEAR_COLOR),
-                fov_x: 90.0,
-                fov_y: 45.0,
-            }
-        )
-    )
-}
 
 pub enum GuiEvent {
     RecompileShaders,
@@ -37,6 +25,8 @@ pub struct Gui {
     is_ui_open: bool,
     last_cursor_position: Option<MouseCursor>,
     sender: Sender<GuiEvent>,
+    gui_params: GuiParams,
+    shader_error: String,
 }
 
 impl Gui {
@@ -79,6 +69,12 @@ impl Gui {
 
         let renderer = Renderer::new(&mut context, &device, &queue, renderer_config);
 
+        let gui_params = GuiParams {
+            clear_color: color::wgpu_color_to_f32_array_rgba(crate::CLEAR_COLOR),
+            fov_x: 90.0,
+            fov_y: 45.0,
+        };
+
         Gui {
             context,
             renderer,
@@ -86,6 +82,8 @@ impl Gui {
             is_ui_open: true,
             last_cursor_position: None,
             sender,
+            gui_params,
+            shader_error: "".into(),
         }
     }
 
@@ -115,17 +113,13 @@ impl Gui {
                         self.sender.send(GuiEvent::RecompileShaders).unwrap_or(());
                     }
 
+                    if !self.shader_error.is_empty() {
+                        ui.text(&self.shader_error)
+                    }
+
                     ui.separator();
-                    ui.slider(
-                        "FOV (vertical)",
-                        40.0,
-                        50.0,
-                        &mut GUI_PARAMS.with(|gui_params| gui_params.borrow_mut().fov_x),
-                    );
-                    ui.color_picker4(
-                        "Clear color",
-                        &mut GUI_PARAMS.with(|gui_params| gui_params.borrow_mut().clear_color),
-                    );
+                    ui.slider("FOV (vertical)", 40.0, 50.0, &mut self.gui_params.fov_x);
+                    ui.color_picker4("Clear color", &mut self.gui_params.clear_color);
                 });
 
             ui.show_demo_window(&mut self.is_ui_open);
@@ -161,6 +155,10 @@ impl Gui {
         }
 
         queue.submit(Some(encoder.finish()));
+    }
+
+    pub fn set_shader_compilation_result(&mut self, error: String) {
+        self.shader_error = error;
     }
 
     pub fn handle_event<'a, T>(

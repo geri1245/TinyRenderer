@@ -22,6 +22,7 @@ pub struct Camera {
     current_speed_positive: Vec3,
     current_speed_negative: Vec3,
     movement_sensitivity: Vec3,
+    pub fov_y: f32,
 }
 
 impl Camera {
@@ -53,6 +54,7 @@ impl Camera {
             ),
             current_speed_positive: Vec3::ZERO,
             current_speed_negative: Vec3::ZERO,
+            fov_y: 45.0,
         }
     }
 

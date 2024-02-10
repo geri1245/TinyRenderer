@@ -5,7 +5,6 @@ use wgpu::{
 
 use crate::{
     color,
-    gui::GUI_PARAMS,
     texture::{self, Texture},
 };
 
@@ -21,6 +20,7 @@ pub struct Renderer {
     surface: wgpu::Surface<'static>,
 
     depth_texture: texture::Texture,
+    clear_color: [f32; 4],
 }
 
 impl Renderer {
@@ -95,6 +95,7 @@ impl Renderer {
             size,
             depth_texture,
             surface_texture_format,
+            clear_color: [1.0, 0.0, 0.5, 1.0],
         }
     }
 
@@ -149,7 +150,7 @@ impl Renderer {
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(color::f32_array_rgba_to_wgpu_color(
-                        GUI_PARAMS.with(|gui_params| gui_params.borrow_mut().clear_color),
+                        self.clear_color,
                     )),
                     store: wgpu::StoreOp::Store,
                 },

@@ -42,7 +42,7 @@ pub async fn run() {
     let event_loop = EventLoop::new().unwrap();
 
     let window = WindowBuilder::new().build(&event_loop).unwrap();
-    window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
+    // window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
     window.set_title("Awesome application");
 
     let mut app = app::App::new(&window).await;

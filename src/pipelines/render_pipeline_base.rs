@@ -1,18 +1,15 @@
 use std::{borrow::Cow, fs, os::windows::fs::MetadataExt};
 
 use anyhow::anyhow;
-use wgpu::{Device, ShaderModule};
+use wgpu::Device;
 
-pub struct CompiledShader {
-    pub shader_module: ShaderModule,
-    pub last_write_time: u64,
-}
+use super::shader_compilation_result::CompiledShader;
 
 pub trait RenderPipelineBase {
     async fn compile_shader(source: &str, device: &Device) -> anyhow::Result<CompiledShader> {
         let shader_contents = fs::read_to_string(source)?;
         let shader_desc = wgpu::ShaderModuleDescriptor {
-            label: Some("Main shader that does the lighting calculation by reading the gbuffer"),
+            label: Some(source.split("/").last().unwrap()),
             source: wgpu::ShaderSource::Wgsl(Cow::from(shader_contents)),
         };
         device.push_error_scope(wgpu::ErrorFilter::Validation);

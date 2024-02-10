@@ -147,9 +147,13 @@ impl App {
     pub fn handle_gui_events(&mut self) {
         while let Ok(event) = self.gui_event_receiver.try_recv() {
             match event {
-                GuiEvent::RecompileShaders => self
+                GuiEvent::RecompileShaders => match self
                     .world
-                    .recompile_shaders_if_needed(&self.renderer.device),
+                    .recompile_shaders_if_needed(&self.renderer.device)
+                {
+                    Ok(_) => self.gui.set_shader_compilation_result("Sucess!".into()),
+                    Err(error) => self.gui.set_shader_compilation_result(error.to_string()),
+                },
             }
         }
     }

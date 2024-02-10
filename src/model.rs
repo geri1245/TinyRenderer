@@ -1,7 +1,27 @@
 use std::rc::Rc;
 
-use crate::basic_renderable::BasicRenderable;
+use serde::Deserialize;
+
 use crate::texture;
+
+#[derive(Deserialize)]
+pub struct ModelDescriptorTextureDescription {
+    #[serde(default)]
+    pub albedo: String,
+    #[serde(default)]
+    pub roughness: String,
+    #[serde(default)]
+    pub metalness: String,
+    #[serde(default)]
+    pub normal: String,
+}
+
+#[derive(Deserialize)]
+pub struct ModelDescriptorFile {
+    pub model: String,
+    #[serde(default)]
+    pub textures: Vec<ModelDescriptorTextureDescription>,
+}
 
 pub struct Model {
     pub meshes: Vec<Mesh>,
@@ -20,19 +40,4 @@ pub struct Mesh {
     pub index_buffer: wgpu::Buffer,
     pub index_count: u32,
     pub material: Option<Rc<Material>>,
-}
-
-impl BasicRenderable for Mesh {
-    // pub fn render(&self, renderer: &Renderer) {}
-    fn get_vertex_buffer(&self) -> &wgpu::Buffer {
-        &self.vertex_buffer
-    }
-
-    fn get_index_buffer(&self) -> &wgpu::Buffer {
-        &self.index_buffer
-    }
-
-    fn get_index_count(&self) -> u32 {
-        self.index_count
-    }
 }

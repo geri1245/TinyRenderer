@@ -7,7 +7,6 @@ use winit::{
 };
 
 mod app;
-mod basic_renderable;
 mod bind_group_layout_descriptors;
 mod buffer_content;
 mod camera;
@@ -23,7 +22,6 @@ mod pipelines;
 mod primitive_shapes;
 mod render_pipeline_layout;
 mod renderer;
-mod resource_map;
 mod resources;
 mod skybox;
 mod texture;

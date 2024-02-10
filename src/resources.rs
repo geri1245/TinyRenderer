@@ -1,80 +1,85 @@
-use std::io::{BufReader, Cursor};
+use std::fs::{self, File};
+use std::io::BufReader;
+use std::path::PathBuf;
 use std::rc::Rc;
 use wgpu::util::DeviceExt;
 
+use crate::model::ModelDescriptorFile;
 use crate::{bind_group_layout_descriptors, model};
 use crate::{texture, vertex};
 
-pub async fn load_string(file_name: &str) -> anyhow::Result<String> {
-    #[cfg(target_arch = "wasm32")]
-    {
-        let url = format_url(file_name);
-        let txt = reqwest::get(url).await?.text().await?;
-        Ok(txt)
-    }
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        let path = std::path::Path::new(env!("OUT_DIR"))
-            .join("assets")
-            .join(file_name);
-        let txt = std::fs::read_to_string(path)?;
-        Ok(txt)
-    }
-}
+const ASSET_FILE_NAME: &str = "asset.json";
 
-pub async fn load_binary(file_name: &str) -> anyhow::Result<Vec<u8>> {
-    #[cfg(target_arch = "wasm32")]
-    {
-        let url = format_url(file_name);
-        reqwest::get(url).await?.bytes().await?.to_vec()
-    }
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        let path = std::path::Path::new(env!("OUT_DIR"))
-            .join("assets")
-            .join(file_name);
-        Ok(std::fs::read(path)?)
-    }
+pub async fn open_file_for_reading(file_path: &PathBuf) -> anyhow::Result<BufReader<File>> {
+    let file = File::open(file_path)?;
+    Ok(BufReader::new(file))
 }
 
 pub async fn load_texture(
-    file_name: &str,
+    file_name: &PathBuf,
     device: &wgpu::Device,
     queue: &wgpu::Queue,
 ) -> anyhow::Result<texture::Texture> {
-    let data = load_binary(file_name).await?;
-    texture::Texture::from_bytes(device, queue, &data, file_name)
+    let data = std::fs::read(file_name).unwrap();
+    texture::Texture::from_bytes(
+        device,
+        queue,
+        &data,
+        file_name.file_name().unwrap().to_str().unwrap(),
+    )
+}
+
+fn resolve_resource(resource_name: &str) -> PathBuf {
+    std::path::Path::new(env!("OUT_DIR"))
+        .join("assets")
+        .join(resource_name)
 }
 
 pub async fn load_model<'a>(
-    file_name: &str,
+    asset_name: &str,
     device: &wgpu::Device,
     queue: &wgpu::Queue,
 ) -> anyhow::Result<model::Model> {
-    let obj_text = load_string(file_name).await?;
-    let obj_cursor = Cursor::new(obj_text);
-    let mut obj_reader = BufReader::new(obj_cursor);
+    let model_folder = resolve_resource(asset_name);
+    let json_string = fs::read_to_string(model_folder.join(ASSET_FILE_NAME))?;
+    let model_info: ModelDescriptorFile = serde_json::from_str(&json_string)?;
 
-    let (models, obj_materials) = tobj::load_obj_buf_async(
-        &mut obj_reader,
+    let mut file_buf_reader = open_file_for_reading(&model_folder.join(&model_info.model)).await?;
+
+    let (models, _obj_materials) = tobj::load_obj_buf_async(
+        &mut file_buf_reader,
         &tobj::LoadOptions {
             triangulate: true,
             single_index: true,
             ..Default::default()
         },
-        |p| async move {
-            let mat_text = load_string(&p).await.unwrap();
-            tobj::load_mtl_buf(&mut BufReader::new(Cursor::new(mat_text)))
+        |p| async {
+            let material_path = model_folder.join(p);
+            let mut material_file_buf_reader = open_file_for_reading(&material_path).await.unwrap();
+            tobj::load_mtl_buf(&mut material_file_buf_reader)
         },
     )
     .await?;
 
+    let mut possible_texture_sources = Vec::new();
+    for texture_set in model_info.textures {
+        possible_texture_sources.push(texture_set.normal);
+        possible_texture_sources.push(texture_set.albedo);
+        possible_texture_sources.push(texture_set.metalness);
+        possible_texture_sources.push(texture_set.roughness);
+    }
+
     let mut materials = Vec::new();
-    for m in obj_materials? {
-        let diffuse_texture = load_texture(&m.diffuse_texture, device, queue).await?;
+    for texture_name in possible_texture_sources {
+        if texture_name.is_empty() {
+            continue;
+        }
+
+        let material_path = model_folder.join("textures").join(&texture_name);
+        let diffuse_texture = load_texture(&material_path, device, queue).await?;
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &device
-                .create_bind_group_layout(&bind_group_layout_descriptors::DIFFUSE_TEXTURE),
+                .create_bind_group_layout(&bind_group_layout_descriptors::STANDARD_TEXTURE),
             entries: &[
                 diffuse_texture.get_texture_bind_group_entry(0),
                 diffuse_texture.get_sampler_bind_group_entry(1),
@@ -83,7 +88,7 @@ pub async fn load_model<'a>(
         });
 
         materials.push(Rc::new(model::Material {
-            name: m.name,
+            name: texture_name,
             diffuse_texture,
             bind_group,
         }))
@@ -109,18 +114,18 @@ pub async fn load_model<'a>(
                 .collect::<Vec<_>>();
 
             let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some(&format!("{:?} Vertex Buffer", file_name)),
+                label: Some(&format!("{:?} Vertex Buffer", asset_name)),
                 contents: bytemuck::cast_slice(&vertices),
                 usage: wgpu::BufferUsages::VERTEX,
             });
             let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some(&format!("{:?} Index Buffer", file_name)),
+                label: Some(&format!("{:?} Index Buffer", asset_name)),
                 contents: bytemuck::cast_slice(&m.mesh.indices),
                 usage: wgpu::BufferUsages::INDEX,
             });
 
             model::Mesh {
-                name: file_name.to_string(),
+                name: asset_name.to_string(),
                 vertex_buffer,
                 index_buffer,
                 index_count: m.mesh.indices.len() as u32,

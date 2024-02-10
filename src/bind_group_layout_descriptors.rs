@@ -41,7 +41,7 @@ pub const LIGHT_WITH_DYNAMIC_OFFSET: wgpu::BindGroupLayoutDescriptor =
         }],
     };
 
-pub const DIFFUSE_TEXTURE: wgpu::BindGroupLayoutDescriptor = wgpu::BindGroupLayoutDescriptor {
+pub const STANDARD_TEXTURE: wgpu::BindGroupLayoutDescriptor = wgpu::BindGroupLayoutDescriptor {
     label: Some("Diffuse texture bind group layout descriptor"),
     entries: &[
         wgpu::BindGroupLayoutEntry {

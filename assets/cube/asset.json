@@ -1,0 +1,9 @@
+{
+  "model": "cube.obj",
+  "textures": [
+    {
+      "albedo": "cube-diffuse.jpg",
+      "normal": "cube-normal.png"
+    }
+  ]
+}

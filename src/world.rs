@@ -84,16 +84,21 @@ impl World {
                     usage: wgpu::BufferUsages::VERTEX,
                 });
 
-        let obj_model = resources::load_model("cube.obj", &renderer.device, &renderer.queue)
+        let obj_model = resources::load_model("cube", &renderer.device, &renderer.queue)
             .await
             .unwrap();
+
+        // let plant =
+        //     resources::load_model("plant/Sansevieria.obj", &renderer.device, &renderer.queue)
+        //         .await
+        //         .unwrap();
 
         let texture_bind_group = renderer
             .device
             .create_bind_group(&wgpu::BindGroupDescriptor {
                 layout: &renderer
                     .device
-                    .create_bind_group_layout(&bind_group_layout_descriptors::DIFFUSE_TEXTURE),
+                    .create_bind_group_layout(&bind_group_layout_descriptors::STANDARD_TEXTURE),
                 entries: &[
                     tree_texture.get_texture_bind_group_entry(0),
                     tree_texture.get_sampler_bind_group_entry(1),

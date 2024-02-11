@@ -1,4 +1,4 @@
-use std::{f32::consts, rc::Rc, time};
+use std::{f32::consts, time};
 
 use async_std::task::block_on;
 use glam::{Quat, Vec3};
@@ -10,7 +10,7 @@ use crate::{
     camera_controller::CameraController,
     instance::{self, Instance},
     light_controller::LightController,
-    model::{Material, Mesh, Model},
+    model::{Material, Mesh, Model, TextureData, TextureType},
     pipelines::{self, MainRP},
     primitive_shapes,
     renderer::Renderer,
@@ -39,7 +39,7 @@ impl World {
     pub async fn new(renderer: &Renderer) -> Self {
         let tree_texture_raw = include_bytes!("../assets/happy-tree.png");
 
-        let tree_texture = texture::Texture::from_bytes(
+        let tree_texture = texture::SampledTexture::from_bytes(
             &renderer.device,
             &renderer.queue,
             tree_texture_raw,
@@ -106,11 +106,15 @@ impl World {
                 label: Some("diffuse_bind_group"),
             });
 
-        let square_material = Some(Rc::new(Material {
+        let square_texture = TextureData {
+            texture_type: TextureType::Albedo,
             name: "Tree texture material".into(),
-            diffuse_texture: tree_texture,
+            texture: tree_texture,
             bind_group: texture_bind_group,
-        }));
+        };
+
+        let mut square_material = Material::new();
+        square_material.add_texture(square_texture.texture_type.clone(), square_texture);
 
         let square = primitive_shapes::square(&renderer.device, square_material);
 

@@ -5,7 +5,7 @@ use wgpu::{
 
 use crate::{
     color,
-    texture::{self, Texture},
+    texture::{self, SampledTexture},
 };
 
 pub const MAX_LIGHTS: usize = 10;
@@ -19,7 +19,7 @@ pub struct Renderer {
 
     surface: wgpu::Surface<'static>,
 
-    depth_texture: texture::Texture,
+    depth_texture: texture::SampledTexture,
     clear_color: [f32; 4],
 }
 
@@ -99,8 +99,8 @@ impl Renderer {
         }
     }
 
-    fn create_depth_texture(device: &Device, width: u32, height: u32) -> Texture {
-        Texture::create_depth_texture(
+    fn create_depth_texture(device: &Device, width: u32, height: u32) -> SampledTexture {
+        SampledTexture::create_depth_texture(
             device,
             Extent3d {
                 width,

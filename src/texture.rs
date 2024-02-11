@@ -6,14 +6,14 @@ use wgpu::TextureFormat;
 
 const IMAGE_SIZE: u32 = 512;
 
-pub struct Texture {
+pub struct SampledTexture {
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
     pub sampler: wgpu::Sampler,
     pub format: wgpu::TextureFormat,
 }
 
-impl Texture {
+impl SampledTexture {
     pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 
     pub fn get_texture_bind_group_entry<'a>(

@@ -7,8 +7,8 @@ use crate::{
     bind_group_layout_descriptors,
     buffer_content::BufferContent,
     instance,
-    model::{Mesh, Model},
-    texture::{self, Texture},
+    model::{Mesh, Model, TextureType},
+    texture::{self, SampledTexture},
     vertex,
 };
 
@@ -20,10 +20,10 @@ const CLEAR_COLOR: wgpu::Color = wgpu::Color {
 };
 
 pub struct GBufferTextures {
-    pub position: Texture,
-    pub normal: Texture,
-    pub albedo_and_specular: Texture,
-    pub depth_texture: Texture,
+    pub position: SampledTexture,
+    pub normal: SampledTexture,
+    pub albedo_and_specular: SampledTexture,
+    pub depth_texture: SampledTexture,
 }
 
 pub struct GBufferGeometryRP {
@@ -93,7 +93,7 @@ impl GBufferGeometryRP {
                 ..Default::default()
             },
             depth_stencil: Some(wgpu::DepthStencilState {
-                format: texture::Texture::DEPTH_FORMAT,
+                format: texture::SampledTexture::DEPTH_FORMAT,
                 depth_write_enabled: true,
                 depth_compare: wgpu::CompareFunction::LessEqual,
                 stencil: wgpu::StencilState::default(),
@@ -107,21 +107,21 @@ impl GBufferGeometryRP {
     }
 
     pub fn create_textures(device: &wgpu::Device, width: u32, height: u32) -> GBufferTextures {
-        let position_texture = Texture::new(
+        let position_texture = SampledTexture::new(
             device,
             TextureFormat::Rgba16Float,
             width,
             height,
             "GBuffer position texture",
         );
-        let normal_texture = Texture::new(
+        let normal_texture = SampledTexture::new(
             device,
             TextureFormat::Rgba16Float,
             width,
             height,
             "GBuffer normal texture",
         );
-        let albedo_and_specular_texture = Texture::new(
+        let albedo_and_specular_texture = SampledTexture::new(
             device,
             TextureFormat::Rgba8Unorm,
             width,
@@ -135,8 +135,11 @@ impl GBufferGeometryRP {
             depth_or_array_layers: 1,
         };
 
-        let depth_texture =
-            Texture::create_depth_texture(device, depth_texture_extents, "GBuffer depth texture");
+        let depth_texture = SampledTexture::create_depth_texture(
+            device,
+            depth_texture_extents,
+            "GBuffer depth texture",
+        );
 
         GBufferTextures {
             position: position_texture,
@@ -252,7 +255,8 @@ impl GBufferGeometryRP {
         mesh: &'a Mesh,
         instances: usize,
     ) {
-        render_pass.set_bind_group(0, &mesh.material.as_ref().unwrap().bind_group, &[]);
+        let albedo = mesh.material.get(&TextureType::Albedo).unwrap();
+        render_pass.set_bind_group(0, &albedo.bind_group, &[]);
         render_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
         render_pass.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
         render_pass.draw_indexed(0..mesh.index_count, 0, 0..instances as u32);

@@ -2,7 +2,7 @@ use wgpu::{BindGroup, Buffer, CommandEncoder, RenderPassDepthStencilAttachment};
 
 use crate::{
     bind_group_layout_descriptors, buffer_content::BufferContent, instance, model::Model,
-    texture::Texture, vertex,
+    texture::SampledTexture, vertex,
 };
 
 pub struct ShadowRP {
@@ -13,7 +13,7 @@ pub struct ShadowRP {
 impl ShadowRP {
     pub fn new(
         device: &wgpu::Device,
-        shadow_texture: &Texture,
+        shadow_texture: &SampledTexture,
         shadow_texture_view: wgpu::TextureView,
     ) -> ShadowRP {
         let shadow_pipeline = {

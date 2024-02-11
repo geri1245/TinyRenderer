@@ -12,7 +12,7 @@ use crate::{
     lights::{DirectionalLight, LightRaw, PointLight},
     model::Model,
     pipelines,
-    texture::Texture,
+    texture::SampledTexture,
 };
 
 // TODO: Wherever this is used, dinamically calculate the number of lights
@@ -88,7 +88,7 @@ impl LightController {
             });
 
         let shadow_texture =
-            Texture::create_depth_texture(render_device, SHADOW_SIZE, "Shadow texture");
+            SampledTexture::create_depth_texture(render_device, SHADOW_SIZE, "Shadow texture");
 
         let shadow_view = shadow_texture
             .texture
@@ -104,7 +104,7 @@ impl LightController {
                     .texture
                     .create_view(&wgpu::TextureViewDescriptor {
                         label: Some("shadow depth texture"),
-                        format: Some(Texture::DEPTH_FORMAT),
+                        format: Some(SampledTexture::DEPTH_FORMAT),
                         dimension: Some(wgpu::TextureViewDimension::D2),
                         aspect: wgpu::TextureAspect::All,
                         base_mip_level: 0,

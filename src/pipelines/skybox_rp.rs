@@ -13,7 +13,7 @@ impl SkyboxRP {
         queue: &wgpu::Queue,
         texture_format: wgpu::TextureFormat,
     ) -> Self {
-        let texture = texture::Texture::create_skybox_texture(&device, &queue);
+        let texture = texture::SampledTexture::create_skybox_texture(&device, &queue);
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &device.create_bind_group_layout(&bind_group_layout_descriptors::SKYBOX),
@@ -69,7 +69,7 @@ impl SkyboxRP {
                 ..Default::default()
             },
             depth_stencil: Some(wgpu::DepthStencilState {
-                format: texture::Texture::DEPTH_FORMAT,
+                format: texture::SampledTexture::DEPTH_FORMAT,
                 depth_write_enabled: false,
                 depth_compare: wgpu::CompareFunction::LessEqual,
                 stencil: wgpu::StencilState::default(),

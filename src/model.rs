@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{collections::HashMap, rc::Rc};
 
 use serde::Deserialize;
 
@@ -25,13 +25,41 @@ pub struct ModelDescriptorFile {
 
 pub struct Model {
     pub meshes: Vec<Mesh>,
-    pub materials: Vec<Rc<Material>>,
+}
+
+#[derive(PartialEq, Eq, Hash, Clone)]
+pub enum TextureType {
+    Rough,
+    Metal,
+    Albedo,
+    Normal,
+}
+
+pub struct TextureData {
+    pub name: String,
+    pub texture: texture::SampledTexture,
+    pub bind_group: wgpu::BindGroup,
+    pub texture_type: TextureType,
 }
 
 pub struct Material {
-    pub name: String,
-    pub diffuse_texture: texture::Texture,
-    pub bind_group: wgpu::BindGroup,
+    textures: HashMap<TextureType, TextureData>,
+}
+
+impl Material {
+    pub fn new() -> Self {
+        Material {
+            textures: HashMap::new(),
+        }
+    }
+
+    pub fn add_texture(&mut self, texture_type: TextureType, texture_data: TextureData) {
+        self.textures.insert(texture_type.clone(), texture_data);
+    }
+
+    pub fn get(&self, texture_type: &TextureType) -> Option<&TextureData> {
+        self.textures.get(texture_type)
+    }
 }
 
 pub struct Mesh {
@@ -39,5 +67,5 @@ pub struct Mesh {
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
     pub index_count: u32,
-    pub material: Option<Rc<Material>>,
+    pub material: Rc<Material>,
 }

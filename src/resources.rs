@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use wgpu::util::DeviceExt;
 
-use crate::model::ModelDescriptorFile;
+use crate::model::{Material, ModelDescriptorFile, TextureType};
 use crate::{bind_group_layout_descriptors, model};
 use crate::{texture, vertex};
 
@@ -19,9 +19,9 @@ pub async fn load_texture(
     file_name: &PathBuf,
     device: &wgpu::Device,
     queue: &wgpu::Queue,
-) -> anyhow::Result<texture::Texture> {
+) -> anyhow::Result<texture::SampledTexture> {
     let data = std::fs::read(file_name).unwrap();
-    texture::Texture::from_bytes(
+    texture::SampledTexture::from_bytes(
         device,
         queue,
         &data,
@@ -63,14 +63,14 @@ pub async fn load_model<'a>(
 
     let mut possible_texture_sources = Vec::new();
     for texture_set in model_info.textures {
-        possible_texture_sources.push(texture_set.normal);
-        possible_texture_sources.push(texture_set.albedo);
-        possible_texture_sources.push(texture_set.metalness);
-        possible_texture_sources.push(texture_set.roughness);
+        possible_texture_sources.push((TextureType::Normal, texture_set.normal));
+        possible_texture_sources.push((TextureType::Albedo, texture_set.albedo));
+        possible_texture_sources.push((TextureType::Metal, texture_set.metalness));
+        possible_texture_sources.push((TextureType::Rough, texture_set.roughness));
     }
 
-    let mut materials = Vec::new();
-    for texture_name in possible_texture_sources {
+    let mut material = Material::new();
+    for (texture_type, texture_name) in possible_texture_sources {
         if texture_name.is_empty() {
             continue;
         }
@@ -87,12 +87,18 @@ pub async fn load_model<'a>(
             label: None,
         });
 
-        materials.push(Rc::new(model::Material {
-            name: texture_name,
-            diffuse_texture,
-            bind_group,
-        }))
+        material.add_texture(
+            texture_type.clone(),
+            model::TextureData {
+                texture_type,
+                name: texture_name,
+                texture: diffuse_texture,
+                bind_group,
+            },
+        );
     }
+
+    let material = Rc::new(material);
 
     let meshes = models
         .into_iter()
@@ -129,13 +135,10 @@ pub async fn load_model<'a>(
                 vertex_buffer,
                 index_buffer,
                 index_count: m.mesh.indices.len() as u32,
-                material: m
-                    .mesh
-                    .material_id
-                    .map(|material_index| materials[material_index].clone()),
+                material: material.clone(),
             }
         })
         .collect::<Vec<_>>();
 
-    Ok(model::Model { meshes, materials })
+    Ok(model::Model { meshes })
 }

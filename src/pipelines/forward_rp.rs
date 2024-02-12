@@ -36,7 +36,7 @@ impl ForwardRP {
                     module: &shader,
                     entry_point: "vs_main",
                     buffers: &[
-                        vertex::VertexRaw::buffer_layout(),
+                        vertex::VertexRawWithTangents::buffer_layout(),
                         instance::InstanceRaw::buffer_layout(),
                     ],
                 },

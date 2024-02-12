@@ -2,11 +2,10 @@ use std::fs::{self, File};
 use std::io::BufReader;
 use std::path::PathBuf;
 use std::rc::Rc;
-use wgpu::util::DeviceExt;
 
 use crate::model::{Material, ModelDescriptorFile, TextureType};
+use crate::texture;
 use crate::{bind_group_layout_descriptors, model};
-use crate::{texture, vertex};
 
 const ASSET_FILE_NAME: &str = "asset.json";
 
@@ -46,20 +45,13 @@ pub async fn load_model<'a>(
 
     let mut file_buf_reader = open_file_for_reading(&model_folder.join(&model_info.model)).await?;
 
-    let (models, _obj_materials) = tobj::load_obj_buf_async(
-        &mut file_buf_reader,
-        &tobj::LoadOptions {
-            triangulate: true,
-            single_index: true,
-            ..Default::default()
-        },
-        |p| async {
+    let (models, _obj_materials) =
+        tobj::load_obj_buf_async(&mut file_buf_reader, &tobj::GPU_LOAD_OPTIONS, |p| async {
             let material_path = model_folder.join(p);
             let mut material_file_buf_reader = open_file_for_reading(&material_path).await.unwrap();
             tobj::load_mtl_buf(&mut material_file_buf_reader)
-        },
-    )
-    .await?;
+        })
+        .await?;
 
     let mut possible_texture_sources = Vec::new();
     for texture_set in model_info.textures {
@@ -102,42 +94,25 @@ pub async fn load_model<'a>(
 
     let meshes = models
         .into_iter()
-        .map(|m| {
-            let vertices = (0..m.mesh.positions.len() / 3)
-                .map(|i| vertex::VertexRaw {
-                    position: [
-                        m.mesh.positions[i * 3],
-                        m.mesh.positions[i * 3 + 1],
-                        m.mesh.positions[i * 3 + 2],
-                    ],
-                    tex_coord: [m.mesh.texcoords[i * 2], m.mesh.texcoords[i * 2 + 1]],
-                    normal: [
-                        m.mesh.normals[i * 3],
-                        m.mesh.normals[i * 3 + 1],
-                        m.mesh.normals[i * 3 + 2],
-                    ],
-                })
-                .collect::<Vec<_>>();
-
-            let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some(&format!("{:?} Vertex Buffer", asset_name)),
-                contents: bytemuck::cast_slice(&vertices),
-                usage: wgpu::BufferUsages::VERTEX,
-            });
-            let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some(&format!("{:?} Index Buffer", asset_name)),
-                contents: bytemuck::cast_slice(&m.mesh.indices),
-                usage: wgpu::BufferUsages::INDEX,
-            });
-
-            model::Mesh {
-                name: asset_name.to_string(),
-                vertex_buffer,
-                index_buffer,
-                index_count: m.mesh.indices.len() as u32,
-                material: material.clone(),
-            }
-        })
+        .map(
+            |m| {
+                model::Mesh::new(
+                    device,
+                    asset_name.to_string(),
+                    m.mesh.positions,
+                    m.mesh.normals,
+                    m.mesh.texcoords,
+                    m.mesh.indices,
+                    material.clone(),
+                )
+            }, //      {
+               //     name: asset_name.to_string(),
+               //     vertex_buffer,
+               //     index_buffer,
+               //     index_count: m.mesh.indices.len() as u32,
+               //     material: material.clone(),
+               // }
+        )
         .collect::<Vec<_>>();
 
     Ok(model::Model { meshes })

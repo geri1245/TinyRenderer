@@ -20,7 +20,7 @@ wgpu = "0.19"
 bytemuck = { version = "1.14", features = [ "derive" ] }
 imgui = "0.11"
 
-tobj = { version = "3.2", features = ["async"]}
+tobj = { version = "4.0", features = ["async"]}
 
 imgui_wgpu = { path = "crates/imgui_wgpu" }
 imgui-winit-support = { path = "crates/imgui_winit_support" }

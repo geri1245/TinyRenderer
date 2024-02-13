@@ -3,6 +3,8 @@ use std::io::BufReader;
 use std::path::PathBuf;
 use std::rc::Rc;
 
+use glam::{Vec2, Vec3};
+
 use crate::model::{Material, ModelDescriptorFile, TextureType};
 use crate::texture;
 use crate::{bind_group_layout_descriptors, model};
@@ -32,6 +34,20 @@ fn resolve_resource(resource_name: &str) -> PathBuf {
     std::path::Path::new(env!("OUT_DIR"))
         .join("assets")
         .join(resource_name)
+}
+
+fn vec_to_vec3s(values: Vec<f32>) -> Vec<Vec3> {
+    values
+        .chunks(3)
+        .map(|vec| Vec3::new(vec[0], vec[1], vec[2]))
+        .collect()
+}
+
+fn vec_to_vec2s(values: Vec<f32>) -> Vec<Vec2> {
+    values
+        .chunks(2)
+        .map(|vec| Vec2::new(vec[0], vec[1]))
+        .collect()
 }
 
 pub async fn load_model<'a>(
@@ -99,9 +115,9 @@ pub async fn load_model<'a>(
                 model::Mesh::new(
                     device,
                     asset_name.to_string(),
-                    m.mesh.positions,
-                    m.mesh.normals,
-                    m.mesh.texcoords,
+                    vec_to_vec3s(m.mesh.positions),
+                    vec_to_vec3s(m.mesh.normals),
+                    vec_to_vec2s(m.mesh.texcoords),
                     m.mesh.indices,
                     material.clone(),
                 )

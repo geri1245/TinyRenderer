@@ -7,7 +7,7 @@ use crate::{
     bind_group_layout_descriptors,
     buffer_content::BufferContent,
     instance,
-    model::{Mesh, Model, TextureType},
+    model::{Mesh, Model},
     texture::{self, SampledTexture},
     vertex,
 };
@@ -48,7 +48,7 @@ impl GBufferGeometryRP {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Geometry pass pipeline layout"),
             bind_group_layouts: &[
-                &device.create_bind_group_layout(&bind_group_layout_descriptors::STANDARD_TEXTURE),
+                &device.create_bind_group_layout(&bind_group_layout_descriptors::PBR_TEXTURE),
                 &device.create_bind_group_layout(&bind_group_layout_descriptors::CAMERA),
             ],
             push_constant_ranges: &[],
@@ -255,8 +255,7 @@ impl GBufferGeometryRP {
         mesh: &'a Mesh,
         instances: usize,
     ) {
-        let albedo = mesh.material.get(&TextureType::Albedo).unwrap();
-        render_pass.set_bind_group(0, &albedo.bind_group, &[]);
+        render_pass.set_bind_group(0, &mesh.material.bind_group, &[]);
         render_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
         render_pass.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
         render_pass.draw_indexed(0..mesh.index_count, 0, 0..instances as u32);

@@ -154,6 +154,10 @@ impl App {
                     Ok(_) => self.gui.set_shader_compilation_result("Sucess!".into()),
                     Err(error) => self.gui.set_shader_compilation_result(error.to_string()),
                 },
+                GuiEvent::LightPositionChanged { new_position } => self
+                    .world
+                    .light_controller
+                    .set_light_position(new_position.into()),
             }
         }
     }

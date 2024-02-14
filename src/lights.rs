@@ -83,7 +83,7 @@ impl DirectionalLight {
             Vec3::ZERO,
             Vec3::new(0.0_f32, 1.0, 0.0),
         );
-        let proj = glam::Mat4::perspective_rh(consts::FRAC_PI_3, 1.0, 1.0, 100.0);
+        let proj = Mat4::orthographic_rh(-25.0, 25.0, -25.0, 25.0, 0.1, 100.0);
         let view_proj = proj * view;
         LightRaw {
             light_view_proj: view_proj.to_cols_array_2d(),

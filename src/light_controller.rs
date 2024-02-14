@@ -1,5 +1,3 @@
-use core::f32::consts;
-
 use glam::{Quat, Vec3};
 use wgpu::{
     util::{align_to, DeviceExt},
@@ -27,7 +25,9 @@ const SHADOW_SIZE: wgpu::Extent3d = wgpu::Extent3d {
 pub struct LightController {
     pub point_light: PointLight,
     pub directional_light: DirectionalLight,
-    pub light_uniform_buffer: wgpu::Buffer,
+    light_uniform_buffer: wgpu::Buffer,
+    // This is used for creating the shadow maps. Here we are using dynamic offsets into the buffer,
+    // so the data needs to be aligned properly. Thus we have 2 separate buffers
     light_projection_only_uniform_buffer: wgpu::Buffer,
     uniform_buffer_alignment: u64,
     pub light_bind_group: wgpu::BindGroup,
@@ -47,7 +47,7 @@ impl LightController {
             align_to(matrix_size4x4, alignment)
         };
 
-        let light_projection_only_uniform_buffer = render_device.create_buffer(&BufferDescriptor {
+        let light_viewproj_only_uniform_buffer = render_device.create_buffer(&BufferDescriptor {
             label: Some("Light uniform buffer"),
             size: uniform_alignment * NUM_OF_LIGHTS as u64,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
@@ -79,7 +79,7 @@ impl LightController {
                 entries: &[wgpu::BindGroupEntry {
                     binding: 0,
                     resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: &light_projection_only_uniform_buffer,
+                        buffer: &light_viewproj_only_uniform_buffer,
                         offset: 0,
                         size: wgpu::BufferSize::new(uniform_alignment),
                     }),
@@ -143,7 +143,7 @@ impl LightController {
             directional_light,
             light_uniform_buffer,
             light_bind_group,
-            light_projection_only_uniform_buffer,
+            light_projection_only_uniform_buffer: light_viewproj_only_uniform_buffer,
             light_bind_group_viewproj_only,
             light_instance_buffer,
             shadow_rp,
@@ -151,13 +151,17 @@ impl LightController {
         }
     }
 
-    pub fn update(&mut self, delta_time: std::time::Duration, render_queue: &wgpu::Queue) {
-        let old_light_position = self.point_light.position;
-        self.point_light.position = (Quat::from_axis_angle(
-            (0.0, 1.0, 0.0).into(),
-            consts::FRAC_PI_3 * delta_time.as_secs_f32(),
-        ) * old_light_position)
-            .into();
+    pub fn set_light_position(&mut self, new_position: Vec3) {
+        self.point_light.position = new_position;
+    }
+
+    pub fn update(&mut self, _delta_time: std::time::Duration, render_queue: &wgpu::Queue) {
+        // let old_light_position = self.point_light.position;
+        // self.point_light.position = (Quat::from_axis_angle(
+        //     (0.0, 1.0, 0.0).into(),
+        //     consts::FRAC_PI_3 * delta_time.as_secs_f32(),
+        // ) * old_light_position)
+        //     .into();
 
         render_queue.write_buffer(
             &self.light_uniform_buffer,
@@ -214,7 +218,7 @@ impl LightController {
     fn get_raw_instances(light: &PointLight) -> Vec<InstanceRaw> {
         let light_instances = vec![Instance {
             position: light.position.into(),
-            scale: Vec3::ONE,
+            scale: Vec3::splat(0.1),
             rotation: Quat::IDENTITY,
         }];
         light_instances

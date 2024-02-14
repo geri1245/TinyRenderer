@@ -13,6 +13,11 @@ pub struct SampledTexture {
     pub format: wgpu::TextureFormat,
 }
 
+pub enum TextureUsage {
+    ALBEDO,
+    NORMAL,
+}
+
 impl SampledTexture {
     pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 
@@ -40,16 +45,18 @@ impl SampledTexture {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         bytes: &[u8],
+        usage: TextureUsage,
         label: &str,
     ) -> Result<Self> {
         let img = image::load_from_memory(bytes)?;
-        Self::from_image(device, queue, &img, Some(label))
+        Self::from_image(device, queue, &img, usage, Some(label))
     }
 
     pub fn from_image(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         img: &image::DynamicImage,
+        usage: TextureUsage,
         label: Option<&str>,
     ) -> Result<Self> {
         let rgba = img.to_rgba8();
@@ -60,13 +67,17 @@ impl SampledTexture {
             height: dimensions.1,
             depth_or_array_layers: 1,
         };
+        let format = match usage {
+            TextureUsage::ALBEDO => wgpu::TextureFormat::Rgba8UnormSrgb,
+            TextureUsage::NORMAL => wgpu::TextureFormat::Rgba8Unorm,
+        };
         let texture = device.create_texture(&wgpu::TextureDescriptor {
             label,
             size,
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            format,
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             view_formats: &[],
         });

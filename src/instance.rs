@@ -26,6 +26,8 @@ impl Instance {
                 self.position,
             )
             .to_cols_array_2d(),
+            // Instead of the inverse transpose, we can just pass the rotation matrix
+            // As non-uniform scaling is not supported, this is fine
             rotation_only_matrix: Mat3::from_quat(self.rotation).to_cols_array_2d(),
         }
     }

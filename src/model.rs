@@ -5,37 +5,23 @@ use serde::Deserialize;
 use wgpu::{util::DeviceExt, Device};
 
 use crate::{
-    texture,
+    bind_group_layout_descriptors, texture,
     vertex::{VertexRaw, VertexRawWithTangents},
 };
-
-#[derive(Deserialize)]
-pub struct ModelDescriptorTextureDescription {
-    #[serde(default)]
-    pub albedo: String,
-    #[serde(default)]
-    pub roughness: String,
-    #[serde(default)]
-    pub metalness: String,
-    #[serde(default)]
-    pub normal: String,
-}
 
 #[derive(Deserialize)]
 pub struct ModelDescriptorFile {
     pub model: String,
     #[serde(default)]
-    pub textures: Vec<ModelDescriptorTextureDescription>,
+    pub textures: HashMap<TextureType, String>,
 }
 
 pub struct Model {
     pub meshes: Vec<Mesh>,
 }
 
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(Deserialize, PartialEq, Eq, Hash, Clone)]
 pub enum TextureType {
-    Rough,
-    Metal,
     Albedo,
     Normal,
 }
@@ -43,27 +29,52 @@ pub enum TextureType {
 pub struct TextureData {
     pub name: String,
     pub texture: texture::SampledTexture,
-    pub bind_group: wgpu::BindGroup,
     pub texture_type: TextureType,
 }
 
 pub struct Material {
     textures: HashMap<TextureType, TextureData>,
+    pub bind_group: wgpu::BindGroup,
 }
 
 impl Material {
-    pub fn new() -> Self {
-        Material {
-            textures: HashMap::new(),
+    pub fn new(device: &wgpu::Device, textures: Vec<(TextureType, TextureData)>) -> Self {
+        let mut texture_map = HashMap::new();
+        for (texture_type, texture_nama) in textures {
+            texture_map.insert(texture_type, texture_nama);
         }
-    }
 
-    pub fn add_texture(&mut self, texture_type: TextureType, texture_data: TextureData) {
-        self.textures.insert(texture_type.clone(), texture_data);
-    }
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &device.create_bind_group_layout(&bind_group_layout_descriptors::PBR_TEXTURE),
+            entries: &[
+                texture_map
+                    .get(&TextureType::Albedo)
+                    .unwrap()
+                    .texture
+                    .get_texture_bind_group_entry(0),
+                texture_map
+                    .get(&TextureType::Albedo)
+                    .unwrap()
+                    .texture
+                    .get_sampler_bind_group_entry(1),
+                texture_map
+                    .get(&TextureType::Normal)
+                    .unwrap()
+                    .texture
+                    .get_texture_bind_group_entry(2),
+                texture_map
+                    .get(&TextureType::Normal)
+                    .unwrap()
+                    .texture
+                    .get_sampler_bind_group_entry(3),
+            ],
+            label: None,
+        });
 
-    pub fn get(&self, texture_type: &TextureType) -> Option<&TextureData> {
-        self.textures.get(texture_type)
+        Material {
+            textures: texture_map,
+            bind_group,
+        }
     }
 }
 

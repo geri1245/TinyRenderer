@@ -5,9 +5,9 @@ use std::rc::Rc;
 
 use glam::{Vec2, Vec3};
 
-use crate::model::{Material, ModelDescriptorFile, TextureType};
-use crate::texture;
-use crate::{bind_group_layout_descriptors, model};
+use crate::model;
+use crate::model::{Material, ModelDescriptorFile, TextureData};
+use crate::texture::{self, TextureUsage};
 
 const ASSET_FILE_NAME: &str = "asset.json";
 
@@ -20,12 +20,14 @@ pub async fn load_texture(
     file_name: &PathBuf,
     device: &wgpu::Device,
     queue: &wgpu::Queue,
+    usage: TextureUsage,
 ) -> anyhow::Result<texture::SampledTexture> {
     let data = std::fs::read(file_name).unwrap();
     texture::SampledTexture::from_bytes(
         device,
         queue,
         &data,
+        usage,
         file_name.file_name().unwrap().to_str().unwrap(),
     )
 }
@@ -69,67 +71,43 @@ pub async fn load_model<'a>(
         })
         .await?;
 
-    let mut possible_texture_sources = Vec::new();
-    for texture_set in model_info.textures {
-        possible_texture_sources.push((TextureType::Normal, texture_set.normal));
-        possible_texture_sources.push((TextureType::Albedo, texture_set.albedo));
-        possible_texture_sources.push((TextureType::Metal, texture_set.metalness));
-        possible_texture_sources.push((TextureType::Rough, texture_set.roughness));
-    }
-
-    let mut material = Material::new();
-    for (texture_type, texture_name) in possible_texture_sources {
+    let mut textures = Vec::new();
+    for (texture_type, texture_name) in model_info.textures {
         if texture_name.is_empty() {
             continue;
         }
-
+        let texture_usage = match texture_type {
+            model::TextureType::Albedo => TextureUsage::ALBEDO,
+            model::TextureType::Normal => TextureUsage::NORMAL,
+        };
         let material_path = model_folder.join("textures").join(&texture_name);
-        let diffuse_texture = load_texture(&material_path, device, queue).await?;
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &device
-                .create_bind_group_layout(&bind_group_layout_descriptors::STANDARD_TEXTURE),
-            entries: &[
-                diffuse_texture.get_texture_bind_group_entry(0),
-                diffuse_texture.get_sampler_bind_group_entry(1),
-            ],
-            label: None,
-        });
-
-        material.add_texture(
-            texture_type.clone(),
-            model::TextureData {
-                texture_type,
-                name: texture_name,
-                texture: diffuse_texture,
-                bind_group,
-            },
-        );
+        let texture = load_texture(&material_path, device, queue, texture_usage).await?;
+        let texture_data = TextureData {
+            name: texture_name,
+            texture: texture,
+            texture_type: texture_type.clone(),
+        };
+        textures.push((texture_type, texture_data))
     }
 
-    let material = Rc::new(material);
+    let material = Rc::new(Material::new(device, textures));
 
     let meshes = models
         .into_iter()
-        .map(
-            |m| {
-                model::Mesh::new(
-                    device,
-                    asset_name.to_string(),
-                    vec_to_vec3s(m.mesh.positions),
-                    vec_to_vec3s(m.mesh.normals),
-                    vec_to_vec2s(m.mesh.texcoords),
-                    m.mesh.indices,
-                    material.clone(),
-                )
-            }, //      {
-               //     name: asset_name.to_string(),
-               //     vertex_buffer,
-               //     index_buffer,
-               //     index_count: m.mesh.indices.len() as u32,
-               //     material: material.clone(),
-               // }
-        )
+        .map(|m| {
+            model::Mesh::new(
+                device,
+                asset_name.to_string(),
+                vec_to_vec3s(m.mesh.positions),
+                vec_to_vec3s(m.mesh.normals),
+                vec_to_vec2s(m.mesh.texcoords),
+                m.mesh.indices,
+                material.clone(),
+            )
+        })
         .collect::<Vec<_>>();
 
     Ok(model::Model { meshes })
 }
+
+// pub fn load_material() -> Material {}

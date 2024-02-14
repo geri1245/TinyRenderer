@@ -48,7 +48,7 @@ impl ShadowRP {
                 primitive: wgpu::PrimitiveState {
                     topology: wgpu::PrimitiveTopology::TriangleList,
                     front_face: wgpu::FrontFace::Ccw,
-                    cull_mode: Some(wgpu::Face::Back),
+                    cull_mode: Some(wgpu::Face::Front),
                     unclipped_depth: device
                         .features()
                         .contains(wgpu::Features::DEPTH_CLIP_CONTROL),
@@ -60,7 +60,7 @@ impl ShadowRP {
                     depth_compare: wgpu::CompareFunction::LessEqual,
                     stencil: wgpu::StencilState::default(),
                     bias: wgpu::DepthBiasState {
-                        constant: 2, // corresponds to bilinear filtering
+                        constant: 2,
                         slope_scale: 2.0,
                         clamp: 0.0,
                     },

@@ -97,7 +97,7 @@ fn calculate_point_light_contribution(light: Light, pixel_to_camera: vec3<f32>, 
     let diffuse_strength = max(dot(normal, pixel_to_light), 0.0);
 
     let half_dir = normalize(pixel_to_camera + pixel_to_light);
-    let specular_strength = pow(max(dot(half_dir, normal), 0.0), 32.0);
+    var specular_strength = pow(max(dot(half_dir, normal), 0.0), 32.0);
 
     let pixel_to_light_distance = length(light.position_or_direction - pixel_position);
     let attenuation = 1.0 / (c_light_attenuation_constant + c_light_attenuation_linear * pixel_to_light_distance + c_light_attenuation_quadratic * (pixel_to_light_distance * pixel_to_light_distance));
@@ -120,10 +120,9 @@ fn calculate_directional_light_contribution(light: Light, pixel_to_camera: vec3<
 fn fs_main(fragment_pos_and_coords: VertexOutput) -> @location(0) vec4<f32> {
     var uv = fragment_pos_and_coords.tex_coords;
 
-    let normal = textureSample(t_normal, s_normal, uv).xyz;
+    let normal = normalize(textureSample(t_normal, s_normal, uv).xyz);
     let albedo_and_shininess = textureSample(t_albedo, s_albedo, uv);
     let albedo = albedo_and_shininess.xyz;
-    let shininess = albedo_and_shininess.a;
     let position = textureSample(t_position, s_position, uv);
 
     var final_color = vec3<f32>(0, 0, 0);
@@ -135,9 +134,9 @@ fn fs_main(fragment_pos_and_coords: VertexOutput) -> @location(0) vec4<f32> {
         if lights[i].light_type == 1 {
             final_color += calculate_point_light_contribution(lights[i], pixel_to_camera, position.xyz, normal, shadow);
         } else if lights[i].light_type == 2 {
-            final_color += calculate_directional_light_contribution(lights[i], pixel_to_camera, normal, shadow);
+            // final_color += calculate_directional_light_contribution(lights[i], pixel_to_camera, normal, shadow);
         }
     }
 
-    return vec4(final_color * albedo, 1.0);
+    return vec4(final_color * albedo, 1);
 }

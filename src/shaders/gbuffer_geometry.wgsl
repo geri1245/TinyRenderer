@@ -33,6 +33,8 @@ struct VertexOutput {
     @location(0) world_normal: vec3<f32>,
     @location(1) world_position: vec4<f32>,
     @location(2) tex_coord: vec2<f32>,
+    @location(3) tangent: vec3<f32>,
+    @location(4) bitangent: vec3<f32>,
 };
 
 @group(1) @binding(0)
@@ -61,11 +63,17 @@ fn vs_main(
     var out: VertexOutput;
     out.tex_coord = model.tex_coord;
     // out.world_normal = normal_matrix * model.normal;
-    out.world_normal = model.normal;
-    // out.world_position = model_matrix * vertex_position;
     out.world_position = model_matrix * vertex_position;
 
     out.clip_position = camera.view_proj * model_matrix * vertex_position;
+
+    let tangent = normalize((normal_matrix * model.tangent).xyz);
+    let bitangent = normalize((normal_matrix * model.bitangent).xyz);
+    let normal = normalize((normal_matrix * model.normal).xyz);
+
+    out.tangent = tangent;
+    out.bitangent = bitangent;
+    out.world_normal = normal;
 
     return out;
 }
@@ -74,6 +82,10 @@ fn vs_main(
 var t_diffuse: texture_2d<f32>;
 @group(0) @binding(1)
 var s_diffuse: sampler;
+@group(0) @binding(2)
+var t_normal: texture_2d<f32>;
+@group(0) @binding(3)
+var s_normal: sampler;
 
 struct GBufferOutput {
   @location(0) position: vec4<f32>,
@@ -85,7 +97,14 @@ struct GBufferOutput {
 fn fs_main(in: VertexOutput) -> GBufferOutput {
     var output: GBufferOutput;
     output.position = in.world_position;
-    output.normal = vec4(in.world_normal, 1.0);
+    let tbn_mat = mat3x3(
+        normalize(in.tangent),
+        normalize(in.bitangent),
+        normalize(in.world_normal),
+    );
+
+    let tangent_space_normal = 2.0 * textureSample(t_normal, s_normal, in.tex_coord).xyz - 1.0;
+    output.normal = vec4(normalize(tbn_mat * tangent_space_normal), 1.0);
     output.albedo = textureSample(t_diffuse, s_diffuse, in.tex_coord);
 
     return output;

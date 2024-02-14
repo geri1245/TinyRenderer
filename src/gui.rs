@@ -5,15 +5,14 @@ use imgui::MouseCursor;
 use imgui_wgpu::{Renderer, RendererConfig};
 use imgui_winit_support::WinitPlatform;
 
-use crate::color;
-
 pub enum GuiEvent {
     RecompileShaders,
+    LightPositionChanged { new_position: [f32; 3] },
 }
 
 #[derive(Default)]
 pub struct GuiParams {
-    pub clear_color: [f32; 4],
+    pub point_light_position: [f32; 3],
     pub fov_x: f32,
     pub fov_y: f32,
 }
@@ -70,7 +69,7 @@ impl Gui {
         let renderer = Renderer::new(&mut context, &device, &queue, renderer_config);
 
         let gui_params = GuiParams {
-            clear_color: color::wgpu_color_to_f32_array_rgba(crate::CLEAR_COLOR),
+            point_light_position: [10.0, 20.0, 0.0],
             fov_x: 90.0,
             fov_y: 45.0,
         };
@@ -95,6 +94,8 @@ impl Gui {
         delta: Duration,
         current_frame_texture_view: &wgpu::TextureView,
     ) {
+        let light_position = self.gui_params.point_light_position;
+
         self.context.io_mut().update_delta_time(delta);
 
         self.platform
@@ -119,10 +120,37 @@ impl Gui {
 
                     ui.separator();
                     ui.slider("FOV (vertical)", 40.0, 50.0, &mut self.gui_params.fov_x);
-                    ui.color_picker4("Clear color", &mut self.gui_params.clear_color);
+                    const MIN: f32 = -30.0;
+                    const MAX: f32 = 30.0;
+                    ui.slider(
+                        "Point light position x",
+                        MIN,
+                        MAX,
+                        &mut self.gui_params.point_light_position[0],
+                    );
+                    ui.slider(
+                        "Point light position y",
+                        MIN,
+                        MAX,
+                        &mut self.gui_params.point_light_position[1],
+                    );
+                    ui.slider(
+                        "Point light position z",
+                        MIN,
+                        MAX,
+                        &mut self.gui_params.point_light_position[2],
+                    );
                 });
 
             ui.show_demo_window(&mut self.is_ui_open);
+
+            if light_position != self.gui_params.point_light_position {
+                self.sender
+                    .try_send(GuiEvent::LightPositionChanged {
+                        new_position: self.gui_params.point_light_position,
+                    })
+                    .unwrap();
+            }
         }
 
         let mut encoder: wgpu::CommandEncoder =

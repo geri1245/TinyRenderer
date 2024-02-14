@@ -6,6 +6,7 @@ use wgpu::{
 use crate::{
     color,
     texture::{self, SampledTexture},
+    CLEAR_COLOR,
 };
 
 pub const MAX_LIGHTS: usize = 10;
@@ -95,7 +96,7 @@ impl Renderer {
             size,
             depth_texture,
             surface_texture_format,
-            clear_color: [1.0, 0.0, 0.5, 1.0],
+            clear_color: color::wgpu_color_to_f32_array_rgba(CLEAR_COLOR),
         }
     }
 

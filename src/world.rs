@@ -1,4 +1,4 @@
-use std::{f32::consts, time};
+use std::time;
 
 use async_std::task::block_on;
 use glam::{Quat, Vec3};
@@ -6,7 +6,6 @@ use pipelines::PipelineRecreationResult;
 use wgpu::{util::DeviceExt, CommandEncoder, Device, TextureView};
 
 use crate::{
-    bind_group_layout_descriptors,
     camera_controller::CameraController,
     instance::{self, Instance},
     light_controller::LightController,
@@ -37,39 +36,36 @@ pub struct World {
 
 impl World {
     pub async fn new(renderer: &Renderer) -> Self {
-        let tree_texture_raw = include_bytes!("../assets/happy-tree.png");
-
-        let tree_texture = texture::SampledTexture::from_bytes(
-            &renderer.device,
-            &renderer.queue,
-            tree_texture_raw,
-            "treeTexture",
-        )
-        .unwrap();
         const SPACE_BETWEEN: f32 = 4.0;
-        const SCALE: Vec3 = Vec3::new(1.0, 1.0, 1.0);
-        let instances = (0..NUM_INSTANCES_PER_ROW)
-            .flat_map(|z| {
-                (0..NUM_INSTANCES_PER_ROW).map(move |x| {
-                    let x = SPACE_BETWEEN * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
-                    let z = SPACE_BETWEEN * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
+        // const SCALE: Vec3 = Vec3::new(1.0, 1.0, 1.0);
+        // let instances = (0..NUM_INSTANCES_PER_ROW)
+        //     .flat_map(|z| {
+        //         (0..NUM_INSTANCES_PER_ROW).map(move |x| {
+        //             let x = SPACE_BETWEEN * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
+        //             let z = SPACE_BETWEEN * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
 
-                    let position = Vec3 { x, y: 0.0, z };
+        //             let position = Vec3 { x, y: 0.0, z };
 
-                    let rotation = if position == Vec3::ZERO {
-                        Quat::from_axis_angle(Vec3::Z, 0.0)
-                    } else {
-                        Quat::from_axis_angle(position.normalize(), consts::FRAC_PI_4)
-                    };
+        //             let rotation = if position == Vec3::ZERO {
+        //                 Quat::from_axis_angle(Vec3::Z, 0.0)
+        //             } else {
+        //                 Quat::from_axis_angle(position.normalize(), consts::FRAC_PI_4)
+        //             };
 
-                    Instance {
-                        position,
-                        rotation,
-                        scale: SCALE,
-                    }
-                })
-            })
-            .collect::<Vec<_>>();
+        //             Instance {
+        //                 position,
+        //                 rotation,
+        //                 scale: SCALE,
+        //             }
+        //         })
+        //     })
+        //     .collect::<Vec<_>>();
+
+        let instances = vec![Instance {
+            position: Vec3::new(0.0, 10.0, 0.0),
+            scale: Vec3::splat(5.0),
+            rotation: Quat::from_axis_angle(Vec3::ZERO, 0.0),
+        }];
 
         let instance_data = instances
             .iter()
@@ -88,34 +84,42 @@ impl World {
             .await
             .unwrap();
 
-        // let plant =
-        //     resources::load_model("plant/Sansevieria.obj", &renderer.device, &renderer.queue)
-        //         .await
-        //         .unwrap();
-
-        let texture_bind_group = renderer
-            .device
-            .create_bind_group(&wgpu::BindGroupDescriptor {
-                layout: &renderer
-                    .device
-                    .create_bind_group_layout(&bind_group_layout_descriptors::STANDARD_TEXTURE),
-                entries: &[
-                    tree_texture.get_texture_bind_group_entry(0),
-                    tree_texture.get_sampler_bind_group_entry(1),
-                ],
-                label: Some("diffuse_bind_group"),
-            });
-
+        let plane_texture_raw = include_bytes!("../assets/happy-tree.png");
+        let plane_albedo = texture::SampledTexture::from_bytes(
+            &renderer.device,
+            &renderer.queue,
+            plane_texture_raw,
+            texture::TextureUsage::ALBEDO,
+            "treeTexture",
+        )
+        .unwrap();
         let square_texture = TextureData {
             texture_type: TextureType::Albedo,
             name: "Tree texture material".into(),
-            texture: tree_texture,
-            bind_group: texture_bind_group,
+            texture: plane_albedo,
         };
 
-        let mut square_material = Material::new();
-        square_material.add_texture(square_texture.texture_type.clone(), square_texture);
+        let plane_normal_raw = include_bytes!("../assets/happy-tree.png");
+        let plane_normal = texture::SampledTexture::from_bytes(
+            &renderer.device,
+            &renderer.queue,
+            plane_normal_raw,
+            texture::TextureUsage::NORMAL,
+            "treeTexture",
+        )
+        .unwrap();
+        let plane_normal_texture = TextureData {
+            texture_type: TextureType::Normal,
+            name: "Tree texture material".into(),
+            texture: plane_normal,
+        };
 
+        let textures = vec![
+            (TextureType::Albedo, square_texture),
+            (TextureType::Normal, plane_normal_texture),
+        ];
+
+        let square_material = Material::new(&renderer.device, textures);
         let square = primitive_shapes::square(&renderer.device, square_material);
 
         let square_instances = vec![Instance {

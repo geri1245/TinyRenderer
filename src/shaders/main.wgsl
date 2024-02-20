@@ -67,24 +67,9 @@ var sampler_shadow: sampler_comparison;
 var t_shadow_cube: texture_depth_cube;
 @group(3) @binding(3)
 var sampler_cube: sampler_comparison;
-@group(3) @binding(4)
-var sampler_cube_no_compare: sampler;
 
 fn is_valid_tex_coord(tex_coord: vec2<f32>) -> bool {
     return tex_coord.x >= 0.0 && tex_coord.x <= 1.0 && tex_coord.y >= 0.0 && tex_coord.y <= 1.0;
-}
-
-fn linearize_depth(depth: f32, near_plane: f32, far_plane: f32) -> f32 {
-    // Calculate our projection constants (you should of course do this in the app code, I'm just showing how to do it)
-    let ProjectionA = far_plane / (far_plane - near_plane);
-    let ProjectionB = (-far_plane * near_plane) / (far_plane - near_plane);
-
-    // Sample the depth and convert to linear view space Z (assume it gets sampled as
-    // a floating point value of the range [0,1])
-    return ProjectionB / (depth - ProjectionA);
-
-    // let ndc_depth = depth * 2.0 - 1.0; // Back to NDC 
-    // return (2.0 * near_plane * far_plane) / (far_plane + near_plane - ndc_depth * (far_plane - near_plane));
 }
 
 fn fetch_shadow(light_id: u32, fragment_pos: vec4<f32>) -> f32 {
@@ -114,11 +99,6 @@ fn get_shadow_value(light_id: u32, fragment_pos: vec3<f32>) -> f32 {
 
     // Compare the shadow map sample against "the depth of the current fragment from the light's perspective"
     return textureSampleCompareLevel(t_shadow_cube, sampler_cube, tex_coord, length(tex_coord) / far_distance - 0.005);
-    // let depth = textureSample(t_shadow_cube, sampler_cube_no_compare, tex_coord);
-    // let depth_towards_fragment = linearize_depth(depth, 0.1, light.far_plane_distance);
-    // let distance_to_fragment = length(tex_coord);
-
-    // if depth_towards_fragment + 1.5 < distance_to_fragment { return 0.0; } else { return 1.0; }
 }
 
 const c_ambient_strength: f32 = 0.1;

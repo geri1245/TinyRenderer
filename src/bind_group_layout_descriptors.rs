@@ -136,12 +136,6 @@ pub const DEPTH_TEXTURE: wgpu::BindGroupLayoutDescriptor = wgpu::BindGroupLayout
             ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Comparison),
             count: None,
         },
-        wgpu::BindGroupLayoutEntry {
-            binding: 4,
-            visibility: wgpu::ShaderStages::FRAGMENT,
-            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
-            count: None,
-        },
     ],
 };
 

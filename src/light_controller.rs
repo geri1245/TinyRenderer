@@ -40,11 +40,11 @@ pub struct LightController {
 impl LightController {
     pub fn new(render_device: &wgpu::Device) -> LightController {
         // Make the `uniform_alignment` >= `light_uniform_size` and aligned to `min_uniform_buffer_offset_alignment`, as that is a requirement if we want to use dynamic offsets
-        let matrix_size4x4 = core::mem::size_of::<LightRawSmall>() as u64;
+        let light_raw_small_size = core::mem::size_of::<LightRawSmall>() as u64;
         let uniform_alignment = {
             let alignment =
                 render_device.limits().min_uniform_buffer_offset_alignment as wgpu::BufferAddress;
-            align_to(matrix_size4x4, alignment)
+            align_to(light_raw_small_size, alignment)
         };
 
         let light_viewproj_only_uniform_buffer = render_device.create_buffer(&BufferDescriptor {

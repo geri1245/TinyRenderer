@@ -1,6 +1,9 @@
 use std::f32::consts;
 
-use glam::{Mat4, Vec3};
+use glam::{Mat4, Vec3, Vec3Swizzles};
+
+const FAR_PLANE: f32 = 100.0;
+const NEAR_PLANE: f32 = 0.1;
 
 #[derive(Debug)]
 pub struct PointLight {
@@ -8,7 +11,9 @@ pub struct PointLight {
     pub color: Vec3,
     // In the final implementation this should radiate light in every direction
     pub target: Vec3,
-    pub depth_texture: wgpu::TextureView,
+    pub depth_texture: Vec<wgpu::TextureView>,
+    far_plane: f32,
+    near_plane: f32,
 }
 
 #[repr(C)]
@@ -17,6 +22,7 @@ pub struct DirectionalLight {
     pub direction: Vec3,
     pub color: Vec3,
     pub depth_texture: wgpu::TextureView,
+    far_plane: f32,
 }
 
 #[repr(C)]
@@ -29,12 +35,19 @@ pub struct LightRaw {
     pub light_type: u32,
     pub color: [f32; 3],
     // Due to uniforms requiring 16 byte (4 float) spacing, we need to use a padding field here
-    _padding: u32,
+    far_plane_distance: f32,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct LightRawSmall {
+    light_view_proj: [[f32; 4]; 4],
+    position_and_far_plane_distance: [f32; 4],
 }
 
 impl PointLight {
     pub fn new(
-        depth_texture: wgpu::TextureView,
+        depth_texture: Vec<wgpu::TextureView>,
         position: Vec3,
         color: Vec3,
         target: Vec3,
@@ -44,7 +57,44 @@ impl PointLight {
             color,
             target,
             depth_texture,
+            far_plane: FAR_PLANE,
+            near_plane: NEAR_PLANE,
         }
+    }
+
+    pub fn get_viewprojs_raw(&self) -> Vec<LightRawSmall> {
+        let proj =
+            glam::Mat4::perspective_rh(consts::FRAC_PI_2, 1.0, self.near_plane, self.far_plane);
+        // const delta: f32 = 4.0;
+        // const pz: f32 = 1.1;
+        // let epsilon = -2.0 * self.far_plane * self.near_plane * delta
+        //     / ((self.far_plane + self.near_plane) * pz * (pz + delta));
+
+        const DIFF_AND_UP_VECTORS: [(Vec3, Vec3); 6] = [
+            (Vec3::X, Vec3::Y),
+            (Vec3::NEG_X, Vec3::Y),
+            (Vec3::Y, Vec3::NEG_Z),
+            (Vec3::NEG_Y, Vec3::Z),
+            (Vec3::Z, Vec3::Y),
+            (Vec3::NEG_Z, Vec3::Y),
+        ];
+
+        DIFF_AND_UP_VECTORS
+            .iter()
+            .map(|&(diff, up)| {
+                let view =
+                    Mat4::look_at_rh(self.position.into(), (self.position + diff).into(), up);
+                (proj * view).to_cols_array_2d()
+            })
+            .map(|view_proj| {
+                let mut position_and_far_plane_distance = self.position.xyzz();
+                position_and_far_plane_distance.w = self.far_plane;
+                LightRawSmall {
+                    light_view_proj: view_proj,
+                    position_and_far_plane_distance: position_and_far_plane_distance.into(),
+                }
+            })
+            .collect::<Vec<_>>()
     }
 
     pub fn to_raw(&self) -> LightRaw {
@@ -53,14 +103,15 @@ impl PointLight {
             self.target.into(),
             Vec3::new(0.0_f32, 1.0, 0.0),
         );
-        let proj = glam::Mat4::perspective_rh(consts::FRAC_PI_3, 1.0, 1.0, 100.0);
+        let proj =
+            glam::Mat4::perspective_rh(consts::FRAC_PI_3, 1.0, self.near_plane, self.far_plane);
         let view_proj = proj * view;
         LightRaw {
             light_view_proj: view_proj.to_cols_array_2d(),
             position_or_direction: self.position.into(),
             light_type: 1,
             color: self.color.into(),
-            _padding: 0,
+            far_plane_distance: 100.0,
         }
     }
 }
@@ -71,6 +122,7 @@ impl DirectionalLight {
             direction,
             color,
             depth_texture,
+            far_plane: FAR_PLANE,
         }
     }
 
@@ -83,14 +135,14 @@ impl DirectionalLight {
             Vec3::ZERO,
             Vec3::new(0.0_f32, 1.0, 0.0),
         );
-        let proj = Mat4::orthographic_rh(-25.0, 25.0, -25.0, 25.0, 0.1, 100.0);
+        let proj = Mat4::orthographic_rh(-25.0, 25.0, -25.0, 25.0, NEAR_PLANE, self.far_plane);
         let view_proj = proj * view;
         LightRaw {
             light_view_proj: view_proj.to_cols_array_2d(),
             position_or_direction: self.direction.into(),
             light_type: 2,
             color: self.color.into(),
-            _padding: 0,
+            far_plane_distance: self.far_plane,
         }
     }
 }

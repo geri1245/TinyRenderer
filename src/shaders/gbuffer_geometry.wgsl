@@ -62,7 +62,6 @@ fn vs_main(
 
     var out: VertexOutput;
     out.tex_coord = model.tex_coord;
-    // out.world_normal = normal_matrix * model.normal;
     out.world_position = model_matrix * vertex_position;
 
     out.clip_position = camera.view_proj * model_matrix * vertex_position;

@@ -1,3 +1,5 @@
+use std::default;
+
 use wgpu::{BindGroup, Buffer, CommandEncoder, RenderPassDepthStencilAttachment};
 
 use crate::{
@@ -13,8 +15,10 @@ pub struct ShadowRP {
 impl ShadowRP {
     pub fn new(
         device: &wgpu::Device,
-        shadow_texture: &SampledTexture,
-        shadow_texture_view: wgpu::TextureView,
+        directional_shadow_texture: &SampledTexture,
+        point_shadow_texture: &SampledTexture,
+        directional_shadow_texture_view: wgpu::TextureView,
+        point_shadow_texture_view: wgpu::TextureView,
     ) -> ShadowRP {
         let shadow_pipeline = {
             let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -38,13 +42,17 @@ impl ShadowRP {
                 layout: Some(&pipeline_layout),
                 vertex: wgpu::VertexState {
                     module: &shadow_shader,
-                    entry_point: "vs_bake",
+                    entry_point: "vs_main",
                     buffers: &[
                         vertex::VertexRawWithTangents::buffer_layout(),
                         instance::InstanceRaw::buffer_layout(),
                     ],
                 },
-                fragment: None,
+                fragment: Some(wgpu::FragmentState {
+                    entry_point: "fs_main",
+                    module: &shadow_shader,
+                    targets: &[],
+                }),
                 primitive: wgpu::PrimitiveState {
                     topology: wgpu::PrimitiveTopology::TriangleList,
                     front_face: wgpu::FrontFace::Ccw,
@@ -55,15 +63,11 @@ impl ShadowRP {
                     ..Default::default()
                 },
                 depth_stencil: Some(wgpu::DepthStencilState {
-                    format: shadow_texture.format,
+                    format: directional_shadow_texture.format,
                     depth_write_enabled: true,
-                    depth_compare: wgpu::CompareFunction::LessEqual,
+                    depth_compare: wgpu::CompareFunction::Less,
                     stencil: wgpu::StencilState::default(),
-                    bias: wgpu::DepthBiasState {
-                        constant: 2,
-                        slope_scale: 2.0,
-                        clamp: 0.0,
-                    },
+                    bias: Default::default(),
                 }),
                 multisample: wgpu::MultisampleState::default(),
                 multiview: None,
@@ -77,11 +81,38 @@ impl ShadowRP {
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&shadow_texture_view),
+                    resource: wgpu::BindingResource::TextureView(&directional_shadow_texture_view),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&shadow_texture.sampler),
+                    resource: wgpu::BindingResource::Sampler(&directional_shadow_texture.sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::TextureView(&point_shadow_texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: wgpu::BindingResource::Sampler(&point_shadow_texture.sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 4,
+                    resource: wgpu::BindingResource::Sampler(&device.create_sampler(
+                        &wgpu::SamplerDescriptor {
+                            label: Some("Temporary sampler"),
+                            address_mode_u: wgpu::AddressMode::ClampToEdge,
+                            address_mode_v: wgpu::AddressMode::ClampToEdge,
+                            address_mode_w: wgpu::AddressMode::ClampToEdge,
+                            mag_filter: wgpu::FilterMode::Nearest,
+                            min_filter: wgpu::FilterMode::Nearest,
+                            mipmap_filter: wgpu::FilterMode::Nearest,
+                            lod_min_clamp: 0.0,
+                            lod_max_clamp: 32.0,
+                            compare: None,
+                            anisotropy_clamp: 1,
+                            border_color: None,
+                        },
+                    )),
                 },
             ],
             label: None,

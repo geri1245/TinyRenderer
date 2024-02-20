@@ -1,4 +1,7 @@
-use std::time;
+use std::{
+    f32::consts::{FRAC_PI_2, PI},
+    time,
+};
 
 use async_std::task::block_on;
 use glam::{Quat, Vec3};
@@ -18,11 +21,10 @@ use crate::{
     texture,
 };
 
-const NUM_INSTANCES_PER_ROW: u32 = 10;
-
 pub struct World {
     pub obj_model: Model,
     pub instances: Vec<Instance>,
+    pub square_count: usize,
     pub instance_buffer: wgpu::Buffer,
     pub square: Mesh,
     pub square_instance_buffer: wgpu::Buffer,
@@ -36,38 +38,35 @@ pub struct World {
 
 impl World {
     pub async fn new(renderer: &Renderer) -> Self {
-        const SPACE_BETWEEN: f32 = 4.0;
-        // const SCALE: Vec3 = Vec3::new(1.0, 1.0, 1.0);
-        // let instances = (0..NUM_INSTANCES_PER_ROW)
-        //     .flat_map(|z| {
-        //         (0..NUM_INSTANCES_PER_ROW).map(move |x| {
-        //             let x = SPACE_BETWEEN * (x as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
-        //             let z = SPACE_BETWEEN * (z as f32 - NUM_INSTANCES_PER_ROW as f32 / 2.0);
+        let cube_instances = vec![
+            Instance {
+                position: Vec3::new(10.0, 10.0, 0.0),
+                scale: Vec3::splat(3.0),
+                rotation: Quat::from_axis_angle(Vec3::ZERO, 0.0),
+            },
+            Instance {
+                position: Vec3::new(-20.0, 10.0, 0.0),
+                scale: Vec3::splat(2.0),
+                rotation: Quat::from_axis_angle(Vec3::ZERO, 0.0),
+            },
+            Instance {
+                position: Vec3::new(0.0, 10.0, 30.0),
+                scale: Vec3::splat(2.0),
+                rotation: Quat::from_axis_angle(Vec3::ZERO, 0.0),
+            },
+            Instance {
+                position: Vec3::new(30.0, 20.0, 10.0),
+                scale: Vec3::splat(2.0),
+                rotation: Quat::from_axis_angle(Vec3::ZERO, 0.0),
+            },
+            Instance {
+                position: Vec3::new(25.0, 10.0, 20.0),
+                scale: Vec3::splat(1.5),
+                rotation: Quat::from_axis_angle(Vec3::ZERO, 0.0),
+            },
+        ];
 
-        //             let position = Vec3 { x, y: 0.0, z };
-
-        //             let rotation = if position == Vec3::ZERO {
-        //                 Quat::from_axis_angle(Vec3::Z, 0.0)
-        //             } else {
-        //                 Quat::from_axis_angle(position.normalize(), consts::FRAC_PI_4)
-        //             };
-
-        //             Instance {
-        //                 position,
-        //                 rotation,
-        //                 scale: SCALE,
-        //             }
-        //         })
-        //     })
-        //     .collect::<Vec<_>>();
-
-        let instances = vec![Instance {
-            position: Vec3::new(0.0, 10.0, 0.0),
-            scale: Vec3::splat(5.0),
-            rotation: Quat::from_axis_angle(Vec3::ZERO, 0.0),
-        }];
-
-        let instance_data = instances
+        let instance_data = cube_instances
             .iter()
             .map(instance::Instance::to_raw)
             .collect::<Vec<_>>();
@@ -122,16 +121,74 @@ impl World {
         let square_material = Material::new(&renderer.device, textures);
         let square = primitive_shapes::square(&renderer.device, square_material);
 
-        let square_instances = vec![Instance {
-            position: Vec3::new(0.0, -10.0, 0.0),
-            rotation: Quat::IDENTITY,
-            scale: 100.0_f32
-                * Vec3 {
-                    x: 1.0_f32,
-                    y: 1.0,
-                    z: 1.0,
-                },
-        }];
+        let square_instances = vec![
+            // Bottom
+            Instance {
+                position: Vec3::new(0.0, -10.0, 0.0),
+                rotation: Quat::IDENTITY,
+                scale: 100.0_f32
+                    * Vec3 {
+                        x: 1.0_f32,
+                        y: 1.0,
+                        z: 1.0,
+                    },
+            },
+            // Top
+            Instance {
+                position: Vec3::new(0.0, 40.0, 0.0),
+                rotation: Quat::from_axis_angle(Vec3::X, PI),
+                scale: 100.0_f32
+                    * Vec3 {
+                        x: 1.0_f32,
+                        y: 1.0,
+                        z: 1.0,
+                    },
+            },
+            // +X
+            Instance {
+                position: Vec3::new(-40.0, 0.0, 0.0),
+                rotation: Quat::from_axis_angle(Vec3::Z, -FRAC_PI_2),
+                scale: 100.0_f32
+                    * Vec3 {
+                        x: 1.0_f32,
+                        y: 1.0,
+                        z: 1.0,
+                    },
+            },
+            // -X
+            Instance {
+                position: Vec3::new(40.0, 0.0, 0.0),
+                rotation: Quat::from_axis_angle(Vec3::Z, FRAC_PI_2),
+                scale: 100.0_f32
+                    * Vec3 {
+                        x: 1.0_f32,
+                        y: 1.0,
+                        z: 1.0,
+                    },
+            },
+            // -Z
+            Instance {
+                position: Vec3::new(0.0, 0.0, -40.0),
+                rotation: Quat::from_axis_angle(Vec3::X, FRAC_PI_2),
+                scale: 100.0_f32
+                    * Vec3 {
+                        x: 1.0_f32,
+                        y: 1.0,
+                        z: 1.0,
+                    },
+            },
+            // Z
+            Instance {
+                position: Vec3::new(0.0, 0.0, 40.0),
+                rotation: Quat::from_axis_angle(Vec3::X, -FRAC_PI_2),
+                scale: 100.0_f32
+                    * Vec3 {
+                        x: 1.0_f32,
+                        y: 1.0,
+                        z: 1.0,
+                    },
+            },
+        ];
 
         let square_instance_raw = square_instances
             .iter()
@@ -163,7 +220,7 @@ impl World {
 
         World {
             obj_model,
-            instances,
+            instances: cube_instances,
             instance_buffer,
             square,
             square_instance_buffer,
@@ -173,6 +230,7 @@ impl World {
             main_rp,
             gbuffer_rp,
             forward_rp,
+            square_count: square_instances.len(),
         }
     }
 
@@ -204,7 +262,7 @@ impl World {
                     &mut render_pass,
                     &self.square,
                     &self.camera_controller.bind_group,
-                    1,
+                    self.square_count,
                     &self.square_instance_buffer,
                 );
             }

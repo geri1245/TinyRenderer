@@ -24,16 +24,11 @@ struct LightViewProj {
 @group(0) @binding(0)
 var<uniform> light: LightViewProj;
 
-struct VertexOutput {
-    @builtin(position) clip_position: vec4<f32>,
-    @location(0) world_position: vec3<f32>,
-};
-
 @vertex
 fn vs_main(
     model: VertexInput,
     instance: InstanceInput,
-) -> VertexOutput {
+) -> @builtin(position) vec4<f32> {
     let world_matrix = mat4x4<f32>(
         instance.model_matrix_0,
         instance.model_matrix_1,
@@ -48,18 +43,5 @@ fn vs_main(
     // This way sampling the shadow cubemap in the lighting shader can be done without any extra effort
     final_position.x *= -1.0;
 
-    var output: VertexOutput;
-    output.clip_position = final_position;
-    output.world_position = (world_matrix * vertex_position).xyz;
-
-    return output;
-}
-
-@fragment
-fn fs_main(input: VertexOutput) -> @builtin(frag_depth) f32 {
-    let light_position = light.light_position_and_far_plane.xyz;
-    let far_plane = light.light_position_and_far_plane.w;
-
-    let frag_to_light_distance = length(input.world_position - light_position);
-    return frag_to_light_distance / far_plane;
+    return final_position;
 }

@@ -91,6 +91,16 @@ fn fetch_shadow(light_id: u32, fragment_pos: vec4<f32>) -> f32 {
     }
 }
 
+fn vector_to_depth_value(light_to_fragment: vec3<f32>) -> f32 {
+    let abs_light_to_fragment = abs(light_to_fragment);
+    let local_z = max(abs_light_to_fragment.x, max(abs_light_to_fragment.y, abs_light_to_fragment.z));
+
+    let f = 100.0;
+    let n = 0.1;
+    let norm_z = (f + n) / (f - n) - (2 * f * n) / (f - n) / local_z;
+    return (norm_z + 1.0) * 0.5;
+}
+
 fn get_shadow_value(light_id: u32, fragment_pos: vec3<f32>) -> f32 {
     let light = lights[light_id];
     let light_pos = light.position_or_direction;
@@ -98,10 +108,10 @@ fn get_shadow_value(light_id: u32, fragment_pos: vec3<f32>) -> f32 {
     let far_distance = light.far_plane_distance;
 
     // Compare the shadow map sample against "the depth of the current fragment from the light's perspective"
-    return textureSampleCompareLevel(t_shadow_cube, sampler_cube, tex_coord, length(tex_coord) / far_distance - 0.005);
+    return textureSampleCompareLevel(t_shadow_cube, sampler_cube, tex_coord, vector_to_depth_value(tex_coord));
 }
 
-const c_ambient_strength: f32 = 0.1;
+const c_ambient_strength: f32 = 0.0;
 const c_light_attenuation_constant: f32 = 1.0;
 const c_light_attenuation_linear: f32 = 0.01;
 const c_light_attenuation_quadratic: f32 = 0.0005;

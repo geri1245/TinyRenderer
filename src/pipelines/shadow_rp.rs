@@ -1,5 +1,3 @@
-use std::default;
-
 use wgpu::{BindGroup, Buffer, CommandEncoder, RenderPassDepthStencilAttachment};
 
 use crate::{
@@ -48,11 +46,7 @@ impl ShadowRP {
                         instance::InstanceRaw::buffer_layout(),
                     ],
                 },
-                fragment: Some(wgpu::FragmentState {
-                    entry_point: "fs_main",
-                    module: &shadow_shader,
-                    targets: &[],
-                }),
+                fragment: None,
                 primitive: wgpu::PrimitiveState {
                     topology: wgpu::PrimitiveTopology::TriangleList,
                     front_face: wgpu::FrontFace::Ccw,
@@ -67,7 +61,11 @@ impl ShadowRP {
                     depth_write_enabled: true,
                     depth_compare: wgpu::CompareFunction::Less,
                     stencil: wgpu::StencilState::default(),
-                    bias: Default::default(),
+                    bias: wgpu::DepthBiasState {
+                        constant: 500,
+                        slope_scale: 4.0,
+                        clamp: 0.0,
+                    },
                 }),
                 multisample: wgpu::MultisampleState::default(),
                 multiview: None,

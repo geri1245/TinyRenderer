@@ -120,26 +120,80 @@ const c_light_attenuation_constant: f32 = 1.0;
 const c_light_attenuation_linear: f32 = 0.01;
 const c_light_attenuation_quadratic: f32 = 0.0005;
 
-fn get_light_diffuse_and_specular_contribution(pixel_to_light: vec3<f32>, pixel_to_camera: vec3<f32>, normal: vec3<f32>, shadow: f32) -> f32 {
+const F0_NON_METALLIC: vec3<f32> = vec3(0.04);
+const PI: f32 = 3.14159265359;
+
+fn fresnel_schlick(cosTheta: f32, v: vec3<f32>) -> vec3<f32> {
+    return v + (vec3(1.0) - v) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
+fn distribution_ggx(normal: vec3<f32>, half_dir: vec3<f32>, roughness: f32) -> f32 {
+    let rough_squared = roughness * roughness;
+    let rough_4 = rough_squared * rough_squared;
+    let n_dot_h = max(dot(normal, half_dir), 0.0);
+    let n_dot_h_2 = n_dot_h * n_dot_h;
+
+    var denom = (n_dot_h_2 * (rough_4 - 1.0) + 1.0);
+    denom = PI * denom * denom;
+
+    return rough_4 / denom;
+}
+
+fn geometry_schlick_ggx(normal_dot_view: f32, roughness: f32) -> f32 {
+    let r = roughness + 1.0;
+    let k = r * r / 8.0;
+
+    let denom = normal_dot_view * (1.0 - k) + k;
+
+    return normal_dot_view / denom;
+}
+
+fn geometery_smith(normal: vec3<f32>, view: vec3<f32>, light: vec3<f32>, roughness: f32) -> f32 {
+    let normal_dot_view = max(dot(normal, view), 0.0);
+    let normal_dot_light = max(dot(normal, light), 0.0);
+    let ggx2 = geometry_schlick_ggx(normal_dot_view, roughness);
+    let ggx1 = geometry_schlick_ggx(normal_dot_light, roughness);
+
+    return ggx1 * ggx2;
+}
+
+fn get_light_diffuse_and_specular_contribution(pixel_to_light: vec3<f32>, pixel_to_camera: vec3<f32>, normal: vec3<f32>) -> f32 {
     let diffuse_strength = max(dot(normal, pixel_to_light), 0.0);
 
     let half_dir = normalize(pixel_to_camera + pixel_to_light);
     let specular_strength = pow(max(dot(half_dir, normal), 0.0), 32.0);
 
-    return (diffuse_strength + specular_strength) * shadow;
+    return diffuse_strength + specular_strength;
 }
 
 fn calculate_point_light_contribution(
-    light: Light, pixel_to_camera: vec3<f32>, pixel_position: vec3<f32>, normal: vec3<f32>, shadow: f32
+    light: Light, pixel_to_camera: vec3<f32>, pixel_position: vec3<f32>, normal: vec3<f32>, albedo: vec3<f32>,
+    metalness: f32, roughness: f32, shadow: f32
 ) -> vec3<f32> {
     let pixel_to_light = normalize(light.position_or_direction - pixel_position);
-
-    let diffuse_and_specular_strength = get_light_diffuse_and_specular_contribution(pixel_to_light, pixel_to_camera, normal, shadow);
-
+    let half_dir = normalize(pixel_to_camera + pixel_to_light);
     let pixel_to_light_distance = length(light.position_or_direction - pixel_position);
-    let attenuation = 1.0 / (c_light_attenuation_constant + c_light_attenuation_linear * pixel_to_light_distance + c_light_attenuation_quadratic * (pixel_to_light_distance * pixel_to_light_distance));
+    let attenuation = 1.0 / (pixel_to_light_distance * pixel_to_light_distance);
+    let radiance = light.color * attenuation;
 
-    return (c_ambient_strength + diffuse_and_specular_strength * shadow) * attenuation * light.color;
+    let F0 = mix(F0_NON_METALLIC, albedo, metalness);
+    let F = fresnel_schlick(max(dot(half_dir, pixel_to_camera), 0.0), F0);
+
+    let NDF = distribution_ggx(normal, half_dir, roughness);
+    let G = geometery_smith(normal, pixel_to_camera, pixel_to_light, roughness);
+
+    let normal_dot_light = max(dot(normal, pixel_to_light), 0.0);
+
+    let numerator = NDF * G * F;
+    let denominator = 4.0 * max(dot(normal, pixel_to_camera), 0.0) * normal_dot_light + 0.0001;
+    let specular = numerator / denominator;
+
+    let kS = F;
+    let kD = (vec3(1.0) - kS) * (1.0 - metalness);
+
+    let light_contribution = (kD * albedo / PI + specular) * radiance * normal_dot_light;
+
+    return light_contribution;
 }
 
 @fragment
@@ -150,8 +204,12 @@ fn fs_main(fragment_pos_and_coords: VertexOutput) -> @location(0) vec4<f32> {
     let albedo_and_shininess = textureSample(t_albedo, s_albedo, uv);
     let albedo = albedo_and_shininess.xyz;
     let position = textureSample(t_position, s_position, uv);
+    let metal_rough_ao = textureSample(t_metal_rough_ao, s_metal_rough_ao, uv);
+    let metalness = metal_rough_ao.x;
+    let roughness = metal_rough_ao.y;
+    let ao = metal_rough_ao.z;
 
-    var final_color = vec3<f32>(0, 0, 0);
+    var irradiance = vec3<f32>(0, 0, 0);
 
     for (var i = 0u; i < 2; i += 1u) {
         let light = lights[i];
@@ -160,13 +218,23 @@ fn fs_main(fragment_pos_and_coords: VertexOutput) -> @location(0) vec4<f32> {
         if light.light_type == 1 {
             let shadow = get_shadow_value(i, position.xyz);
 
-            final_color += calculate_point_light_contribution(light, pixel_to_camera, position.xyz, normal, shadow);
+            irradiance += calculate_point_light_contribution(
+                light, pixel_to_camera, position.xyz, normal, albedo, metalness, roughness, shadow
+            );
         } else if light.light_type == 2 {
             let shadow = fetch_shadow(i, light.view_proj * position);
-            let diffuse_and_specular = get_light_diffuse_and_specular_contribution(-light.position_or_direction, pixel_to_camera, normal, shadow);
-            final_color += (c_ambient_strength + diffuse_and_specular) * light.color;
+            let diffuse_and_specular = get_light_diffuse_and_specular_contribution(
+                -light.position_or_direction, pixel_to_camera, normal
+            ) * shadow;
+            // irradiance += (c_ambient_strength + diffuse_and_specular) * light.color;
         }
     }
 
-    return vec4(final_color * albedo, 1);
+    let ambient = vec3(0.03) * albedo * ao;
+    var color = ambient + irradiance;
+
+    color = color / (color + vec3(1.0));
+    color = pow(color, vec3(1.0 / 2.2));
+
+    return vec4(color, 1);
 }

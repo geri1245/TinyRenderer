@@ -37,7 +37,6 @@ const CLEAR_COLOR: wgpu::Color = wgpu::Color {
 };
 
 pub async fn run() {
-    env_logger::init();
     let event_loop = EventLoop::new().unwrap();
 
     let window = WindowBuilder::new().build(&event_loop).unwrap();

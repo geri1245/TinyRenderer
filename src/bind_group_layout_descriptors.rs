@@ -218,5 +218,23 @@ pub const GBUFFER: wgpu::BindGroupLayoutDescriptor = wgpu::BindGroupLayoutDescri
             ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
             count: None,
         },
+        // Metal/Rough/AO texture
+        wgpu::BindGroupLayoutEntry {
+            binding: 6,
+            visibility: wgpu::ShaderStages::FRAGMENT,
+            ty: wgpu::BindingType::Texture {
+                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                multisampled: false,
+                view_dimension: wgpu::TextureViewDimension::D2,
+            },
+            count: None,
+        },
+        // Metal/Rough/AO sampler
+        wgpu::BindGroupLayoutEntry {
+            binding: 7,
+            visibility: wgpu::ShaderStages::FRAGMENT,
+            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+            count: None,
+        },
     ],
 };

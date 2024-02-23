@@ -24,6 +24,7 @@ pub struct GBufferTextures {
     pub normal: SampledTexture,
     pub albedo_and_specular: SampledTexture,
     pub depth_texture: SampledTexture,
+    pub metal_rough_ao: SampledTexture,
 }
 
 pub struct GBufferGeometryRP {
@@ -81,6 +82,7 @@ impl GBufferGeometryRP {
                     default_color_write_state(textures.position.format),
                     default_color_write_state(textures.normal.format),
                     default_color_write_state(textures.albedo_and_specular.format),
+                    default_color_write_state(textures.metal_rough_ao.format),
                 ],
             }),
             primitive: wgpu::PrimitiveState {
@@ -128,6 +130,13 @@ impl GBufferGeometryRP {
             height,
             "GBuffer albedo texture",
         );
+        let metal_rough_ao = SampledTexture::new(
+            device,
+            TextureFormat::Rgba16Float,
+            width,
+            height,
+            "GBuffer albedo texture",
+        );
 
         let depth_texture_extents = wgpu::Extent3d {
             width,
@@ -146,6 +155,7 @@ impl GBufferGeometryRP {
             normal: normal_texture,
             albedo_and_specular: albedo_and_specular_texture,
             depth_texture,
+            metal_rough_ao,
         }
     }
 
@@ -159,6 +169,8 @@ impl GBufferGeometryRP {
                 textures.normal.get_sampler_bind_group_entry(3),
                 textures.albedo_and_specular.get_texture_bind_group_entry(4),
                 textures.albedo_and_specular.get_sampler_bind_group_entry(5),
+                textures.metal_rough_ao.get_texture_bind_group_entry(6),
+                textures.metal_rough_ao.get_sampler_bind_group_entry(7),
             ],
             label: Some("GBuffer bind group"),
         })
@@ -229,6 +241,14 @@ impl GBufferGeometryRP {
                 }),
                 Some(RenderPassColorAttachment {
                     view: &self.textures.albedo_and_specular.view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(CLEAR_COLOR),
+                        store: wgpu::StoreOp::Store,
+                    },
+                }),
+                Some(RenderPassColorAttachment {
+                    view: &self.textures.metal_rough_ao.view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(CLEAR_COLOR),

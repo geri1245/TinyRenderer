@@ -58,6 +58,10 @@ var s_normal: sampler;
 var t_albedo: texture_2d<f32>;
 @group(2) @binding(5)
 var s_albedo: sampler;
+@group(2) @binding(6)
+var t_metal_rough_ao: texture_2d<f32>;
+@group(2) @binding(7)
+var s_metal_rough_ao: sampler;
 
 @group(3) @binding(0)
 var t_shadow: texture_depth_2d_array;

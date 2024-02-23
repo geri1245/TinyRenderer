@@ -90,6 +90,7 @@ struct GBufferOutput {
   @location(0) position: vec4<f32>,
   @location(1) normal: vec4<f32>,
   @location(2) albedo: vec4<f32>,
+  @location(3) metal_rough_ao: vec4<f32>,
 }
 
 @fragment
@@ -105,6 +106,7 @@ fn fs_main(in: VertexOutput) -> GBufferOutput {
     let tangent_space_normal = 2.0 * textureSample(t_normal, s_normal, in.tex_coord).xyz - 1.0;
     output.normal = vec4(normalize(tbn_mat * tangent_space_normal), 1.0);
     output.albedo = textureSample(t_diffuse, s_diffuse, in.tex_coord);
+    output.metal_rough_ao = vec4(0.0, 0.2, 0.0, 0.0);
 
     return output;
 }

@@ -120,29 +120,26 @@ const c_light_attenuation_constant: f32 = 1.0;
 const c_light_attenuation_linear: f32 = 0.01;
 const c_light_attenuation_quadratic: f32 = 0.0005;
 
-fn calculate_point_light_contribution(light: Light, pixel_to_camera: vec3<f32>, pixel_position: vec3<f32>, normal: vec3<f32>, shadow: f32) -> vec3<f32> {
-    let pixel_to_light = normalize(light.position_or_direction - pixel_position);
-
-    let diffuse_strength = max(dot(normal, pixel_to_light), 0.0);
-
-    let half_dir = normalize(pixel_to_camera + pixel_to_light);
-    var specular_strength = pow(max(dot(half_dir, normal), 0.0), 32.0);
-
-    let pixel_to_light_distance = length(light.position_or_direction - pixel_position);
-    let attenuation = 1.0 / (c_light_attenuation_constant + c_light_attenuation_linear * pixel_to_light_distance + c_light_attenuation_quadratic * (pixel_to_light_distance * pixel_to_light_distance));
-
-    return (c_ambient_strength + (diffuse_strength + specular_strength) * shadow) * attenuation * light.color;
-}
-
-fn calculate_directional_light_contribution(light: Light, pixel_to_camera: vec3<f32>, normal: vec3<f32>, shadow: f32) -> vec3<f32> {
-    let pixel_to_light = -light.position_or_direction;
-
+fn get_light_diffuse_and_specular_contribution(pixel_to_light: vec3<f32>, pixel_to_camera: vec3<f32>, normal: vec3<f32>, shadow: f32) -> f32 {
     let diffuse_strength = max(dot(normal, pixel_to_light), 0.0);
 
     let half_dir = normalize(pixel_to_camera + pixel_to_light);
     let specular_strength = pow(max(dot(half_dir, normal), 0.0), 32.0);
 
-    return (c_ambient_strength + (diffuse_strength + specular_strength) * shadow) * light.color;
+    return (diffuse_strength + specular_strength) * shadow;
+}
+
+fn calculate_point_light_contribution(
+    light: Light, pixel_to_camera: vec3<f32>, pixel_position: vec3<f32>, normal: vec3<f32>, shadow: f32
+) -> vec3<f32> {
+    let pixel_to_light = normalize(light.position_or_direction - pixel_position);
+
+    let diffuse_and_specular_strength = get_light_diffuse_and_specular_contribution(pixel_to_light, pixel_to_camera, normal, shadow);
+
+    let pixel_to_light_distance = length(light.position_or_direction - pixel_position);
+    let attenuation = 1.0 / (c_light_attenuation_constant + c_light_attenuation_linear * pixel_to_light_distance + c_light_attenuation_quadratic * (pixel_to_light_distance * pixel_to_light_distance));
+
+    return (c_ambient_strength + diffuse_and_specular_strength * shadow) * attenuation * light.color;
 }
 
 @fragment
@@ -157,16 +154,17 @@ fn fs_main(fragment_pos_and_coords: VertexOutput) -> @location(0) vec4<f32> {
     var final_color = vec3<f32>(0, 0, 0);
 
     for (var i = 0u; i < 2; i += 1u) {
+        let light = lights[i];
         let pixel_to_camera = normalize(camera.position.xyz - position.xyz);
 
-        if lights[i].light_type == 1 {
+        if light.light_type == 1 {
             let shadow = get_shadow_value(i, position.xyz);
 
-            final_color += calculate_point_light_contribution(lights[i], pixel_to_camera, position.xyz, normal, shadow);
-        } else if lights[i].light_type == 2 {
-            let shadow = fetch_shadow(i, lights[i].view_proj * position);
-
-            final_color += calculate_directional_light_contribution(lights[i], pixel_to_camera, normal, shadow);
+            final_color += calculate_point_light_contribution(light, pixel_to_camera, position.xyz, normal, shadow);
+        } else if light.light_type == 2 {
+            let shadow = fetch_shadow(i, light.view_proj * position);
+            let diffuse_and_specular = get_light_diffuse_and_specular_contribution(-light.position_or_direction, pixel_to_camera, normal, shadow);
+            final_color += (c_ambient_strength + diffuse_and_specular) * light.color;
         }
     }
 

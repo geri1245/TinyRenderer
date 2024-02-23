@@ -23,6 +23,7 @@ mod primitive_shapes;
 mod render_pipeline_layout;
 mod renderer;
 mod resources;
+mod shader_manager;
 mod skybox;
 mod texture;
 mod vertex;

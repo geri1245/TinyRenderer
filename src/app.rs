@@ -25,14 +25,14 @@ pub struct App {
 impl App {
     pub async fn new(window: &Window) -> Self {
         let renderer = Renderer::new(window).await;
-        let (sender, receiver) = unbounded::<GuiEvent>();
+        let (gui_event_sender, gui_event_receiver) = unbounded::<GuiEvent>();
 
         let gui = Gui::new(
             &window,
             &renderer.device,
             &renderer.queue,
             renderer.surface_texture_format,
-            sender,
+            gui_event_sender,
         );
 
         let world: World = World::new(&renderer).await;
@@ -45,7 +45,7 @@ impl App {
             world,
             gui,
             should_draw_gui: true,
-            gui_event_receiver: receiver,
+            gui_event_receiver,
         }
     }
 

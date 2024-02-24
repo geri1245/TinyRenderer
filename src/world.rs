@@ -88,7 +88,7 @@ impl World {
             &renderer.device,
             &renderer.queue,
             plane_texture_raw,
-            texture::TextureUsage::ALBEDO,
+            texture::TextureUsage::Albedo,
             "treeTexture",
         )
         .unwrap();
@@ -103,7 +103,7 @@ impl World {
             &renderer.device,
             &renderer.queue,
             plane_normal_raw,
-            texture::TextureUsage::NORMAL,
+            texture::TextureUsage::Normal,
             "treeTexture",
         )
         .unwrap();

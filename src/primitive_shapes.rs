@@ -1,9 +1,8 @@
 use std::rc::Rc;
 
-use wgpu::util::DeviceExt;
-
 use crate::model::{Material, Mesh};
 use crate::vertex::VertexRawWithTangents;
+use wgpu::util::DeviceExt;
 
 const SQUARE_VERTICES: &'static [VertexRawWithTangents] = &[
     VertexRawWithTangents {

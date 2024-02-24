@@ -14,8 +14,8 @@ pub struct SampledTexture {
 }
 
 pub enum TextureUsage {
-    ALBEDO,
-    NORMAL,
+    Albedo,
+    Normal,
 }
 
 impl SampledTexture {
@@ -68,8 +68,8 @@ impl SampledTexture {
             depth_or_array_layers: 1,
         };
         let format = match usage {
-            TextureUsage::ALBEDO => wgpu::TextureFormat::Rgba8UnormSrgb,
-            TextureUsage::NORMAL => wgpu::TextureFormat::Rgba8Unorm,
+            TextureUsage::Albedo => wgpu::TextureFormat::Rgba8UnormSrgb,
+            TextureUsage::Normal => wgpu::TextureFormat::Rgba8Unorm,
         };
         let texture = device.create_texture(&wgpu::TextureDescriptor {
             label,

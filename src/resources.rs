@@ -95,8 +95,8 @@ pub async fn load_model<'a>(
     let mut textures = Vec::new();
     for (texture_type, texture_path) in asset_data.textures {
         let texture_usage = match texture_type {
-            model::TextureType::Albedo => TextureUsage::ALBEDO,
-            model::TextureType::Normal => TextureUsage::NORMAL,
+            model::TextureType::Albedo => TextureUsage::Albedo,
+            model::TextureType::Normal => TextureUsage::Normal,
         };
         let texture = load_texture(&texture_path, device, queue, texture_usage).await?;
         let texture_data = TextureData {

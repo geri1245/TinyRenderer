@@ -1,6 +1,6 @@
 use wgpu::{
-    BindGroup, Buffer, CommandEncoder, RenderPass, RenderPassColorAttachment,
-    RenderPassDepthStencilAttachment, RenderPipeline, TextureFormat,
+    BindGroup, Buffer, CommandEncoder, Device, RenderPass, RenderPassColorAttachment,
+    RenderPassDepthStencilAttachment, RenderPipeline, ShaderModule, TextureFormat,
 };
 
 use crate::{
@@ -12,12 +12,19 @@ use crate::{
     vertex,
 };
 
+use super::{
+    render_pipeline_base::RenderPipelineBase, shader_compilation_result::CompiledShader,
+    PipelineRecreationResult,
+};
+
 const CLEAR_COLOR: wgpu::Color = wgpu::Color {
     r: 0.0,
     g: 0.0,
     b: 0.0,
     a: 0.0,
 };
+
+const SHADER_SOURCE: &'static str = "src/shaders/gbuffer_geometry.wgsl";
 
 pub struct GBufferTextures {
     pub position: SampledTexture,
@@ -31,7 +38,12 @@ pub struct GBufferGeometryRP {
     pub textures: GBufferTextures,
     render_pipeline: wgpu::RenderPipeline,
     pub bind_group: wgpu::BindGroup,
+    shader_modification_time: u64,
+    width: u32,
+    height: u32,
 }
+
+impl RenderPipelineBase for GBufferGeometryRP {}
 
 fn default_color_write_state(format: wgpu::TextureFormat) -> Option<wgpu::ColorTargetState> {
     Some(wgpu::ColorTargetState {
@@ -45,7 +57,11 @@ fn default_color_write_state(format: wgpu::TextureFormat) -> Option<wgpu::ColorT
 }
 
 impl GBufferGeometryRP {
-    fn create_pipeline(device: &wgpu::Device, textures: &GBufferTextures) -> RenderPipeline {
+    fn create_pipeline(
+        device: &wgpu::Device,
+        shader: &ShaderModule,
+        textures: &GBufferTextures,
+    ) -> RenderPipeline {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Geometry pass pipeline layout"),
             bind_group_layouts: &[
@@ -55,20 +71,11 @@ impl GBufferGeometryRP {
             push_constant_ranges: &[],
         });
 
-        let gbuffer_shader_desc = wgpu::ShaderModuleDescriptor {
-            label: Some("Geometry pass shader desc"),
-            source: wgpu::ShaderSource::Wgsl(
-                include_str!("../shaders/gbuffer_geometry.wgsl").into(),
-            ),
-        };
-
-        let gbuffer_shader = device.create_shader_module(gbuffer_shader_desc);
-
         let gbuffer_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("gbuffer pipeline"),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
-                module: &gbuffer_shader,
+                module: shader,
                 entry_point: "vs_main",
                 buffers: &[
                     vertex::VertexRawWithTangents::buffer_layout(),
@@ -76,7 +83,7 @@ impl GBufferGeometryRP {
                 ],
             },
             fragment: Some(wgpu::FragmentState {
-                module: &gbuffer_shader,
+                module: &shader,
                 entry_point: "fs_main",
                 targets: &[
                     default_color_write_state(textures.position.format),
@@ -176,21 +183,52 @@ impl GBufferGeometryRP {
         })
     }
 
-    pub fn new(device: &wgpu::Device, width: u32, height: u32) -> Self {
+    fn new_internal(
+        shader: &CompiledShader,
+        device: &wgpu::Device,
+        width: u32,
+        height: u32,
+    ) -> Self {
         let textures = Self::create_textures(device, width, height);
-        let pipeline = Self::create_pipeline(device, &textures);
+        let pipeline = Self::create_pipeline(device, &shader.shader_module, &textures);
         let bind_group = Self::create_bind_group(device, &textures);
 
         Self {
             textures,
             render_pipeline: pipeline,
             bind_group,
+            shader_modification_time: shader.last_write_time,
+            width,
+            height,
+        }
+    }
+
+    pub async fn new(device: &wgpu::Device, width: u32, height: u32) -> anyhow::Result<Self> {
+        let shader = Self::compile_shader_if_needed(SHADER_SOURCE, device).await?;
+        Ok(Self::new_internal(&shader, device, width, height))
+    }
+
+    pub async fn try_recompile_shader(&self, device: &Device) -> PipelineRecreationResult<Self> {
+        if !Self::need_recompile_shader(SHADER_SOURCE, self.shader_modification_time).await {
+            return PipelineRecreationResult::AlreadyUpToDate;
+        }
+
+        match Self::compile_shader_if_needed(SHADER_SOURCE, device).await {
+            Ok(compiled_shader) => PipelineRecreationResult::Success(Self::new_internal(
+                &compiled_shader,
+                device,
+                self.width,
+                self.height,
+            )),
+            Err(error) => PipelineRecreationResult::Failed(error),
         }
     }
 
     pub fn resize(&mut self, device: &wgpu::Device, width: u32, height: u32) {
         self.textures = Self::create_textures(device, width, height);
         self.bind_group = Self::create_bind_group(device, &self.textures);
+        self.width = width;
+        self.height = height;
     }
 
     pub fn render_model<'a>(

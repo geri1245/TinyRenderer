@@ -38,7 +38,7 @@ pub struct LightController {
 }
 
 impl LightController {
-    pub fn new(render_device: &wgpu::Device) -> LightController {
+    pub async fn new(render_device: &wgpu::Device) -> LightController {
         // Make the `uniform_alignment` >= `light_uniform_size` and aligned to `min_uniform_buffer_offset_alignment`, as that is a requirement if we want to use dynamic offsets
         let matrix_size4x4 = core::mem::size_of::<LightRawSmall>() as u64;
         let uniform_alignment = {
@@ -90,7 +90,7 @@ impl LightController {
         let directional_shadow_texture = SampledTexture::create_depth_texture(
             render_device,
             Extent3d { ..SHADOW_SIZE },
-            "Shadow texture",
+            "Directional shadow texture",
         );
         let point_light_texture = SampledTexture::create_depth_texture(
             render_device,
@@ -98,7 +98,7 @@ impl LightController {
                 depth_or_array_layers: 6,
                 ..SHADOW_SIZE
             },
-            "Shadow texture",
+            "Point shadow texture",
         );
 
         let directional_shadow_view =
@@ -153,11 +153,13 @@ impl LightController {
 
         let shadow_rp = crate::pipelines::ShadowRP::new(
             &render_device,
-            &directional_shadow_texture,
-            &point_light_texture,
+            directional_shadow_texture,
+            point_light_texture,
             directional_shadow_view,
             point_shadow_view,
-        );
+        )
+        .await
+        .unwrap();
 
         let directional_light: DirectionalLight = DirectionalLight::new(
             directional_shadow_target_view,

@@ -1,6 +1,3 @@
-use std::os::windows::fs::MetadataExt;
-
-use async_std::fs;
 use wgpu::{Device, PipelineLayout, RenderPipeline, ShaderModule, TextureFormat};
 
 use crate::{
@@ -80,12 +77,8 @@ impl MainRP {
     }
 
     pub async fn new(device: &Device, color_format: TextureFormat) -> anyhow::Result<Self> {
-        let shader_compilation_result = Self::compile_shader(SHADER_SOURCE, device).await;
-
-        match shader_compilation_result {
-            Err(error) => return Err(error),
-            Ok(shader) => Result::Ok(Self::new_internal(&shader, device, color_format)),
-        }
+        let shader = Self::compile_shader_if_needed(SHADER_SOURCE, device).await?;
+        Result::Ok(Self::new_internal(&shader, device, color_format))
     }
 
     fn new_internal(shader: &CompiledShader, device: &Device, color_format: TextureFormat) -> Self {
@@ -106,13 +99,11 @@ impl MainRP {
     }
 
     pub async fn try_recompile_shader(&self, device: &Device) -> PipelineRecreationResult<Self> {
-        let metadata = fs::metadata(SHADER_SOURCE).await.unwrap();
-        let last_write_time = metadata.last_write_time();
-        if last_write_time == self.shader_modification_time {
+        if !Self::need_recompile_shader(SHADER_SOURCE, self.shader_modification_time).await {
             return PipelineRecreationResult::AlreadyUpToDate;
         }
 
-        match Self::compile_shader(SHADER_SOURCE, device).await {
+        match Self::compile_shader_if_needed(SHADER_SOURCE, device).await {
             Ok(compiled_shader) => PipelineRecreationResult::Success(Self::new_internal(
                 &compiled_shader,
                 device,

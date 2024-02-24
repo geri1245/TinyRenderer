@@ -3,6 +3,7 @@ use std::{
     time,
 };
 
+use anyhow::anyhow;
 use async_std::task::block_on;
 use glam::{Quat, Vec3};
 use pipelines::PipelineRecreationResult;
@@ -206,7 +207,7 @@ impl World {
         let skybox = Skybox::new(&renderer);
 
         let camera_controller = CameraController::new(&renderer);
-        let light_controller = LightController::new(&renderer.device);
+        let light_controller = LightController::new(&renderer.device).await;
 
         let main_rp = pipelines::MainRP::new(&renderer.device, renderer.config.format)
             .await
@@ -215,7 +216,9 @@ impl World {
             &renderer.device,
             renderer.config.width,
             renderer.config.height,
-        );
+        )
+        .await
+        .unwrap();
         let forward_rp = pipelines::ForwardRP::new(&renderer.device, renderer.config.format);
 
         World {
@@ -311,11 +314,27 @@ impl World {
     }
 
     pub fn recompile_shaders_if_needed(&mut self, device: &Device) -> anyhow::Result<()> {
-        let result = block_on(self.main_rp.try_recompile_shader(device));
-        match result {
+        let main_result = block_on(self.main_rp.try_recompile_shader(device));
+
+        let result = match main_result {
             PipelineRecreationResult::AlreadyUpToDate => Ok(()),
             PipelineRecreationResult::Success(new_pipeline) => {
                 self.main_rp = new_pipeline;
+                Ok(())
+            }
+            PipelineRecreationResult::Failed(error) => Err(error),
+        };
+
+        // Stop at the first error
+        if result.is_err() {
+            return result;
+        }
+
+        let gbuffer_geometry_result = block_on(self.gbuffer_rp.try_recompile_shader(device));
+        match gbuffer_geometry_result {
+            PipelineRecreationResult::AlreadyUpToDate => Ok(()),
+            PipelineRecreationResult::Success(new_pipeline) => {
+                self.gbuffer_rp = new_pipeline;
                 Ok(())
             }
             PipelineRecreationResult::Failed(error) => Err(error),

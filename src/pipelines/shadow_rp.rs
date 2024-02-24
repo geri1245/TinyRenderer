@@ -1,23 +1,61 @@
-use wgpu::{BindGroup, Buffer, CommandEncoder, RenderPassDepthStencilAttachment};
+use wgpu::{
+    BindGroup, Buffer, CommandEncoder, Device, RenderPassDepthStencilAttachment, ShaderModule,
+};
 
 use crate::{
     bind_group_layout_descriptors, buffer_content::BufferContent, instance, model::Model,
     texture::SampledTexture, vertex,
 };
 
+use super::{render_pipeline_base::RenderPipelineBase, PipelineRecreationResult};
+
+const SHADER_SOURCE: &'static str = "src/shaders/shadow.wgsl";
+
 pub struct ShadowRP {
     shadow_pipeline: wgpu::RenderPipeline,
     pub bind_group: wgpu::BindGroup,
+    directional_shadow_texture: SampledTexture,
+    point_shadow_texture: SampledTexture,
+    shader_modification_time: u64,
 }
 
+impl RenderPipelineBase for ShadowRP {}
+
 impl ShadowRP {
-    pub fn new(
+    pub async fn new(
         device: &wgpu::Device,
-        directional_shadow_texture: &SampledTexture,
-        point_shadow_texture: &SampledTexture,
+        directional_shadow_texture: SampledTexture,
+        point_shadow_texture: SampledTexture,
         directional_shadow_texture_view: wgpu::TextureView,
         point_shadow_texture_view: wgpu::TextureView,
-    ) -> ShadowRP {
+    ) -> anyhow::Result<ShadowRP> {
+        let shader = Self::compile_shader_if_needed(SHADER_SOURCE, device).await?;
+        let bind_group = Self::create_bind_group(
+            device,
+            &directional_shadow_texture,
+            &point_shadow_texture,
+            directional_shadow_texture_view,
+            point_shadow_texture_view,
+        );
+
+        Ok(Self::new_internal(
+            device,
+            directional_shadow_texture,
+            point_shadow_texture,
+            bind_group,
+            &shader.shader_module,
+            shader.last_write_time,
+        ))
+    }
+
+    fn new_internal(
+        device: &wgpu::Device,
+        directional_shadow_texture: SampledTexture,
+        point_shadow_texture: SampledTexture,
+        bind_group: wgpu::BindGroup,
+        shader: &ShaderModule,
+        shader_compilation_time: u64,
+    ) -> Self {
         let shadow_pipeline = {
             let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("shadow pipeline layout"),
@@ -27,19 +65,12 @@ impl ShadowRP {
                 push_constant_ranges: &[],
             });
 
-            let shadow_shader_desc = wgpu::ShaderModuleDescriptor {
-                label: Some("Shadow bake shader"),
-                source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/shadow.wgsl").into()),
-            };
-
-            let shadow_shader = device.create_shader_module(shadow_shader_desc);
-
             // Create the render pipeline
             let shadow_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
                 label: Some("shadow render pipeline"),
                 layout: Some(&pipeline_layout),
                 vertex: wgpu::VertexState {
-                    module: &shadow_shader,
+                    module: shader,
                     entry_point: "vs_main",
                     buffers: &[
                         vertex::VertexRawWithTangents::buffer_layout(),
@@ -74,7 +105,23 @@ impl ShadowRP {
             shadow_pipeline
         };
 
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        ShadowRP {
+            bind_group,
+            shadow_pipeline,
+            directional_shadow_texture,
+            point_shadow_texture,
+            shader_modification_time: shader_compilation_time,
+        }
+    }
+
+    fn create_bind_group(
+        device: &wgpu::Device,
+        directional_shadow_texture: &SampledTexture,
+        point_shadow_texture: &SampledTexture,
+        directional_shadow_texture_view: wgpu::TextureView,
+        point_shadow_texture_view: wgpu::TextureView,
+    ) -> wgpu::BindGroup {
+        device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &device.create_bind_group_layout(&bind_group_layout_descriptors::DEPTH_TEXTURE),
             entries: &[
                 wgpu::BindGroupEntry {
@@ -95,11 +142,24 @@ impl ShadowRP {
                 },
             ],
             label: None,
-        });
+        })
+    }
 
-        ShadowRP {
-            bind_group,
-            shadow_pipeline,
+    pub async fn try_recompile_shader(self, device: &Device) -> PipelineRecreationResult<Self> {
+        if !Self::need_recompile_shader(SHADER_SOURCE, self.shader_modification_time).await {
+            return PipelineRecreationResult::AlreadyUpToDate;
+        }
+
+        match Self::compile_shader_if_needed(SHADER_SOURCE, device).await {
+            Ok(compiled_shader) => PipelineRecreationResult::Success(Self::new_internal(
+                device,
+                self.point_shadow_texture,
+                self.directional_shadow_texture,
+                self.bind_group,
+                &compiled_shader.shader_module,
+                compiled_shader.last_write_time,
+            )),
+            Err(error) => PipelineRecreationResult::Failed(error),
         }
     }
 

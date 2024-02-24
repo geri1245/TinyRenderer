@@ -1,5 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
+use async_std::path::PathBuf;
 use glam::{Vec2, Vec3};
 use serde::Deserialize;
 use wgpu::{util::DeviceExt, Device};
@@ -14,6 +15,11 @@ pub struct ModelDescriptorFile {
     pub model: String,
     #[serde(default)]
     pub textures: HashMap<TextureType, String>,
+}
+
+pub struct ModelLoadingData {
+    pub model: PathBuf,
+    pub textures: Vec<(TextureType, PathBuf)>,
 }
 
 pub struct Model {

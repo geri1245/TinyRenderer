@@ -1,6 +1,6 @@
 use crate::gui::{Gui, GuiEvent};
 use crate::world::World;
-use crate::{frame_timer::FrameTimer, renderer::Renderer};
+use crate::{frame_timer::BasicTimer, renderer::Renderer};
 use crossbeam_channel::{unbounded, Receiver};
 use std::time::Duration;
 use wgpu::TextureViewDescriptor;
@@ -15,7 +15,7 @@ pub enum WindowEventHandlingResult {
 
 pub struct App {
     pub renderer: Renderer,
-    pub frame_timer: FrameTimer,
+    pub frame_timer: BasicTimer,
     gui: Gui,
     world: World,
     should_draw_gui: bool,
@@ -37,7 +37,7 @@ impl App {
 
         let world: World = World::new(&renderer).await;
 
-        let frame_timer = FrameTimer::new();
+        let frame_timer = BasicTimer::new();
 
         Self {
             renderer,
@@ -164,7 +164,8 @@ impl App {
 
     pub fn update(&mut self, delta: Duration) {
         self.handle_gui_events();
-        self.world.update(delta, &self.renderer.queue);
+        self.world
+            .update(delta, &self.renderer.device, &self.renderer.queue);
     }
 
     pub fn toggle_should_draw_gui(&mut self) {

@@ -1,5 +1,5 @@
 use wgpu::{
-    BindGroup, Buffer, CommandEncoder, Device, RenderPass, RenderPassColorAttachment,
+    BindGroup, CommandEncoder, Device, RenderPass, RenderPassColorAttachment,
     RenderPassDepthStencilAttachment, RenderPipeline, ShaderModule, TextureFormat,
 };
 
@@ -7,7 +7,7 @@ use crate::{
     bind_group_layout_descriptors,
     buffer_content::BufferContent,
     instance,
-    model::{Mesh, Model},
+    model::InstancedRenderableMesh,
     texture::{self, SampledTexture},
     vertex,
 };
@@ -231,30 +231,27 @@ impl GBufferGeometryRP {
         self.height = height;
     }
 
-    pub fn render_model<'a>(
-        &'a self,
-        render_pass: &mut RenderPass<'a>,
-        model: &'a Model,
-        camera_bind_group: &'a BindGroup,
-        instances: usize,
-        instance_buffer: &'a Buffer,
-    ) {
-        self.prepare_render(render_pass, camera_bind_group, instance_buffer);
-        for mesh in &model.meshes {
-            self.render_mesh_internal(render_pass, mesh, instances);
-        }
-    }
-
     pub fn render_mesh<'a>(
         &'a self,
         render_pass: &mut RenderPass<'a>,
-        mesh: &'a Mesh,
+        mesh: &'a InstancedRenderableMesh,
         camera_bind_group: &'a BindGroup,
-        instances: usize,
-        instance_buffer: &'a Buffer,
     ) {
-        self.prepare_render(render_pass, camera_bind_group, instance_buffer);
-        self.render_mesh_internal(render_pass, mesh, instances);
+        render_pass.set_pipeline(&self.render_pipeline);
+        render_pass.set_bind_group(1, &camera_bind_group, &[]);
+        render_pass.set_vertex_buffer(1, mesh.instance_buffer.slice(..));
+
+        render_pass.set_bind_group(0, &mesh.mesh.material.bind_group, &[]);
+        render_pass.set_vertex_buffer(0, mesh.mesh.mesh.vertex_buffer.slice(..));
+        render_pass.set_index_buffer(
+            mesh.mesh.mesh.index_buffer.slice(..),
+            wgpu::IndexFormat::Uint32,
+        );
+        render_pass.draw_indexed(
+            0..mesh.mesh.mesh.index_count,
+            0,
+            0..mesh.instances.len() as u32,
+        );
     }
 
     pub fn begin_render<'a>(&'a self, encoder: &'a mut CommandEncoder) -> RenderPass<'a> {
@@ -305,28 +302,5 @@ impl GBufferGeometryRP {
             timestamp_writes: None,
             occlusion_query_set: None,
         })
-    }
-
-    fn render_mesh_internal<'a>(
-        &self,
-        render_pass: &mut RenderPass<'a>,
-        mesh: &'a Mesh,
-        instances: usize,
-    ) {
-        render_pass.set_bind_group(0, &mesh.material.bind_group, &[]);
-        render_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
-        render_pass.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-        render_pass.draw_indexed(0..mesh.index_count, 0, 0..instances as u32);
-    }
-
-    fn prepare_render<'a>(
-        &'a self,
-        render_pass: &mut RenderPass<'a>,
-        camera_bind_group: &'a BindGroup,
-        instance_buffer: &'a Buffer,
-    ) {
-        render_pass.set_pipeline(&self.render_pipeline);
-        render_pass.set_bind_group(1, &camera_bind_group, &[]);
-        render_pass.set_vertex_buffer(1, instance_buffer.slice(..));
     }
 }

@@ -13,8 +13,9 @@ anyhow = "1.0"
 glam = "0.25"
 futures-intrusive = "0.5"
 png = "0.17"
-crossbeam-channel = "0.5"
 simple_logger = "4.3.3"
+crossbeam-channel = "0.5"
+rayon = "1.8"
 
 wgpu = "0.19"
 bytemuck = { version = "1.14", features = [ "derive" ] }

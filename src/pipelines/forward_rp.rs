@@ -1,11 +1,8 @@
-use wgpu::{BindGroup, Buffer, RenderPass};
+use wgpu::{BindGroup, RenderPass};
 
 use crate::{
-    bind_group_layout_descriptors,
-    buffer_content::BufferContent,
-    instance,
-    model::{Mesh, Model},
-    texture, vertex,
+    bind_group_layout_descriptors, buffer_content::BufferContent, instance,
+    model::InstancedRenderableMesh, texture, vertex,
 };
 
 pub struct ForwardRP {
@@ -74,62 +71,24 @@ impl ForwardRP {
     pub fn render_model<'a>(
         &'a self,
         render_pass: &mut RenderPass<'a>,
-        model: &'a Model,
+        mesh: &'a InstancedRenderableMesh,
         camera_bind_group: &'a BindGroup,
         light_bind_group: &'a BindGroup,
-        instances: usize,
-        instance_buffer: &'a Buffer,
-    ) {
-        self.prepare_render(
-            render_pass,
-            camera_bind_group,
-            light_bind_group,
-            instance_buffer,
-        );
-        for mesh in &model.meshes {
-            self.render_mesh_internal(render_pass, mesh, instances);
-        }
-    }
-
-    pub fn _render_mesh<'a>(
-        &'a self,
-        render_pass: &mut RenderPass<'a>,
-        mesh: &'a Mesh,
-        camera_bind_group: &'a BindGroup,
-        light_bind_group: &'a BindGroup,
-        instances: usize,
-        instance_buffer: &'a Buffer,
-    ) {
-        self.prepare_render(
-            render_pass,
-            camera_bind_group,
-            light_bind_group,
-            instance_buffer,
-        );
-        self.render_mesh_internal(render_pass, mesh, instances);
-    }
-
-    fn prepare_render<'a>(
-        &'a self,
-        render_pass: &mut RenderPass<'a>,
-        camera_bind_group: &'a BindGroup,
-        light_bind_group: &'a BindGroup,
-        instance_buffer: &'a Buffer,
     ) {
         render_pass.set_pipeline(&self.render_pipeline);
         render_pass.set_bind_group(0, &light_bind_group, &[]);
         render_pass.set_bind_group(1, &camera_bind_group, &[]);
-        render_pass.set_vertex_buffer(1, instance_buffer.slice(..));
-    }
+        render_pass.set_vertex_buffer(1, mesh.instance_buffer.slice(..));
 
-    fn render_mesh_internal<'a>(
-        &self,
-        render_pass: &mut RenderPass<'a>,
-        mesh: &'a Mesh,
-        instances: usize,
-    ) {
-        render_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
-        render_pass.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-        render_pass.draw_indexed(0..mesh.index_count, 0, 0..instances as u32);
+        render_pass.set_vertex_buffer(0, mesh.mesh.mesh.vertex_buffer.slice(..));
+        render_pass.set_index_buffer(
+            mesh.mesh.mesh.index_buffer.slice(..),
+            wgpu::IndexFormat::Uint32,
+        );
+        render_pass.draw_indexed(
+            0..mesh.mesh.mesh.index_count,
+            0,
+            0..mesh.instances.len() as u32,
+        );
     }
 }

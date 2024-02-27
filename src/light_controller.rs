@@ -1,15 +1,16 @@
+use async_std::task::block_on;
 use glam::{Quat, Vec3};
 use wgpu::{
     util::{align_to, DeviceExt},
-    Buffer, BufferDescriptor, CommandEncoder, Extent3d, TextureViewDimension,
+    BufferDescriptor, CommandEncoder, Device, Extent3d, TextureViewDimension,
 };
 
 use crate::{
     bind_group_layout_descriptors,
     instance::{Instance, InstanceRaw},
     lights::{DirectionalLight, LightRaw, LightRawSmall, PointLight},
-    model::Model,
-    pipelines,
+    model::InstancedRenderableMesh,
+    pipelines::{self, PipelineRecreationResult},
     texture::SampledTexture,
 };
 
@@ -35,6 +36,7 @@ pub struct LightController {
     // Used for drawing the debug visualizations of the lights
     pub light_instance_buffer: wgpu::Buffer,
     pub shadow_rp: pipelines::ShadowRP,
+    pub debug_light_meshes: Vec<InstancedRenderableMesh>,
 }
 
 impl LightController {
@@ -181,6 +183,8 @@ impl LightController {
                 usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             });
 
+        // let debug_light_meshes = vec![InstancedRenderableMesh::new(render_device, , vec![])];
+
         Self {
             point_light,
             directional_light,
@@ -191,6 +195,7 @@ impl LightController {
             light_instance_buffer,
             shadow_rp,
             uniform_buffer_alignment: uniform_alignment,
+            debug_light_meshes: vec![],
         }
     }
 
@@ -227,36 +232,38 @@ impl LightController {
         );
     }
 
-    pub fn render_shadows(
-        &self,
-        encoder: &mut CommandEncoder,
-        model: &Model,
-        instance_count: usize,
-        instance_buffer: &Buffer,
-    ) {
+    pub fn render_shadows(&self, encoder: &mut CommandEncoder, mesh: &InstancedRenderableMesh) {
         for i in 0..6 {
             self.shadow_rp.render(
                 encoder,
-                model,
+                mesh,
                 &self.light_bind_group_viewproj_only,
-                instance_count,
-                instance_buffer,
                 &self.point_light.depth_texture[i],
                 (i as u64 * self.uniform_buffer_alignment) as u32,
             );
         }
         self.shadow_rp.render(
             encoder,
-            model,
+            mesh,
             &self.light_bind_group_viewproj_only,
-            instance_count,
-            instance_buffer,
             &self.directional_light.depth_texture,
             6 * self.uniform_buffer_alignment as u32,
         );
     }
 
-    fn get_raw_instances(light: &PointLight) -> Vec<InstanceRaw> {
+    pub fn try_recompile_shaders(&mut self, device: &Device) -> anyhow::Result<()> {
+        let result = block_on(self.shadow_rp.try_recompile_shader(device));
+        match result {
+            PipelineRecreationResult::AlreadyUpToDate => Ok(()),
+            PipelineRecreationResult::Success(new_pipeline) => {
+                self.shadow_rp = new_pipeline;
+                Ok(())
+            }
+            PipelineRecreationResult::Failed(error) => Err(error),
+        }
+    }
+
+    pub fn get_raw_instances(light: &PointLight) -> Vec<InstanceRaw> {
         let light_instances = vec![Instance {
             position: light.position.into(),
             scale: Vec3::splat(0.1),

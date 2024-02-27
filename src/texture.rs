@@ -13,6 +13,7 @@ pub struct SampledTexture {
     pub format: wgpu::TextureFormat,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum TextureUsage {
     Albedo,
     Normal,

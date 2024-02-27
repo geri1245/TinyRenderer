@@ -1,40 +1,39 @@
 use std::{
+    collections::HashMap,
     f32::consts::{FRAC_PI_2, PI},
+    rc::Rc,
     time,
 };
 
-use anyhow::anyhow;
 use async_std::task::block_on;
 use glam::{Quat, Vec3};
+use log::log;
 use pipelines::PipelineRecreationResult;
-use wgpu::{util::DeviceExt, CommandEncoder, Device, TextureView};
+use wgpu::{CommandEncoder, Device, TextureView};
 
 use crate::{
     camera_controller::CameraController,
-    instance::{self, Instance},
+    instance::Instance,
     light_controller::LightController,
-    model::{Material, Mesh, Model, TextureData, TextureType},
+    model::{InstancedRenderableMesh, Material, TextureData, TextureType, TexturedRenderableMesh},
     pipelines::{self, MainRP},
     primitive_shapes,
     renderer::Renderer,
-    resources,
+    resource_loader::ResourceLoader,
     skybox::Skybox,
     texture,
 };
 
 pub struct World {
-    pub obj_model: Model,
-    pub instances: Vec<Instance>,
-    pub square_count: usize,
-    pub instance_buffer: wgpu::Buffer,
-    pub square: Mesh,
-    pub square_instance_buffer: wgpu::Buffer,
+    models: Vec<InstancedRenderableMesh>,
     pub skybox: Skybox,
     pub camera_controller: CameraController,
     pub light_controller: LightController,
     main_rp: MainRP,
     forward_rp: pipelines::ForwardRP,
     gbuffer_rp: pipelines::GBufferGeometryRP,
+    pending_textures: HashMap<TextureType, TextureData>,
+    resource_loader: ResourceLoader,
 }
 
 impl World {
@@ -67,22 +66,31 @@ impl World {
             },
         ];
 
-        let instance_data = cube_instances
-            .iter()
-            .map(instance::Instance::to_raw)
-            .collect::<Vec<_>>();
-        let instance_buffer =
-            renderer
-                .device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Instance Buffer"),
-                    contents: bytemuck::cast_slice(&instance_data),
-                    usage: wgpu::BufferUsages::VERTEX,
-                });
+        let mut resource_loader = ResourceLoader::new();
 
-        let obj_model = resources::load_model("cube", &renderer.device, &renderer.queue)
+        let (obj_model, loading_id) = resource_loader
+            .load_asset_file("cube", &renderer.device)
             .await
             .unwrap();
+
+        let default_normal_bytes = include_bytes!("../assets/defaults/normal.png");
+        let default_normal_texture = texture::SampledTexture::from_bytes(
+            &renderer.device,
+            &renderer.queue,
+            default_normal_bytes,
+            texture::TextureUsage::Normal,
+            "default normal texture",
+        )
+        .unwrap();
+        let default_albedo_bytes = include_bytes!("../assets/defaults/albedo.png");
+        let default_albedo_texture = texture::SampledTexture::from_bytes(
+            &renderer.device,
+            &renderer.queue,
+            default_albedo_bytes,
+            texture::TextureUsage::Albedo,
+            "default albedo texture",
+        )
+        .unwrap();
 
         let plane_texture_raw = include_bytes!("../assets/happy-tree.png");
         let plane_albedo = texture::SampledTexture::from_bytes(
@@ -90,37 +98,29 @@ impl World {
             &renderer.queue,
             plane_texture_raw,
             texture::TextureUsage::Albedo,
-            "treeTexture",
+            "plane texture",
         )
         .unwrap();
-        let square_texture = TextureData {
-            texture_type: TextureType::Albedo,
+        let default_albedo_texture_data = TextureData {
             name: "Tree texture material".into(),
-            texture: plane_albedo,
+            texture: default_albedo_texture,
         };
 
-        let plane_normal_raw = include_bytes!("../assets/happy-tree.png");
-        let plane_normal = texture::SampledTexture::from_bytes(
-            &renderer.device,
-            &renderer.queue,
-            plane_normal_raw,
-            texture::TextureUsage::Normal,
-            "treeTexture",
-        )
-        .unwrap();
-        let plane_normal_texture = TextureData {
-            texture_type: TextureType::Normal,
+        let default_normal_texture_data = TextureData {
             name: "Tree texture material".into(),
-            texture: plane_normal,
+            texture: default_normal_texture,
         };
 
-        let textures = vec![
-            (TextureType::Albedo, square_texture),
-            (TextureType::Normal, plane_normal_texture),
-        ];
+        let mut default_material_textures = HashMap::new();
+        default_material_textures.insert(TextureType::Albedo, default_albedo_texture_data);
+        default_material_textures.insert(TextureType::Normal, default_normal_texture_data);
 
-        let square_material = Material::new(&renderer.device, textures);
-        let square = primitive_shapes::square(&renderer.device, square_material);
+        let default_material = Rc::new(Material::new(&renderer.device, &default_material_textures));
+        let square = primitive_shapes::square(&renderer.device);
+        let square_with_material = TexturedRenderableMesh {
+            material: default_material.clone(),
+            mesh: square,
+        };
 
         let square_instances = vec![
             // Bottom
@@ -191,19 +191,6 @@ impl World {
             },
         ];
 
-        let square_instance_raw = square_instances
-            .iter()
-            .map(|instance| instance.to_raw())
-            .collect::<Vec<_>>();
-        let square_instance_buffer =
-            renderer
-                .device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Square Instance Buffer"),
-                    contents: bytemuck::cast_slice(&square_instance_raw),
-                    usage: wgpu::BufferUsages::VERTEX,
-                });
-
         let skybox = Skybox::new(&renderer);
 
         let camera_controller = CameraController::new(&renderer);
@@ -221,19 +208,28 @@ impl World {
         .unwrap();
         let forward_rp = pipelines::ForwardRP::new(&renderer.device, renderer.config.format);
 
+        let meshes = vec![
+            InstancedRenderableMesh::new(&renderer.device, square_with_material, square_instances),
+            InstancedRenderableMesh::new(
+                &renderer.device,
+                TexturedRenderableMesh {
+                    mesh: obj_model,
+                    material: default_material.clone(),
+                },
+                cube_instances,
+            ),
+        ];
+
         World {
-            obj_model,
-            instances: cube_instances,
-            instance_buffer,
-            square,
-            square_instance_buffer,
+            models: meshes,
             skybox,
             camera_controller,
             light_controller,
             main_rp,
             gbuffer_rp,
             forward_rp,
-            square_count: square_instances.len(),
+            pending_textures: Default::default(),
+            resource_loader,
         }
     }
 
@@ -244,29 +240,21 @@ impl World {
         current_frame_texture_view: &TextureView,
     ) -> Result<(), wgpu::SurfaceError> {
         {
-            self.light_controller.render_shadows(
-                encoder,
-                &self.obj_model,
-                self.instances.len(),
-                &self.instance_buffer,
-            );
+            self.light_controller
+                .render_shadows(encoder, &self.models[1]);
 
             {
                 let mut render_pass = self.gbuffer_rp.begin_render(encoder);
-                self.gbuffer_rp.render_model(
+                self.gbuffer_rp.render_mesh(
                     &mut render_pass,
-                    &self.obj_model,
+                    &self.models[1],
                     &self.camera_controller.bind_group,
-                    self.instances.len(),
-                    &self.instance_buffer,
                 );
 
                 self.gbuffer_rp.render_mesh(
                     &mut render_pass,
-                    &self.square,
+                    &self.models[0],
                     &self.camera_controller.bind_group,
-                    self.square_count,
-                    &self.square_instance_buffer,
                 );
             }
 
@@ -292,17 +280,17 @@ impl World {
                 }
 
                 {
-                    render_pass.push_debug_group("Forward rendering light debug objects");
-                    self.forward_rp.render_model(
-                        &mut render_pass,
-                        &self.obj_model,
-                        &self.camera_controller.bind_group,
-                        &self.light_controller.light_bind_group,
-                        1,
-                        &self.light_controller.light_instance_buffer,
-                    );
+                    // render_pass.push_debug_group("Forward rendering light debug objects");
+                    // self.forward_rp.render_model(
+                    //     &mut render_pass,
+                    //     &self.obj_model,
+                    //     &self.camera_controller.bind_group,
+                    //     &self.light_controller.light_bind_group,
+                    //     1,
+                    //     &self.light_controller.light_instance_buffer,
+                    // );
 
-                    render_pass.pop_debug_group();
+                    // render_pass.pop_debug_group();
                 }
 
                 self.skybox
@@ -314,31 +302,37 @@ impl World {
     }
 
     pub fn recompile_shaders_if_needed(&mut self, device: &Device) -> anyhow::Result<()> {
-        let main_result = block_on(self.main_rp.try_recompile_shader(device));
+        // Note, that we stop at the first error and don't process the other shaders if something goes wrong.
+        // This is a conscious decision, as for now one usually touches one shader at a time, so
+        // it's not a real limitation at this point
+        // If later more heavyweight modifications are necessary, then this can be "fixed"
+        {
+            let main_result = block_on(self.main_rp.try_recompile_shader(device));
 
-        let result = match main_result {
-            PipelineRecreationResult::AlreadyUpToDate => Ok(()),
-            PipelineRecreationResult::Success(new_pipeline) => {
-                self.main_rp = new_pipeline;
-                Ok(())
-            }
-            PipelineRecreationResult::Failed(error) => Err(error),
-        };
-
-        // Stop at the first error
-        if result.is_err() {
-            return result;
+            match main_result {
+                PipelineRecreationResult::AlreadyUpToDate => Ok(()),
+                PipelineRecreationResult::Success(new_pipeline) => {
+                    self.main_rp = new_pipeline;
+                    Ok(())
+                }
+                PipelineRecreationResult::Failed(error) => Err(error),
+            }?;
+        }
+        {
+            let gbuffer_geometry_result = block_on(self.gbuffer_rp.try_recompile_shader(device));
+            match gbuffer_geometry_result {
+                PipelineRecreationResult::AlreadyUpToDate => Ok(()),
+                PipelineRecreationResult::Success(new_pipeline) => {
+                    self.gbuffer_rp = new_pipeline;
+                    Ok(())
+                }
+                PipelineRecreationResult::Failed(error) => Err(error),
+            }?;
         }
 
-        let gbuffer_geometry_result = block_on(self.gbuffer_rp.try_recompile_shader(device));
-        match gbuffer_geometry_result {
-            PipelineRecreationResult::AlreadyUpToDate => Ok(()),
-            PipelineRecreationResult::Success(new_pipeline) => {
-                self.gbuffer_rp = new_pipeline;
-                Ok(())
-            }
-            PipelineRecreationResult::Failed(error) => Err(error),
-        }
+        self.light_controller.try_recompile_shaders(device)?;
+
+        Ok(())
     }
 
     pub fn resize_main_camera(&mut self, renderer: &Renderer, width: u32, height: u32) {
@@ -347,9 +341,27 @@ impl World {
         self.camera_controller.resize(width as f32 / height as f32);
     }
 
-    pub fn update(&mut self, delta_time: time::Duration, render_queue: &wgpu::Queue) {
+    pub fn update(
+        &mut self,
+        delta_time: time::Duration,
+        device: &wgpu::Device,
+        render_queue: &wgpu::Queue,
+    ) {
         self.camera_controller.update(delta_time, &render_queue);
 
         self.light_controller.update(delta_time, &render_queue);
+
+        let textures = self
+            .resource_loader
+            .poll_loaded_textures(device, render_queue);
+
+        for (id, texture_type, texture) in textures {
+            self.pending_textures.insert(texture_type, texture);
+        }
+
+        if self.pending_textures.len() == 2 {
+            let new_mat = Rc::new(Material::new(device, &self.pending_textures));
+            self.models[1].mesh.material = new_mat;
+        }
     }
 }

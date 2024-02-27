@@ -22,7 +22,7 @@ mod pipelines;
 mod primitive_shapes;
 mod render_pipeline_layout;
 mod renderer;
-mod resources;
+mod resource_loader;
 mod shader_manager;
 mod skybox;
 mod texture;
@@ -37,6 +37,7 @@ const CLEAR_COLOR: wgpu::Color = wgpu::Color {
 };
 
 pub async fn run() {
+    simple_logger::init_with_level(log::Level::Warn).unwrap();
     let event_loop = EventLoop::new().unwrap();
 
     let window = WindowBuilder::new().build(&event_loop).unwrap();
@@ -75,6 +76,8 @@ pub async fn run() {
                         control_flow.exit();
                     }
                 }
+                // TODO: instead of doing this from here, trigger the redraw from inside the app
+                // using the limited framerate
                 Event::AboutToWait => {
                     window.request_redraw();
                 }

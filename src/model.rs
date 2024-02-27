@@ -6,8 +6,7 @@ use serde::Deserialize;
 use wgpu::{util::DeviceExt, Device};
 
 use crate::{
-    bind_group_layout_descriptors, texture,
-    vertex::{VertexRaw, VertexRawWithTangents},
+    bind_group_layout_descriptors, instance::Instance, texture, vertex::VertexRawWithTangents,
 };
 
 #[derive(Deserialize)]
@@ -22,10 +21,6 @@ pub struct ModelLoadingData {
     pub textures: Vec<(TextureType, PathBuf)>,
 }
 
-pub struct Model {
-    pub meshes: Vec<Mesh>,
-}
-
 #[derive(Deserialize, PartialEq, Eq, Hash, Clone)]
 pub enum TextureType {
     Albedo,
@@ -35,40 +30,33 @@ pub enum TextureType {
 pub struct TextureData {
     pub name: String,
     pub texture: texture::SampledTexture,
-    pub texture_type: TextureType,
 }
 
 pub struct Material {
-    textures: HashMap<TextureType, TextureData>,
     pub bind_group: wgpu::BindGroup,
 }
 
 impl Material {
-    pub fn new(device: &wgpu::Device, textures: Vec<(TextureType, TextureData)>) -> Self {
-        let mut texture_map = HashMap::new();
-        for (texture_type, texture_nama) in textures {
-            texture_map.insert(texture_type, texture_nama);
-        }
-
+    pub fn new(device: &wgpu::Device, textures: &HashMap<TextureType, TextureData>) -> Self {
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &device.create_bind_group_layout(&bind_group_layout_descriptors::PBR_TEXTURE),
             entries: &[
-                texture_map
+                textures
                     .get(&TextureType::Albedo)
                     .unwrap()
                     .texture
                     .get_texture_bind_group_entry(0),
-                texture_map
+                textures
                     .get(&TextureType::Albedo)
                     .unwrap()
                     .texture
                     .get_sampler_bind_group_entry(1),
-                texture_map
+                textures
                     .get(&TextureType::Normal)
                     .unwrap()
                     .texture
                     .get_texture_bind_group_entry(2),
-                texture_map
+                textures
                     .get(&TextureType::Normal)
                     .unwrap()
                     .texture
@@ -77,22 +65,49 @@ impl Material {
             label: None,
         });
 
-        Material {
-            textures: texture_map,
-            bind_group,
-        }
+        Material { bind_group }
     }
 }
 
-pub struct Mesh {
+pub struct TexturedRenderableMesh {
+    pub mesh: RenderableMesh,
+    pub material: Rc<Material>,
+}
+
+pub struct RenderableMesh {
     pub name: String,
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
     pub index_count: u32,
-    pub material: Rc<Material>,
 }
 
-impl Mesh {
+pub struct InstancedRenderableMesh {
+    pub mesh: TexturedRenderableMesh,
+    pub instances: Vec<Instance>,
+    pub instance_buffer: wgpu::Buffer,
+}
+
+impl InstancedRenderableMesh {
+    pub fn new(device: &Device, mesh: TexturedRenderableMesh, instances: Vec<Instance>) -> Self {
+        let raw_instances = instances
+            .iter()
+            .map(|instance| instance.to_raw())
+            .collect::<Vec<_>>();
+        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Square Instance Buffer"),
+            contents: bytemuck::cast_slice(&raw_instances),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+
+        InstancedRenderableMesh {
+            mesh,
+            instances,
+            instance_buffer,
+        }
+    }
+}
+
+impl RenderableMesh {
     // fn calculate_tangetns_bitangents(indices: Vec3,) -> (Vec3, Vec3) {
     //     for c in indices.chunks(3) {
     //         let v0 = &vertices[c[0] as usize];
@@ -153,7 +168,6 @@ impl Mesh {
         normals: Vec<Vec3>,
         tex_coords: Vec<Vec2>,
         indices: Vec<u32>,
-        material: Rc<Material>,
     ) -> Self {
         let mut vertices = (0..positions.len())
             .map(|i| VertexRawWithTangents {
@@ -241,12 +255,11 @@ impl Mesh {
             usage: wgpu::BufferUsages::INDEX,
         });
 
-        Mesh {
+        RenderableMesh {
             name: name,
             vertex_buffer,
             index_buffer,
             index_count: indices.len() as u32,
-            material,
         }
     }
 

@@ -1,12 +1,12 @@
 use std::time::{Duration, Instant};
 
-pub struct FrameTimer {
+pub struct BasicTimer {
     pub last_frame_time: Instant,
 }
 
-impl FrameTimer {
-    pub fn new() -> FrameTimer {
-        FrameTimer {
+impl BasicTimer {
+    pub fn new() -> BasicTimer {
+        BasicTimer {
             last_frame_time: Instant::now(),
         }
     }

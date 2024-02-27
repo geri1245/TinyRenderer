@@ -1,21 +1,25 @@
-use wgpu::{
-    BindGroup, Buffer, CommandEncoder, Device, RenderPassDepthStencilAttachment, ShaderModule,
-};
+use std::rc::Rc;
+
+use wgpu::{BindGroup, CommandEncoder, Device, RenderPassDepthStencilAttachment, ShaderModule};
 
 use crate::{
-    bind_group_layout_descriptors, buffer_content::BufferContent, instance, model::Model,
-    texture::SampledTexture, vertex,
+    bind_group_layout_descriptors, buffer_content::BufferContent, instance,
+    model::InstancedRenderableMesh, texture::SampledTexture, vertex,
 };
 
 use super::{render_pipeline_base::RenderPipelineBase, PipelineRecreationResult};
 
 const SHADER_SOURCE: &'static str = "src/shaders/shadow.wgsl";
 
+// TODO: Can we get away with not using RCs here? If we don't have RCs, then when we
+// are recreating the shader and thus the pipeline, then we can't move out of these fields.
+// However semantically this is just giving away the ownership to the new pipeline,
+// but Rust doesn't know that. I should try to tell it somehow...
 pub struct ShadowRP {
     shadow_pipeline: wgpu::RenderPipeline,
-    pub bind_group: wgpu::BindGroup,
-    directional_shadow_texture: SampledTexture,
-    point_shadow_texture: SampledTexture,
+    pub bind_group: Rc<wgpu::BindGroup>,
+    directional_shadow_texture: Rc<SampledTexture>,
+    point_shadow_texture: Rc<SampledTexture>,
     shader_modification_time: u64,
 }
 
@@ -40,9 +44,9 @@ impl ShadowRP {
 
         Ok(Self::new_internal(
             device,
-            directional_shadow_texture,
-            point_shadow_texture,
-            bind_group,
+            Rc::new(directional_shadow_texture),
+            Rc::new(point_shadow_texture),
+            Rc::new(bind_group),
             &shader.shader_module,
             shader.last_write_time,
         ))
@@ -50,9 +54,9 @@ impl ShadowRP {
 
     fn new_internal(
         device: &wgpu::Device,
-        directional_shadow_texture: SampledTexture,
-        point_shadow_texture: SampledTexture,
-        bind_group: wgpu::BindGroup,
+        directional_shadow_texture: Rc<SampledTexture>,
+        point_shadow_texture: Rc<SampledTexture>,
+        bind_group: Rc<wgpu::BindGroup>,
         shader: &ShaderModule,
         shader_compilation_time: u64,
     ) -> Self {
@@ -145,7 +149,7 @@ impl ShadowRP {
         })
     }
 
-    pub async fn try_recompile_shader(self, device: &Device) -> PipelineRecreationResult<Self> {
+    pub async fn try_recompile_shader(&self, device: &Device) -> PipelineRecreationResult<Self> {
         if !Self::need_recompile_shader(SHADER_SOURCE, self.shader_modification_time).await {
             return PipelineRecreationResult::AlreadyUpToDate;
         }
@@ -153,9 +157,9 @@ impl ShadowRP {
         match Self::compile_shader_if_needed(SHADER_SOURCE, device).await {
             Ok(compiled_shader) => PipelineRecreationResult::Success(Self::new_internal(
                 device,
-                self.point_shadow_texture,
-                self.directional_shadow_texture,
-                self.bind_group,
+                self.point_shadow_texture.clone(),
+                self.directional_shadow_texture.clone(),
+                self.bind_group.clone(),
                 &compiled_shader.shader_module,
                 compiled_shader.last_write_time,
             )),
@@ -166,10 +170,8 @@ impl ShadowRP {
     pub fn render(
         &self,
         encoder: &mut CommandEncoder,
-        model: &Model,
+        mesh: &InstancedRenderableMesh,
         light_bind_group: &BindGroup,
-        instance_count: usize,
-        instance_buffer: &Buffer,
         depth_target: &wgpu::TextureView,
         light_bind_group_offset: u32,
     ) {
@@ -192,12 +194,17 @@ impl ShadowRP {
 
         shadow_pass.set_bind_group(0, &light_bind_group, &[light_bind_group_offset]);
 
-        shadow_pass.set_vertex_buffer(1, instance_buffer.slice(..));
+        shadow_pass.set_vertex_buffer(1, mesh.instance_buffer.slice(..));
 
-        for mesh in &model.meshes {
-            shadow_pass.set_vertex_buffer(0, mesh.vertex_buffer.slice(..));
-            shadow_pass.set_index_buffer(mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-            shadow_pass.draw_indexed(0..mesh.index_count, 0, 0..instance_count as u32);
-        }
+        shadow_pass.set_vertex_buffer(0, mesh.mesh.mesh.vertex_buffer.slice(..));
+        shadow_pass.set_index_buffer(
+            mesh.mesh.mesh.index_buffer.slice(..),
+            wgpu::IndexFormat::Uint32,
+        );
+        shadow_pass.draw_indexed(
+            0..mesh.mesh.mesh.index_count,
+            0,
+            0..mesh.instances.len() as u32,
+        );
     }
 }

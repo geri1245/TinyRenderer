@@ -1,15 +1,15 @@
+use std::collections::HashMap;
 use std::fs::File;
-use std::{collections::HashMap, thread::Thread};
 
 use async_std::{
     fs,
     path::{Path, PathBuf},
     task::block_on,
 };
-use image::DynamicImage;
+use image::RgbaImage;
 use std::io::BufReader;
 use tobj::MTLLoadResult;
-use wgpu::Device;
+use wgpu::{Device, Queue};
 
 use glam::{Vec2, Vec3};
 
@@ -27,7 +27,7 @@ const MAX_WORKER_COUNT: usize = 4;
 
 pub struct FileLoadStatus {
     pub id: u32,
-    pub loaded_image: DynamicImage,
+    pub loaded_image: RgbaImage,
 }
 
 pub struct AssetLoader {
@@ -53,10 +53,10 @@ impl AssetLoader {
         }
     }
 
-    fn try_load_data(path: PathBuf) -> anyhow::Result<DynamicImage> {
+    fn try_load_data(path: PathBuf) -> anyhow::Result<RgbaImage> {
         let data = block_on(fs::read(path))?;
         let img = image::load_from_memory(&data)?;
-        Ok(img)
+        Ok(img.to_rgba8())
     }
 
     pub fn start_loading_bytes(&mut self, path: &PathBuf) -> u32 {
@@ -105,6 +105,7 @@ pub struct ResourceLoader {
 impl ResourceLoader {
     pub fn new() -> Self {
         let asset_loader = AssetLoader::new();
+        // let channels = crossbeam_channel::unbounded();
         ResourceLoader {
             asset_loader,
             loading_id_to_asset_data: HashMap::new(),
@@ -147,7 +148,7 @@ impl ResourceLoader {
                     .to_str()
                     .unwrap();
                 let texture = texture::SampledTexture::from_image(
-                    device,
+                    &device,
                     queue,
                     &asset_load_result.loaded_image,
                     pending_texture_data.usage,

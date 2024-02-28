@@ -7,7 +7,6 @@ use std::{
 
 use async_std::task::block_on;
 use glam::{Quat, Vec3};
-use log::log;
 use pipelines::PipelineRecreationResult;
 use wgpu::{CommandEncoder, Device, TextureView};
 
@@ -360,7 +359,7 @@ impl World {
         }
 
         if self.pending_textures.len() == 2 {
-            let new_mat = Rc::new(Material::new(device, &self.pending_textures));
+            let new_mat = Rc::new(Material::new(&*device, &self.pending_textures));
             self.models[1].mesh.material = new_mat;
         }
     }

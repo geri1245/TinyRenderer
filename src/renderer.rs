@@ -71,6 +71,9 @@ impl Renderer {
             .await
             .unwrap();
 
+        let device = device;
+        let queue = queue;
+
         let surface_capabilities = surface.get_capabilities(&adapter);
         let surface_texture_format = surface_capabilities.formats[0];
 

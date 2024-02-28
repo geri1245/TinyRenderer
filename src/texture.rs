@@ -1,7 +1,7 @@
 use std::{fs::File, io::BufReader};
 
 use anyhow::*;
-use image::GenericImageView;
+use image::RgbaImage;
 use wgpu::TextureFormat;
 
 const IMAGE_SIZE: u32 = 512;
@@ -50,17 +50,17 @@ impl SampledTexture {
         label: &str,
     ) -> Result<Self> {
         let img = image::load_from_memory(bytes)?;
-        Self::from_image(device, queue, &img, usage, Some(label))
+        let rgba = img.to_rgba8();
+        Self::from_image(device, queue, &rgba, usage, Some(label))
     }
 
     pub fn from_image(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        img: &image::DynamicImage,
+        img: &RgbaImage,
         usage: TextureUsage,
         label: Option<&str>,
     ) -> Result<Self> {
-        let rgba = img.to_rgba8();
         let dimensions = img.dimensions();
 
         let size = wgpu::Extent3d {
@@ -85,7 +85,7 @@ impl SampledTexture {
 
         queue.write_texture(
             texture.as_image_copy(),
-            &rgba,
+            &img,
             wgpu::ImageDataLayout {
                 offset: 0,
                 bytes_per_row: Some(4 * dimensions.0),

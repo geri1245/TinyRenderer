@@ -218,9 +218,10 @@ fn fs_main(fragment_pos_and_coords: VertexOutput) -> @location(0) vec4<f32> {
         if light.light_type == 1 {
             let shadow = get_shadow_value(i, position.xyz);
 
-            irradiance += calculate_point_light_contribution(
-                light, pixel_to_camera, position.xyz, normal, albedo, metalness, roughness, shadow
-            );
+            // irradiance += calculate_point_light_contribution(
+            //     light, pixel_to_camera, position.xyz, normal, albedo, metalness, roughness, shadow
+            // );
+            irradiance += vec3(shadow);
         } else if light.light_type == 2 {
             let shadow = fetch_shadow(i, light.view_proj * position);
             let diffuse_and_specular = get_light_diffuse_and_specular_contribution(
@@ -230,11 +231,11 @@ fn fs_main(fragment_pos_and_coords: VertexOutput) -> @location(0) vec4<f32> {
         }
     }
 
-    let ambient = vec3(0.03) * albedo * ao;
-    var color = ambient + irradiance;
+    // let ambient = vec3(0.03) * albedo * ao;
+    // var color = ambient + irradiance;
 
-    color = color / (color + vec3(1.0));
-    color = pow(color, vec3(1.0 / 2.2));
+    // color = color / (color + vec3(1.0));
+    // color = pow(color, vec3(1.0 / 2.2));
 
-    return vec4(color, 1);
+    return vec4(irradiance * albedo, 1);
 }

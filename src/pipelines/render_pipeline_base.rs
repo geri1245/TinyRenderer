@@ -5,7 +5,7 @@ use wgpu::Device;
 
 use super::shader_compilation_result::CompiledShader;
 
-pub trait RenderPipelineBase {
+pub trait PipelineBase {
     async fn compile_shader_if_needed(
         source: &str,
         device: &Device,

@@ -41,13 +41,12 @@ pub const LIGHT_WITH_DYNAMIC_OFFSET: wgpu::BindGroupLayoutDescriptor =
         }],
     };
 
-// TODO: This might not be necessary. Remove it if it isn't
-pub const _STANDARD_TEXTURE: wgpu::BindGroupLayoutDescriptor = wgpu::BindGroupLayoutDescriptor {
+pub const STANDARD_TEXTURE: wgpu::BindGroupLayoutDescriptor = wgpu::BindGroupLayoutDescriptor {
     label: Some("Diffuse texture bind group layout descriptor"),
     entries: &[
         wgpu::BindGroupLayoutEntry {
             binding: 0,
-            visibility: wgpu::ShaderStages::FRAGMENT,
+            visibility: wgpu::ShaderStages::COMPUTE,
             ty: wgpu::BindingType::Texture {
                 multisampled: false,
                 view_dimension: wgpu::TextureViewDimension::D2,
@@ -57,7 +56,7 @@ pub const _STANDARD_TEXTURE: wgpu::BindGroupLayoutDescriptor = wgpu::BindGroupLa
         },
         wgpu::BindGroupLayoutEntry {
             binding: 1,
-            visibility: wgpu::ShaderStages::FRAGMENT,
+            visibility: wgpu::ShaderStages::COMPUTE,
             ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
             count: None,
         },
@@ -239,3 +238,18 @@ pub const GBUFFER: wgpu::BindGroupLayoutDescriptor = wgpu::BindGroupLayoutDescri
         },
     ],
 };
+
+pub const COMPUTE_RENDER_TO_FRAMEBUFFER: wgpu::BindGroupLayoutDescriptor =
+    wgpu::BindGroupLayoutDescriptor {
+        label: Some("ComputeRenderToFrameBuffer"),
+        entries: &[wgpu::BindGroupLayoutEntry {
+            binding: 0,
+            visibility: wgpu::ShaderStages::COMPUTE,
+            ty: wgpu::BindingType::StorageTexture {
+                access: wgpu::StorageTextureAccess::WriteOnly,
+                format: wgpu::TextureFormat::Rgba8Unorm,
+                view_dimension: wgpu::TextureViewDimension::D2,
+            },
+            count: None,
+        }],
+    };

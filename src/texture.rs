@@ -2,7 +2,7 @@ use std::{fs::File, io::BufReader};
 
 use anyhow::*;
 use image::RgbaImage;
-use wgpu::TextureFormat;
+use wgpu::{TextureFormat, TextureUsages};
 
 const IMAGE_SIZE: u32 = 512;
 
@@ -10,7 +10,13 @@ pub struct SampledTexture {
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
     pub sampler: wgpu::Sampler,
-    pub format: wgpu::TextureFormat,
+}
+
+pub struct SampledTextureDescriptor {
+    pub format: TextureFormat,
+    pub width: u32,
+    pub height: u32,
+    pub usages: TextureUsages,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -106,7 +112,6 @@ impl SampledTexture {
             texture,
             view,
             sampler,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
         })
     }
 
@@ -139,7 +144,6 @@ impl SampledTexture {
             texture,
             view,
             sampler,
-            format: Self::DEPTH_FORMAT,
         }
     }
 
@@ -210,20 +214,13 @@ impl SampledTexture {
             texture,
             view,
             sampler,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
         }
     }
 
-    pub fn new(
-        device: &wgpu::Device,
-        format: TextureFormat,
-        width: u32,
-        height: u32,
-        label: &str,
-    ) -> Self {
+    pub fn new(device: &wgpu::Device, descriptor: &SampledTextureDescriptor, label: &str) -> Self {
         let size = wgpu::Extent3d {
-            width,
-            height,
+            width: descriptor.width,
+            height: descriptor.height,
             depth_or_array_layers: 1,
         };
         let desc = wgpu::TextureDescriptor {
@@ -232,8 +229,8 @@ impl SampledTexture {
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            format: descriptor.format,
+            usage: descriptor.usages,
             view_formats: &[],
         };
         let texture = device.create_texture(&desc);
@@ -249,7 +246,6 @@ impl SampledTexture {
             texture,
             view,
             sampler,
-            format,
         }
     }
 }

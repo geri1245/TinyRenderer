@@ -7,7 +7,7 @@ use crate::{
     model::InstancedRenderableMesh, texture::SampledTexture, vertex,
 };
 
-use super::{render_pipeline_base::RenderPipelineBase, PipelineRecreationResult};
+use super::{render_pipeline_base::PipelineBase, PipelineRecreationResult};
 
 const SHADER_SOURCE: &'static str = "src/shaders/shadow.wgsl";
 
@@ -23,7 +23,7 @@ pub struct ShadowRP {
     shader_modification_time: u64,
 }
 
-impl RenderPipelineBase for ShadowRP {}
+impl PipelineBase for ShadowRP {}
 
 impl ShadowRP {
     pub async fn new(
@@ -85,20 +85,20 @@ impl ShadowRP {
                 primitive: wgpu::PrimitiveState {
                     topology: wgpu::PrimitiveTopology::TriangleList,
                     front_face: wgpu::FrontFace::Ccw,
-                    cull_mode: Some(wgpu::Face::Front),
+                    cull_mode: Some(wgpu::Face::Back),
                     unclipped_depth: device
                         .features()
                         .contains(wgpu::Features::DEPTH_CLIP_CONTROL),
                     ..Default::default()
                 },
                 depth_stencil: Some(wgpu::DepthStencilState {
-                    format: directional_shadow_texture.format,
+                    format: directional_shadow_texture.texture.format(),
                     depth_write_enabled: true,
                     depth_compare: wgpu::CompareFunction::Less,
                     stencil: wgpu::StencilState::default(),
                     bias: wgpu::DepthBiasState {
-                        constant: 500,
-                        slope_scale: 4.0,
+                        constant: 0,
+                        slope_scale: 0.0,
                         clamp: 0.0,
                     },
                 }),

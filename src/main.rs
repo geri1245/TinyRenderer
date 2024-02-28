@@ -19,6 +19,7 @@ mod light_controller;
 mod lights;
 mod model;
 mod pipelines;
+mod post_process_manager;
 mod primitive_shapes;
 mod render_pipeline_layout;
 mod renderer;

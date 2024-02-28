@@ -6,7 +6,7 @@ use crate::{
 };
 
 use super::{
-    render_pipeline_base::RenderPipelineBase,
+    render_pipeline_base::PipelineBase,
     shader_compilation_result::{CompiledShader, PipelineRecreationResult},
 };
 
@@ -18,7 +18,7 @@ pub struct MainRP {
     color_format: wgpu::TextureFormat,
 }
 
-impl RenderPipelineBase for MainRP {}
+impl PipelineBase for MainRP {}
 
 impl MainRP {
     fn create_render_pipeline(

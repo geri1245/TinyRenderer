@@ -168,13 +168,13 @@ fn get_light_diffuse_and_specular_contribution(pixel_to_light: vec3<f32>, pixel_
 
 fn calculate_point_light_contribution(
     light: Light, pixel_to_camera: vec3<f32>, pixel_position: vec3<f32>, normal: vec3<f32>, albedo: vec3<f32>,
-    metalness: f32, roughness: f32, shadow: f32
+    metalness: f32, roughness: f32
 ) -> vec3<f32> {
     let pixel_to_light = normalize(light.position_or_direction - pixel_position);
     let half_dir = normalize(pixel_to_camera + pixel_to_light);
     let pixel_to_light_distance = length(light.position_or_direction - pixel_position);
     let attenuation = 1.0 / (pixel_to_light_distance * pixel_to_light_distance);
-    let radiance = light.color * attenuation;
+    let radiance = light.color * 10 * attenuation;
 
     let F0 = mix(F0_NON_METALLIC, albedo, metalness);
     let F = fresnel_schlick(max(dot(half_dir, pixel_to_camera), 0.0), F0);
@@ -217,11 +217,11 @@ fn fs_main(fragment_pos_and_coords: VertexOutput) -> @location(0) vec4<f32> {
 
         if light.light_type == 1 {
             let shadow = get_shadow_value(i, position.xyz);
-
-            // irradiance += calculate_point_light_contribution(
-            //     light, pixel_to_camera, position.xyz, normal, albedo, metalness, roughness, shadow
-            // );
-            irradiance += vec3(shadow);
+            if shadow > 0.0 {
+                irradiance += calculate_point_light_contribution(
+                    light, pixel_to_camera, position.xyz, normal, albedo, metalness, roughness
+                );
+            }
         } else if light.light_type == 2 {
             let shadow = fetch_shadow(i, light.view_proj * position);
             let diffuse_and_specular = get_light_diffuse_and_specular_contribution(
@@ -231,11 +231,11 @@ fn fs_main(fragment_pos_and_coords: VertexOutput) -> @location(0) vec4<f32> {
         }
     }
 
-    // let ambient = vec3(0.03) * albedo * ao;
-    // var color = ambient + irradiance;
+    let ambient = vec3(0.03) * albedo * ao;
+    var color = ambient + irradiance;
 
-    // color = color / (color + vec3(1.0));
-    // color = pow(color, vec3(1.0 / 2.2));
+    color = color / (color + vec3(1.0));
+    color = pow(color, vec3(1.0 / 2.2));
 
-    return vec4(irradiance * albedo, 1);
+    return vec4(color, 1);
 }

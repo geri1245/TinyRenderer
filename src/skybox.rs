@@ -12,8 +12,13 @@ pub struct Skybox {
 
 impl Skybox {
     pub fn new(renderer: &Renderer) -> Self {
-        let skybox_rp =
-            pipelines::SkyboxRP::new(&renderer.device, &renderer.queue, renderer.config.format);
+        let skybox_rp = pipelines::SkyboxRP::new(
+            &renderer.device,
+            &renderer.queue,
+            renderer.full_screen_render_target_ping_pong_textures[0]
+                .texture
+                .format(),
+        );
 
         Skybox { skybox_rp }
     }

@@ -1,6 +1,6 @@
 use wgpu::{
     BindGroup, CommandEncoder, Device, RenderPass, RenderPassColorAttachment,
-    RenderPassDepthStencilAttachment, RenderPipeline, ShaderModule, TextureFormat,
+    RenderPassDepthStencilAttachment, RenderPipeline, ShaderModule, TextureFormat, TextureUsages,
 };
 
 use crate::{
@@ -8,12 +8,12 @@ use crate::{
     buffer_content::BufferContent,
     instance,
     model::InstancedRenderableMesh,
-    texture::{self, SampledTexture},
+    texture::{self, SampledTexture, SampledTextureDescriptor},
     vertex,
 };
 
 use super::{
-    render_pipeline_base::RenderPipelineBase, shader_compilation_result::CompiledShader,
+    render_pipeline_base::PipelineBase, shader_compilation_result::CompiledShader,
     PipelineRecreationResult,
 };
 
@@ -43,7 +43,7 @@ pub struct GBufferGeometryRP {
     height: u32,
 }
 
-impl RenderPipelineBase for GBufferGeometryRP {}
+impl PipelineBase for GBufferGeometryRP {}
 
 fn default_color_write_state(format: wgpu::TextureFormat) -> Option<wgpu::ColorTargetState> {
     Some(wgpu::ColorTargetState {
@@ -86,19 +86,17 @@ impl GBufferGeometryRP {
                 module: &shader,
                 entry_point: "fs_main",
                 targets: &[
-                    default_color_write_state(textures.position.format),
-                    default_color_write_state(textures.normal.format),
-                    default_color_write_state(textures.albedo_and_specular.format),
-                    default_color_write_state(textures.metal_rough_ao.format),
+                    default_color_write_state(textures.position.texture.format()),
+                    default_color_write_state(textures.normal.texture.format()),
+                    default_color_write_state(textures.albedo_and_specular.texture.format()),
+                    default_color_write_state(textures.metal_rough_ao.texture.format()),
                 ],
             }),
             primitive: wgpu::PrimitiveState {
                 topology: wgpu::PrimitiveTopology::TriangleList,
                 front_face: wgpu::FrontFace::Ccw,
                 cull_mode: Some(wgpu::Face::Back),
-                unclipped_depth: device
-                    .features()
-                    .contains(wgpu::Features::DEPTH_CLIP_CONTROL),
+                unclipped_depth: false,
                 ..Default::default()
             },
             depth_stencil: Some(wgpu::DepthStencilState {
@@ -116,34 +114,25 @@ impl GBufferGeometryRP {
     }
 
     pub fn create_textures(device: &wgpu::Device, width: u32, height: u32) -> GBufferTextures {
-        let position_texture = SampledTexture::new(
-            device,
-            TextureFormat::Rgba16Float,
+        let descriptor = SampledTextureDescriptor {
             width,
             height,
-            "GBuffer position texture",
-        );
-        let normal_texture = SampledTexture::new(
-            device,
-            TextureFormat::Rgba16Float,
-            width,
-            height,
-            "GBuffer normal texture",
-        );
+            format: TextureFormat::Rgba16Float,
+            usages: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+        };
+
+        let position_texture = SampledTexture::new(device, &descriptor, "GBuffer position texture");
+        let normal_texture = SampledTexture::new(device, &descriptor, "GBuffer normal texture");
         let albedo_and_specular_texture = SampledTexture::new(
             device,
-            TextureFormat::Rgba8Unorm,
-            width,
-            height,
-            "GBuffer albedo texture",
+            &SampledTextureDescriptor {
+                format: TextureFormat::Rgba16Float,
+                ..descriptor
+            },
+            "GBuffer albedo and specular texture",
         );
-        let metal_rough_ao = SampledTexture::new(
-            device,
-            TextureFormat::Rgba16Float,
-            width,
-            height,
-            "GBuffer albedo texture",
-        );
+        let metal_rough_ao =
+            SampledTexture::new(device, &descriptor, "GBuffer metal+rough+ao texture");
 
         let depth_texture_extents = wgpu::Extent3d {
             width,

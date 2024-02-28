@@ -33,7 +33,6 @@ impl Gui {
         window: &winit::window::Window,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        format: wgpu::TextureFormat,
         sender: Sender<GuiEvent>,
     ) -> Self {
         let mut context = imgui::Context::create();
@@ -61,10 +60,7 @@ impl Gui {
                 }),
             }]);
 
-        let renderer_config = RendererConfig {
-            texture_format: format,
-            ..Default::default()
-        };
+        let renderer_config = RendererConfig::new_srgb();
 
         let renderer = Renderer::new(&mut context, &device, &queue, renderer_config);
 

@@ -1,11 +1,13 @@
 use wgpu::{
-    CommandEncoder, CommandEncoderDescriptor, Device, Extent3d, InstanceDescriptor, RenderPass,
-    RenderPassDepthStencilAttachment, SurfaceTexture, TextureFormat,
+    BindGroup, BindGroupDescriptor, CommandEncoder, CommandEncoderDescriptor, Device, Extent3d,
+    InstanceDescriptor, RenderPass, RenderPassDepthStencilAttachment, SurfaceTexture,
+    TextureFormat,
 };
 
 use crate::{
+    bind_group_layout_descriptors::{COMPUTE_RENDER_TO_FRAMEBUFFER, STANDARD_TEXTURE},
     color,
-    texture::{self, SampledTexture},
+    texture::{self, SampledTexture, SampledTextureDescriptor},
     CLEAR_COLOR,
 };
 
@@ -17,6 +19,9 @@ pub struct Renderer {
     pub config: wgpu::SurfaceConfiguration,
     pub size: winit::dpi::PhysicalSize<u32>,
     pub surface_texture_format: TextureFormat,
+    pub full_screen_render_target_ping_pong_textures: Vec<SampledTexture>,
+    pub compute_bind_group_target: BindGroup,
+    pub compute_bind_group_source: BindGroup,
 
     surface: wgpu::Surface<'static>,
 
@@ -75,10 +80,23 @@ impl Renderer {
         let queue = queue;
 
         let surface_capabilities = surface.get_capabilities(&adapter);
-        let surface_texture_format = surface_capabilities.formats[0];
+        // TODO: Unfortunately copying from an rgba to a bgra texture is not supported
+        // At the same time having a bgra texture as a storage attachment (to the post processing
+        // pipeline) is also not supported
+        // So if we want to be able to copy the post processing texture to the framebuffer, then we have
+        // to use rgba here (even though bgra8unormsrgb seemed to be the preferred format on my system)
+        let surface_texture_format = TextureFormat::Rgba8Unorm;
+        if !surface_capabilities
+            .formats
+            .contains(&TextureFormat::Rgba8Unorm)
+        {
+            panic!("Format {:?} is not supported", surface_texture_format);
+        }
 
         let config = wgpu::SurfaceConfiguration {
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                | wgpu::TextureUsages::COPY_SRC
+                | wgpu::TextureUsages::COPY_DST,
             format: surface_texture_format,
             width: size.width,
             height: size.height,
@@ -91,6 +109,9 @@ impl Renderer {
 
         let depth_texture = Renderer::create_depth_texture(&device, config.width, config.height);
 
+        let (textures, bind_group_target, bind_group_source) =
+            Self::create_pingpong_texture(&device, config.width, config.height);
+
         Renderer {
             surface,
             device,
@@ -100,7 +121,67 @@ impl Renderer {
             depth_texture,
             surface_texture_format,
             clear_color: color::wgpu_color_to_f32_array_rgba(CLEAR_COLOR),
+            full_screen_render_target_ping_pong_textures: textures,
+            compute_bind_group_target: bind_group_target,
+            compute_bind_group_source: bind_group_source,
         }
+    }
+
+    fn create_pingpong_texture(
+        device: &Device,
+        width: u32,
+        height: u32,
+    ) -> (Vec<SampledTexture>, BindGroup, BindGroup) {
+        let full_screen_render_target_ping_pong_textures = (0..2)
+            .map(|_| {
+                let texture = SampledTexture::new(
+                    &device,
+                    &SampledTextureDescriptor {
+                        width,
+                        height,
+                        usages: wgpu::TextureUsages::STORAGE_BINDING
+                            | wgpu::TextureUsages::RENDER_ATTACHMENT
+                            | wgpu::TextureUsages::COPY_SRC
+                            | wgpu::TextureUsages::COPY_DST
+                            | wgpu::TextureUsages::TEXTURE_BINDING,
+                        format: TextureFormat::Rgba8Unorm,
+                    },
+                    "PingPong texture for postprocessing",
+                );
+                texture
+            })
+            .collect::<Vec<_>>();
+
+        let bind_group_for_target = {
+            let layout = device.create_bind_group_layout(&COMPUTE_RENDER_TO_FRAMEBUFFER);
+
+            device.create_bind_group(&BindGroupDescriptor {
+                label: Some("Bind group of the destination/source os the postprocess pipeline"),
+                entries: &[
+                    full_screen_render_target_ping_pong_textures[1].get_texture_bind_group_entry(0)
+                ],
+                layout: &layout,
+            })
+        };
+
+        let bind_group_for_source = {
+            let layout = device.create_bind_group_layout(&STANDARD_TEXTURE);
+
+            device.create_bind_group(&BindGroupDescriptor {
+                label: Some("Bind group of the destination/source os the postprocess pipeline"),
+                entries: &[
+                    full_screen_render_target_ping_pong_textures[0].get_texture_bind_group_entry(0),
+                    full_screen_render_target_ping_pong_textures[0].get_sampler_bind_group_entry(1),
+                ],
+                layout: &layout,
+            })
+        };
+
+        (
+            full_screen_render_target_ping_pong_textures,
+            bind_group_for_target,
+            bind_group_for_source,
+        )
     }
 
     fn create_depth_texture(device: &Device, width: u32, height: u32) -> SampledTexture {
@@ -122,6 +203,13 @@ impl Renderer {
         self.surface.configure(&self.device, &self.config);
         self.depth_texture =
             Renderer::create_depth_texture(&self.device, self.config.width, self.config.height);
+
+        let (textures, bind_group_target, bind_group_source) =
+            Self::create_pingpong_texture(&self.device, self.config.width, self.config.height);
+
+        self.full_screen_render_target_ping_pong_textures = textures;
+        self.compute_bind_group_target = bind_group_target;
+        self.compute_bind_group_source = bind_group_source;
     }
 
     pub fn begin_frame<'a>(&'a self) -> CommandEncoder {

@@ -16,6 +16,7 @@ use crate::{
     light_controller::LightController,
     model::{InstancedRenderableMesh, Material, TextureData, TextureType, TexturedRenderableMesh},
     pipelines::{self, MainRP},
+    post_process_manager::PostProcessManager,
     primitive_shapes,
     renderer::Renderer,
     resource_loader::ResourceLoader,
@@ -29,6 +30,7 @@ pub struct World {
     pub camera_controller: CameraController,
     pub light_controller: LightController,
     main_rp: MainRP,
+    post_process_manager: PostProcessManager,
     forward_rp: pipelines::ForwardRP,
     gbuffer_rp: pipelines::GBufferGeometryRP,
     pending_textures: HashMap<TextureType, TextureData>,
@@ -195,9 +197,14 @@ impl World {
         let camera_controller = CameraController::new(&renderer);
         let light_controller = LightController::new(&renderer.device).await;
 
-        let main_rp = pipelines::MainRP::new(&renderer.device, renderer.config.format)
-            .await
-            .unwrap();
+        let main_rp = pipelines::MainRP::new(
+            &renderer.device,
+            renderer.full_screen_render_target_ping_pong_textures[0]
+                .texture
+                .format(),
+        )
+        .await
+        .unwrap();
         let gbuffer_rp = pipelines::GBufferGeometryRP::new(
             &renderer.device,
             renderer.config.width,
@@ -219,6 +226,8 @@ impl World {
             ),
         ];
 
+        let post_process_manager = PostProcessManager::new(&renderer.device).await;
+
         World {
             models: meshes,
             skybox,
@@ -229,6 +238,7 @@ impl World {
             forward_rp,
             pending_textures: Default::default(),
             resource_loader,
+            post_process_manager,
         }
     }
 
@@ -297,6 +307,21 @@ impl World {
             }
         }
 
+        {
+            let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("Compute pass"),
+                timestamp_writes: None,
+            });
+
+            self.post_process_manager.render(
+                &mut compute_pass,
+                &renderer.compute_bind_group_target,
+                &renderer.compute_bind_group_source,
+                renderer.config.width,
+                renderer.config.height,
+            );
+        }
+
         Ok(())
     }
 
@@ -359,7 +384,7 @@ impl World {
         }
 
         if self.pending_textures.len() == 2 {
-            let new_mat = Rc::new(Material::new(&*device, &self.pending_textures));
+            let new_mat = Rc::new(Material::new(device, &self.pending_textures));
             self.models[1].mesh.material = new_mat;
         }
     }

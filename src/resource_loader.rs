@@ -9,7 +9,7 @@ use async_std::{
 use image::RgbaImage;
 use std::io::BufReader;
 use tobj::MTLLoadResult;
-use wgpu::{Device, Queue};
+use wgpu::Device;
 
 use glam::{Vec2, Vec3};
 

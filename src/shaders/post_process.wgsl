@@ -4,9 +4,18 @@ const MAX_ITERATIONS: u32 = 50u;
 @binding(0)
 var texture: texture_storage_2d<rgba8unorm, write>;
 
+@group(1) @binding(0)
+var screen_texture: texture_2d<f32>;
+@group(1) @binding(1)
+var screen_texture_samp: sampler;
+
 @compute
 @workgroup_size(1)
 fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
+    let pixel_coords = vec2(i32(id.x), i32(id.y));
+    let source_texture_size = vec2(f32(textureDimensions(texture).x), f32(textureDimensions(texture).y));
+    let texture_coords = vec2(f32(id.x), f32(id.y)) / source_texture_size;
+
     var final_iteration = MAX_ITERATIONS;
     var c = vec2(
         // Translated to put everything nicely in frame.
@@ -25,5 +34,8 @@ fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
         }
     }
     let value = f32(final_iteration) / f32(MAX_ITERATIONS);
-    textureStore(texture, vec2(i32(id.x), i32(id.y)), vec4(value, value, value, 1.0));
+
+    let color = textureSampleLevel(screen_texture, screen_texture_samp, texture_coords, 0.0);
+    textureStore(texture, pixel_coords, color);
+    // textureStore(texture, pixel_coords, vec4(value, value, value, 1.0));
 }

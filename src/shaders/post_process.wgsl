@@ -4,9 +4,9 @@ const MAX_ITERATIONS: u32 = 50u;
 @binding(0)
 var texture: texture_storage_2d<rgba8unorm, write>;
 
-@group(1) @binding(0)
+@group(0) @binding(1)
 var screen_texture: texture_2d<f32>;
-@group(1) @binding(1)
+@group(0) @binding(2)
 var screen_texture_samp: sampler;
 
 @compute

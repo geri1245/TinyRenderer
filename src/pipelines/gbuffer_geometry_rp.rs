@@ -118,7 +118,9 @@ impl GBufferGeometryRP {
             width,
             height,
             format: TextureFormat::Rgba16Float,
-            usages: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+            usages: TextureUsages::RENDER_ATTACHMENT
+                | TextureUsages::TEXTURE_BINDING
+                | wgpu::TextureUsages::STORAGE_BINDING,
         };
 
         let position_texture = SampledTexture::new(device, &descriptor, "GBuffer position texture");

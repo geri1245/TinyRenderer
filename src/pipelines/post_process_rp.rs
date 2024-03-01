@@ -28,10 +28,7 @@ impl PostProcessRP {
         device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Main Render Pipeline Layout"),
             bind_group_layouts: &[
-                &device.create_bind_group_layout(
-                    &bind_group_layout_descriptors::COMPUTE_RENDER_TO_FRAMEBUFFER,
-                ),
-                &device.create_bind_group_layout(&bind_group_layout_descriptors::STANDARD_TEXTURE),
+                &device.create_bind_group_layout(&bind_group_layout_descriptors::COMPUTE_PING_PONG)
             ],
             push_constant_ranges: &[],
         })
@@ -54,14 +51,12 @@ impl PostProcessRP {
     pub fn run_copmute_pass<'a>(
         &'a self,
         compute_pass: &mut ComputePass<'a>,
-        destination_bind_group: &'a BindGroup,
-        source_bind_group: &'a BindGroup,
+        compute_pass_texture_bind_groups: &'a BindGroup,
         width: u32,
         height: u32,
     ) {
         compute_pass.set_pipeline(&self.pipeline);
-        compute_pass.set_bind_group(0, &destination_bind_group, &[]);
-        compute_pass.set_bind_group(1, &source_bind_group, &[]);
+        compute_pass.set_bind_group(0, &compute_pass_texture_bind_groups, &[]);
 
         compute_pass.dispatch_workgroups(width, height, 1);
     }

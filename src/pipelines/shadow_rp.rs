@@ -126,7 +126,8 @@ impl ShadowRP {
         point_shadow_texture_view: wgpu::TextureView,
     ) -> wgpu::BindGroup {
         device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &device.create_bind_group_layout(&bind_group_layout_descriptors::DEPTH_TEXTURE),
+            layout: &device
+                .create_bind_group_layout(&bind_group_layout_descriptors::SHADOW_DEPTH_TEXTURE),
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,

@@ -274,19 +274,8 @@ impl World {
                     &self.gbuffer_rp.textures.depth_texture.view,
                 );
 
-                {
-                    render_pass.push_debug_group("Cubes rendering from GBuffer");
-
-                    self.main_rp.render(
-                        &mut render_pass,
-                        &self.camera_controller,
-                        &self.light_controller,
-                        &self.gbuffer_rp.bind_group,
-                        &self.light_controller.shadow_rp.bind_group,
-                    );
-
-                    render_pass.pop_debug_group();
-                }
+                self.skybox
+                    .render(&mut render_pass, &self.camera_controller);
 
                 {
                     // render_pass.push_debug_group("Forward rendering light debug objects");
@@ -301,9 +290,6 @@ impl World {
 
                     // render_pass.pop_debug_group();
                 }
-
-                self.skybox
-                    .render(&mut render_pass, &self.camera_controller);
             }
         }
 
@@ -313,10 +299,20 @@ impl World {
                 timestamp_writes: None,
             });
 
+            self.main_rp.render(
+                &mut compute_pass,
+                &self.camera_controller,
+                &self.light_controller,
+                &self.gbuffer_rp.bind_group,
+                &self.light_controller.shadow_rp.bind_group,
+                &renderer.compute_bind_group_0_to_1,
+                renderer.config.width,
+                renderer.config.height,
+            );
+
             self.post_process_manager.render(
                 &mut compute_pass,
-                &renderer.compute_bind_group_target,
-                &renderer.compute_bind_group_source,
+                &renderer.compute_bind_group_1_to_0,
                 renderer.config.width,
                 renderer.config.height,
             );

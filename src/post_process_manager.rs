@@ -16,12 +16,15 @@ impl PostProcessManager {
     pub fn render<'a>(
         &'a self,
         compute_pass: &mut ComputePass<'a>,
-        destination: &'a BindGroup,
-        source: &'a BindGroup,
+        compute_pass_texture_bind_groups: &'a BindGroup,
         width: u32,
         height: u32,
     ) {
-        self.pipeline
-            .run_copmute_pass(compute_pass, destination, source, width, height);
+        self.pipeline.run_copmute_pass(
+            compute_pass,
+            compute_pass_texture_bind_groups,
+            width,
+            height,
+        );
     }
 }

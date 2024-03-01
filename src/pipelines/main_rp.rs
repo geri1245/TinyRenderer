@@ -1,8 +1,8 @@
-use wgpu::{Device, PipelineLayout, RenderPipeline, ShaderModule, TextureFormat};
+use wgpu::{ComputePipeline, Device, PipelineLayout, ShaderModule, TextureFormat};
 
 use crate::{
     bind_group_layout_descriptors, camera_controller::CameraController,
-    light_controller::LightController, texture,
+    light_controller::LightController,
 };
 
 use super::{
@@ -13,7 +13,7 @@ use super::{
 const SHADER_SOURCE: &'static str = "src/shaders/main.wgsl";
 
 pub struct MainRP {
-    render_pipeline: RenderPipeline,
+    compute_pipeline: ComputePipeline,
     shader_modification_time: u64,
     color_format: wgpu::TextureFormat,
 }
@@ -26,40 +26,12 @@ impl MainRP {
         shader: &ShaderModule,
         color_format: wgpu::TextureFormat,
         render_pipeline_layout: &PipelineLayout,
-    ) -> RenderPipeline {
-        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Main render pipeline"),
+    ) -> ComputePipeline {
+        device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: Some("Compute pipeline that does the lighting from the gbuffer"),
             layout: Some(render_pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: "vs_main",
-                buffers: &[],
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: "fs_main",
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: color_format,
-                    blend: Some(wgpu::BlendState {
-                        alpha: wgpu::BlendComponent::REPLACE,
-                        color: wgpu::BlendComponent::REPLACE,
-                    }),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-            }),
-            primitive: wgpu::PrimitiveState {
-                front_face: wgpu::FrontFace::Cw,
-                ..Default::default()
-            },
-            depth_stencil: Some(wgpu::DepthStencilState {
-                format: texture::SampledTexture::DEPTH_FORMAT,
-                depth_write_enabled: false,
-                depth_compare: wgpu::CompareFunction::LessEqual,
-                stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState::default(),
-            }),
-            multisample: wgpu::MultisampleState::default(),
-            multiview: None,
+            entry_point: "cs_main",
+            module: shader,
         })
     }
 
@@ -70,7 +42,9 @@ impl MainRP {
                 &device.create_bind_group_layout(&bind_group_layout_descriptors::LIGHT),
                 &device.create_bind_group_layout(&bind_group_layout_descriptors::CAMERA),
                 &device.create_bind_group_layout(&bind_group_layout_descriptors::GBUFFER),
-                &device.create_bind_group_layout(&bind_group_layout_descriptors::DEPTH_TEXTURE),
+                &device
+                    .create_bind_group_layout(&bind_group_layout_descriptors::SHADOW_DEPTH_TEXTURE),
+                &device.create_bind_group_layout(&bind_group_layout_descriptors::COMPUTE_PING_PONG),
             ],
             push_constant_ranges: &[],
         })
@@ -84,7 +58,7 @@ impl MainRP {
     fn new_internal(shader: &CompiledShader, device: &Device, color_format: TextureFormat) -> Self {
         let render_pipeline_layout = Self::create_pipeline_layout(device);
 
-        let render_pipeline = Self::create_render_pipeline(
+        let compute_pipeline = Self::create_render_pipeline(
             device,
             &shader.shader_module,
             color_format,
@@ -92,7 +66,7 @@ impl MainRP {
         );
 
         Self {
-            render_pipeline,
+            compute_pipeline,
             shader_modification_time: shader.last_write_time,
             color_format,
         }
@@ -115,19 +89,23 @@ impl MainRP {
 
     pub fn render<'a>(
         &'a self,
-        render_pass: &mut wgpu::RenderPass<'a>,
+        render_pass: &mut wgpu::ComputePass<'a>,
         camera_controller: &'a CameraController,
         light_controller: &'a LightController,
         gbuffer_bind_group: &'a wgpu::BindGroup,
         shadow_bind_group: &'a wgpu::BindGroup,
+        copmute_pass_textures_bind_group: &'a wgpu::BindGroup,
+        width: u32,
+        height: u32,
     ) {
-        render_pass.set_pipeline(&self.render_pipeline);
+        render_pass.set_pipeline(&self.compute_pipeline);
 
         render_pass.set_bind_group(1, &camera_controller.bind_group, &[]);
         render_pass.set_bind_group(0, &light_controller.light_bind_group, &[]);
         render_pass.set_bind_group(2, gbuffer_bind_group, &[]);
         render_pass.set_bind_group(3, shadow_bind_group, &[]);
+        render_pass.set_bind_group(4, copmute_pass_textures_bind_group, &[]);
 
-        render_pass.draw(0..3, 0..1);
+        render_pass.dispatch_workgroups(width, height, 1);
     }
 }

@@ -1,28 +1,3 @@
-/// Draws a fullscreen quad, samples the GBuffer and calculates the final fragment values
-
-struct VertexOutput {
-    @builtin(position) position: vec4<f32>,
-    @location(0) tex_coords: vec2<f32>,
-};
-
-@vertex
-fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
-    var output: VertexOutput;
-    let u = f32((i32(vertex_index) * 2) & 2);
-    let v = f32(i32(vertex_index) & 2);
-    
-    // 0 -> 0,0
-    // 1 -> 2, 0
-    // 2 -> 0, 2
-
-    let uv = vec2(u, v);
-    // Flip the y coordinate (not sure why 1-y is correct here instead of 2-y 🤔)
-    output.tex_coords = vec2(uv.x, 1.0 - uv.y);
-    output.position = vec4(uv * 2.0 - 1.0, 0.0, 1.0);
-
-    return output;
-}
-
 struct Light {
     view_proj: mat4x4<f32>,
     position_or_direction: vec3<f32>,
@@ -30,9 +5,6 @@ struct Light {
     color: vec3<f32>,
     far_plane_distance: f32,
 }
-
-@group(0) @binding(0)
-var<uniform> lights: array<Light, 2>;
 
 struct CameraUniform {
     view_proj: mat4x4<f32>,
@@ -42,6 +14,9 @@ struct CameraUniform {
     proj_inv: mat4x4<f32>,
     position: vec3<f32>,
 };
+
+@group(0) @binding(0)
+var<uniform> lights: array<Light, 2>;
 
 @group(1) @binding(0)
 var<uniform> camera: CameraUniform;
@@ -71,6 +46,15 @@ var sampler_shadow: sampler_comparison;
 var t_shadow_cube: texture_depth_cube;
 @group(3) @binding(3)
 var sampler_cube: sampler_comparison;
+
+@group(4)
+@binding(0)
+var destination_texture: texture_storage_2d<rgba8unorm, write>;
+
+@group(4) @binding(1)
+var screen_texture: texture_2d<f32>;
+@group(4) @binding(2)
+var screen_texture_samp: sampler;
 
 fn is_valid_tex_coord(tex_coord: vec2<f32>) -> bool {
     return tex_coord.x >= 0.0 && tex_coord.x <= 1.0 && tex_coord.y >= 0.0 && tex_coord.y <= 1.0;
@@ -196,15 +180,17 @@ fn calculate_point_light_contribution(
     return light_contribution;
 }
 
-@fragment
-fn fs_main(fragment_pos_and_coords: VertexOutput) -> @location(0) vec4<f32> {
-    var uv = fragment_pos_and_coords.tex_coords;
+@compute
+@workgroup_size(1)
+fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
+    let destination_texture_size = vec2(f32(textureDimensions(destination_texture).x), f32(textureDimensions(destination_texture).y));
+    let uv = vec2(f32(id.x), f32(id.y)) / destination_texture_size;
 
-    let normal = normalize(textureSample(t_normal, s_normal, uv).xyz);
-    let albedo_and_shininess = textureSample(t_albedo, s_albedo, uv);
+    let normal = normalize(textureSampleLevel(t_normal, s_normal, uv, 0.0).xyz);
+    let albedo_and_shininess = textureSampleLevel(t_albedo, s_albedo, uv, 0.0);
     let albedo = albedo_and_shininess.xyz;
-    let position = textureSample(t_position, s_position, uv);
-    let metal_rough_ao = textureSample(t_metal_rough_ao, s_metal_rough_ao, uv);
+    let position = textureSampleLevel(t_position, s_position, uv, 0.0);
+    let metal_rough_ao = textureSampleLevel(t_metal_rough_ao, s_metal_rough_ao, uv, 0.0);
     let metalness = metal_rough_ao.x;
     let roughness = metal_rough_ao.y;
     let ao = metal_rough_ao.z;
@@ -237,5 +223,6 @@ fn fs_main(fragment_pos_and_coords: VertexOutput) -> @location(0) vec4<f32> {
     color = color / (color + vec3(1.0));
     color = pow(color, vec3(1.0 / 2.2));
 
-    return vec4(color, 1);
+    let pixel_coords = vec2(i32(id.x), i32(id.y));
+    textureStore(destination_texture, pixel_coords, vec4(color, 1));
 }

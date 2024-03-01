@@ -1,4 +1,4 @@
-use wgpu::{ComputePipeline, Device, PipelineLayout, ShaderModule, TextureFormat};
+use wgpu::{ComputePipeline, Device, PipelineLayout, ShaderModule};
 
 use crate::{
     bind_group_layout_descriptors, camera_controller::CameraController,
@@ -15,7 +15,6 @@ const SHADER_SOURCE: &'static str = "src/shaders/main.wgsl";
 pub struct MainRP {
     compute_pipeline: ComputePipeline,
     shader_modification_time: u64,
-    color_format: wgpu::TextureFormat,
 }
 
 impl PipelineBase for MainRP {}
@@ -24,7 +23,6 @@ impl MainRP {
     fn create_render_pipeline(
         device: &wgpu::Device,
         shader: &ShaderModule,
-        color_format: wgpu::TextureFormat,
         render_pipeline_layout: &PipelineLayout,
     ) -> ComputePipeline {
         device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
@@ -50,25 +48,20 @@ impl MainRP {
         })
     }
 
-    pub async fn new(device: &Device, color_format: TextureFormat) -> anyhow::Result<Self> {
+    pub async fn new(device: &Device) -> anyhow::Result<Self> {
         let shader = Self::compile_shader_if_needed(SHADER_SOURCE, device).await?;
-        Result::Ok(Self::new_internal(&shader, device, color_format))
+        Result::Ok(Self::new_internal(&shader, device))
     }
 
-    fn new_internal(shader: &CompiledShader, device: &Device, color_format: TextureFormat) -> Self {
+    fn new_internal(shader: &CompiledShader, device: &Device) -> Self {
         let render_pipeline_layout = Self::create_pipeline_layout(device);
 
-        let compute_pipeline = Self::create_render_pipeline(
-            device,
-            &shader.shader_module,
-            color_format,
-            &render_pipeline_layout,
-        );
+        let compute_pipeline =
+            Self::create_render_pipeline(device, &shader.shader_module, &render_pipeline_layout);
 
         Self {
             compute_pipeline,
             shader_modification_time: shader.last_write_time,
-            color_format,
         }
     }
 
@@ -78,11 +71,9 @@ impl MainRP {
         }
 
         match Self::compile_shader_if_needed(SHADER_SOURCE, device).await {
-            Ok(compiled_shader) => PipelineRecreationResult::Success(Self::new_internal(
-                &compiled_shader,
-                device,
-                self.color_format,
-            )),
+            Ok(compiled_shader) => {
+                PipelineRecreationResult::Success(Self::new_internal(&compiled_shader, device))
+            }
             Err(error) => PipelineRecreationResult::Failed(error),
         }
     }

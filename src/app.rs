@@ -1,5 +1,5 @@
 use crate::gui::{Gui, GuiEvent};
-use crate::world::World;
+use crate::world_renderer::WorldRenderer;
 use crate::{frame_timer::BasicTimer, renderer::Renderer};
 use crossbeam_channel::{unbounded, Receiver};
 use std::time::Duration;
@@ -17,7 +17,7 @@ pub struct App {
     pub renderer: Renderer,
     pub frame_timer: BasicTimer,
     gui: Gui,
-    world: World,
+    world: WorldRenderer,
     should_draw_gui: bool,
     gui_event_receiver: Receiver<GuiEvent>,
 }
@@ -29,7 +29,7 @@ impl App {
 
         let gui = Gui::new(&window, &renderer.device, &renderer.queue, gui_event_sender);
 
-        let world: World = World::new(&renderer).await;
+        let world: WorldRenderer = WorldRenderer::new(&renderer).await;
 
         let frame_timer = BasicTimer::new();
 

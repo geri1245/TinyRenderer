@@ -41,28 +41,6 @@ pub const LIGHT_WITH_DYNAMIC_OFFSET: wgpu::BindGroupLayoutDescriptor =
         }],
     };
 
-pub const STANDARD_TEXTURE: wgpu::BindGroupLayoutDescriptor = wgpu::BindGroupLayoutDescriptor {
-    label: Some("Diffuse texture bind group layout descriptor"),
-    entries: &[
-        wgpu::BindGroupLayoutEntry {
-            binding: 0,
-            visibility: wgpu::ShaderStages::COMPUTE,
-            ty: wgpu::BindingType::Texture {
-                multisampled: false,
-                view_dimension: wgpu::TextureViewDimension::D2,
-                sample_type: wgpu::TextureSampleType::Float { filterable: true },
-            },
-            count: None,
-        },
-        wgpu::BindGroupLayoutEntry {
-            binding: 1,
-            visibility: wgpu::ShaderStages::COMPUTE,
-            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-            count: None,
-        },
-    ],
-};
-
 pub const PBR_TEXTURE: wgpu::BindGroupLayoutDescriptor = wgpu::BindGroupLayoutDescriptor {
     label: Some("Physically based textures bind group layout descriptor"),
     entries: &[

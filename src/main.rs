@@ -29,6 +29,7 @@ mod skybox;
 mod texture;
 mod vertex;
 mod world;
+mod world_renderer;
 
 const CLEAR_COLOR: wgpu::Color = wgpu::Color {
     r: 0.1,

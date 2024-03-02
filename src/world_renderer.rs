@@ -14,14 +14,14 @@ use crate::{
     camera_controller::CameraController,
     instance::Instance,
     light_controller::LightController,
-    model::{InstancedRenderableMesh, Material, TextureData, TextureType, TexturedRenderableMesh},
+    model::{InstancedRenderableMesh, Material, TextureData, TexturedRenderableMesh},
     pipelines::{self, MainRP},
     post_process_manager::PostProcessManager,
     primitive_shapes,
     renderer::Renderer,
     resource_loader::ResourceLoader,
     skybox::Skybox,
-    texture,
+    texture::{self, TextureUsage},
 };
 
 pub struct WorldRenderer {
@@ -33,7 +33,7 @@ pub struct WorldRenderer {
     post_process_manager: PostProcessManager,
     forward_rp: pipelines::ForwardRP,
     gbuffer_rp: pipelines::GBufferGeometryRP,
-    pending_textures: HashMap<TextureType, TextureData>,
+    pending_textures: HashMap<TextureUsage, TextureData>,
     resource_loader: ResourceLoader,
 }
 
@@ -113,8 +113,8 @@ impl WorldRenderer {
         };
 
         let mut default_material_textures = HashMap::new();
-        default_material_textures.insert(TextureType::Albedo, default_albedo_texture_data);
-        default_material_textures.insert(TextureType::Normal, default_normal_texture_data);
+        default_material_textures.insert(TextureUsage::Albedo, default_albedo_texture_data);
+        default_material_textures.insert(TextureUsage::Normal, default_normal_texture_data);
 
         let default_material = Rc::new(Material::new(&renderer.device, &default_material_textures));
         let square = primitive_shapes::square(&renderer.device);

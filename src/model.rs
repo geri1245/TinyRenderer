@@ -6,25 +6,22 @@ use serde::Deserialize;
 use wgpu::{util::DeviceExt, Device};
 
 use crate::{
-    bind_group_layout_descriptors, instance::Instance, texture, vertex::VertexRawWithTangents,
+    bind_group_layout_descriptors,
+    instance::Instance,
+    texture::{self, TextureUsage},
+    vertex::VertexRawWithTangents,
 };
 
 #[derive(Deserialize)]
 pub struct ModelDescriptorFile {
     pub model: String,
     #[serde(default)]
-    pub textures: HashMap<TextureType, String>,
+    pub textures: HashMap<TextureUsage, String>,
 }
 
 pub struct ModelLoadingData {
     pub model: PathBuf,
-    pub textures: Vec<(TextureType, PathBuf)>,
-}
-
-#[derive(Deserialize, PartialEq, Eq, Hash, Clone)]
-pub enum TextureType {
-    Albedo,
-    Normal,
+    pub textures: Vec<(TextureUsage, PathBuf)>,
 }
 
 pub struct TextureData {
@@ -37,27 +34,27 @@ pub struct Material {
 }
 
 impl Material {
-    pub fn new(device: &wgpu::Device, textures: &HashMap<TextureType, TextureData>) -> Self {
+    pub fn new(device: &wgpu::Device, textures: &HashMap<TextureUsage, TextureData>) -> Self {
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &device.create_bind_group_layout(&bind_group_layout_descriptors::PBR_TEXTURE),
             entries: &[
                 textures
-                    .get(&TextureType::Albedo)
+                    .get(&TextureUsage::Albedo)
                     .unwrap()
                     .texture
                     .get_texture_bind_group_entry(0),
                 textures
-                    .get(&TextureType::Albedo)
+                    .get(&TextureUsage::Albedo)
                     .unwrap()
                     .texture
                     .get_sampler_bind_group_entry(1),
                 textures
-                    .get(&TextureType::Normal)
+                    .get(&TextureUsage::Normal)
                     .unwrap()
                     .texture
                     .get_texture_bind_group_entry(2),
                 textures
-                    .get(&TextureType::Normal)
+                    .get(&TextureUsage::Normal)
                     .unwrap()
                     .texture
                     .get_sampler_bind_group_entry(3),

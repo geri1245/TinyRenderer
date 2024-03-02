@@ -2,6 +2,7 @@ use std::{fs::File, io::BufReader};
 
 use anyhow::*;
 use image::RgbaImage;
+use serde::Deserialize;
 use wgpu::{TextureFormat, TextureUsages};
 
 const IMAGE_SIZE: u32 = 512;
@@ -19,7 +20,7 @@ pub struct SampledTextureDescriptor {
     pub usages: TextureUsages,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Deserialize, PartialEq, Eq, Hash, Debug, Clone, Copy)]
 pub enum TextureUsage {
     Albedo,
     Normal,

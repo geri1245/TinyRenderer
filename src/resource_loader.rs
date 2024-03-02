@@ -6,90 +6,21 @@ use async_std::{
     path::{Path, PathBuf},
     task::block_on,
 };
-use image::RgbaImage;
 use std::io::BufReader;
 use tobj::MTLLoadResult;
 use wgpu::Device;
 
 use glam::{Vec2, Vec3};
 
-use crossbeam_channel::{Receiver, Sender};
-use rayon::ThreadPool;
-
-use crate::model::{self, ModelLoadingData, RenderableMesh, TextureType};
 use crate::model::{ModelDescriptorFile, TextureData};
 use crate::texture::{self, TextureUsage};
+use crate::{
+    file_loader::FileLoader,
+    model::{self, ModelLoadingData, RenderableMesh},
+};
 
 const ASSET_FILE_NAME: &str = "asset.json";
 const TEXTURES_FOLDER_NAME: &str = "textures";
-
-const MAX_WORKER_COUNT: usize = 4;
-
-pub struct FileLoadStatus {
-    pub id: u32,
-    pub loaded_image: RgbaImage,
-}
-
-pub struct AssetLoader {
-    next_resource_id: u32,
-    thread_pool: ThreadPool,
-    result_sender: Sender<anyhow::Result<FileLoadStatus>>,
-    result_receiver: Receiver<anyhow::Result<FileLoadStatus>>,
-}
-
-impl AssetLoader {
-    pub fn new() -> Self {
-        let thread_pool = rayon::ThreadPoolBuilder::new()
-            .num_threads(MAX_WORKER_COUNT)
-            .build()
-            .unwrap();
-        let (result_sender, result_receiver) = crossbeam_channel::unbounded();
-
-        AssetLoader {
-            next_resource_id: 0,
-            thread_pool,
-            result_sender,
-            result_receiver,
-        }
-    }
-
-    fn try_load_data(path: PathBuf) -> anyhow::Result<RgbaImage> {
-        let data = block_on(fs::read(path))?;
-        let img = image::load_from_memory(&data)?;
-        Ok(img.to_rgba8())
-    }
-
-    pub fn start_loading_bytes(&mut self, path: &PathBuf) -> u32 {
-        let resource_id = self.next_resource_id;
-        self.next_resource_id += 1;
-        let path = path.clone();
-        let result_sender = self.result_sender.clone();
-
-        // TODO: don't swallow the errors, propagate them
-        self.thread_pool.spawn(move || {
-            let image = Self::try_load_data(path).map(|image| FileLoadStatus {
-                id: resource_id,
-                loaded_image: image,
-            });
-            result_sender.send(image).unwrap();
-        });
-
-        resource_id
-    }
-
-    pub fn poll_loading_resources(&self) -> Option<Vec<FileLoadStatus>> {
-        let mut completed_resource_loads = Vec::new();
-        while let Ok(result) = self.result_receiver.try_recv() {
-            completed_resource_loads.push(result.unwrap());
-        }
-
-        if completed_resource_loads.is_empty() {
-            None
-        } else {
-            Some(completed_resource_loads)
-        }
-    }
-}
 
 struct PendingTextureData {
     file_name: PathBuf,
@@ -97,14 +28,14 @@ struct PendingTextureData {
 }
 
 pub struct ResourceLoader {
-    asset_loader: AssetLoader,
+    asset_loader: FileLoader,
     loading_id_to_asset_data: HashMap<u32, PendingTextureData>,
     pending_materials: Vec<u32>,
 }
 
 impl ResourceLoader {
     pub fn new() -> Self {
-        let asset_loader = AssetLoader::new();
+        let asset_loader = FileLoader::new();
         // let channels = crossbeam_channel::unbounded();
         ResourceLoader {
             asset_loader,
@@ -126,10 +57,10 @@ impl ResourceLoader {
         &self,
         device: &Device,
         queue: &wgpu::Queue,
-    ) -> Vec<(u32, TextureType, TextureData)> {
+    ) -> Vec<(u32, TextureUsage, TextureData)> {
         let results = self
             .asset_loader
-            .poll_loading_resources()
+            .poll_loaded_resources()
             .unwrap_or_default();
 
         results
@@ -158,10 +89,7 @@ impl ResourceLoader {
 
                 (
                     asset_load_result.id,
-                    match pending_texture_data.usage {
-                        TextureUsage::Albedo => TextureType::Albedo,
-                        TextureUsage::Normal => TextureType::Normal,
-                    },
+                    pending_texture_data.usage,
                     TextureData {
                         name: file_name.into(),
                         texture,
@@ -182,11 +110,7 @@ impl ResourceLoader {
         let loading_ids = asset_data
             .textures
             .into_iter()
-            .map(|(texture_type, path)| {
-                let texture_usage = match texture_type {
-                    model::TextureType::Albedo => TextureUsage::Albedo,
-                    model::TextureType::Normal => TextureUsage::Normal,
-                };
+            .map(|(texture_usage, path)| {
                 self.queue_texture_for_loading(PendingTextureData {
                     file_name: path,
                     usage: texture_usage,

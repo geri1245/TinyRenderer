@@ -12,6 +12,7 @@ mod buffer_content;
 mod camera;
 mod camera_controller;
 mod color;
+mod file_loader;
 mod frame_timer;
 mod gui;
 mod instance;

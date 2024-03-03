@@ -1,3 +1,4 @@
+use glam::Vec3;
 use wgpu::{BindGroup, ComputePass, Device, PipelineLayout, ShaderModule};
 
 use crate::bind_group_layout_descriptors;
@@ -52,12 +53,15 @@ impl PostProcessRP {
         &'a self,
         compute_pass: &mut ComputePass<'a>,
         compute_pass_texture_bind_groups: &'a BindGroup,
-        width: u32,
-        height: u32,
+        workgroup_dimensions: (u32, u32, u32),
     ) {
         compute_pass.set_pipeline(&self.pipeline);
         compute_pass.set_bind_group(0, &compute_pass_texture_bind_groups, &[]);
 
-        compute_pass.dispatch_workgroups(width, height, 1);
+        compute_pass.dispatch_workgroups(
+            workgroup_dimensions.0,
+            workgroup_dimensions.1,
+            workgroup_dimensions.2,
+        );
     }
 }

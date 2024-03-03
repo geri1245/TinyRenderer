@@ -183,8 +183,12 @@ fn calculate_point_light_contribution(
 @compute
 @workgroup_size(1)
 fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
-    let destination_texture_size = vec2(f32(textureDimensions(destination_texture).x), f32(textureDimensions(destination_texture).y));
-    let uv = vec2(f32(id.x), f32(id.y)) / destination_texture_size;
+    let destination_texture_size = vec2(textureDimensions(destination_texture).x, textureDimensions(destination_texture).y);
+    
+    // Check if we are not indexing out of our textures
+    if any(id.xy > destination_texture_size) { return; }
+
+    let uv = vec2(f32(id.x), f32(id.y)) / vec2<f32>(destination_texture_size);
 
     let normal = normalize(textureSampleLevel(t_normal, s_normal, uv, 0.0).xyz);
     let albedo_and_shininess = textureSampleLevel(t_albedo, s_albedo, uv, 0.0);

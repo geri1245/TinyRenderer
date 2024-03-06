@@ -10,6 +10,7 @@ mod skybox_rp;
 pub use forward_rp::ForwardRP;
 pub use gbuffer_geometry_rp::GBufferGeometryRP;
 pub use main_rp::MainRP;
+pub use post_process_rp::PostProcessPipelineTargetTextureVariant;
 pub use post_process_rp::PostProcessRP;
 pub use shader_compilation_result::PipelineRecreationResult;
 pub use shadow_rp::ShadowRP;

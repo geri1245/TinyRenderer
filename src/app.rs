@@ -3,7 +3,7 @@ use crate::world_renderer::WorldRenderer;
 use crate::{frame_timer::BasicTimer, renderer::Renderer};
 use crossbeam_channel::{unbounded, Receiver};
 use std::time::Duration;
-use wgpu::{Extent3d, TextureViewDescriptor};
+use wgpu::TextureViewDescriptor;
 use winit::event::{DeviceEvent, ElementState, MouseButton, WindowEvent};
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::Window;
@@ -118,23 +118,8 @@ impl App {
             .texture
             .create_view(&TextureViewDescriptor::default());
 
-        self.world.render(
-            &self.renderer,
-            &mut encoder,
-            &self.renderer.full_screen_render_target_ping_pong_textures[0].view,
-        )?;
-
-        encoder.copy_texture_to_texture(
-            self.renderer.full_screen_render_target_ping_pong_textures[1]
-                .texture
-                .as_image_copy(),
-            current_frame_texture.texture.as_image_copy(),
-            Extent3d {
-                depth_or_array_layers: 1,
-                width: self.renderer.config.width,
-                height: self.renderer.config.height,
-            },
-        );
+        self.world
+            .render(&self.renderer, &mut encoder, &current_frame_texture)?;
 
         self.renderer.queue.submit(Some(encoder.finish()));
 

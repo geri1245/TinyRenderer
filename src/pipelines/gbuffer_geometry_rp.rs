@@ -17,7 +17,9 @@ use super::{
     PipelineRecreationResult,
 };
 
-const CLEAR_COLOR: wgpu::Color = wgpu::Color {
+const GBUFFER_TEXTURE_FORMAT: TextureFormat = TextureFormat::Rgba16Float;
+
+const GBUFFER_CLEAR_COLOR: wgpu::Color = wgpu::Color {
     r: 0.0,
     g: 0.0,
     b: 0.0,
@@ -117,7 +119,7 @@ impl GBufferGeometryRP {
         let descriptor = SampledTextureDescriptor {
             width,
             height,
-            format: TextureFormat::Rgba16Float,
+            format: GBUFFER_TEXTURE_FORMAT,
             usages: TextureUsages::RENDER_ATTACHMENT
                 | TextureUsages::TEXTURE_BINDING
                 | wgpu::TextureUsages::STORAGE_BINDING,
@@ -125,14 +127,8 @@ impl GBufferGeometryRP {
 
         let position_texture = SampledTexture::new(device, &descriptor, "GBuffer position texture");
         let normal_texture = SampledTexture::new(device, &descriptor, "GBuffer normal texture");
-        let albedo_and_specular_texture = SampledTexture::new(
-            device,
-            &SampledTextureDescriptor {
-                format: TextureFormat::Rgba16Float,
-                ..descriptor
-            },
-            "GBuffer albedo and specular texture",
-        );
+        let albedo_and_specular_texture =
+            SampledTexture::new(device, &descriptor, "GBuffer albedo and specular texture");
         let metal_rough_ao =
             SampledTexture::new(device, &descriptor, "GBuffer metal+rough+ao texture");
 
@@ -253,7 +249,7 @@ impl GBufferGeometryRP {
                     view: &self.textures.position.view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(CLEAR_COLOR),
+                        load: wgpu::LoadOp::Clear(GBUFFER_CLEAR_COLOR),
                         store: wgpu::StoreOp::Store,
                     },
                 }),
@@ -261,7 +257,7 @@ impl GBufferGeometryRP {
                     view: &self.textures.normal.view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(CLEAR_COLOR),
+                        load: wgpu::LoadOp::Clear(GBUFFER_CLEAR_COLOR),
                         store: wgpu::StoreOp::Store,
                     },
                 }),
@@ -269,7 +265,7 @@ impl GBufferGeometryRP {
                     view: &self.textures.albedo_and_specular.view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(CLEAR_COLOR),
+                        load: wgpu::LoadOp::Clear(GBUFFER_CLEAR_COLOR),
                         store: wgpu::StoreOp::Store,
                     },
                 }),
@@ -277,7 +273,7 @@ impl GBufferGeometryRP {
                     view: &self.textures.metal_rough_ao.view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(CLEAR_COLOR),
+                        load: wgpu::LoadOp::Clear(GBUFFER_CLEAR_COLOR),
                         store: wgpu::StoreOp::Store,
                     },
                 }),

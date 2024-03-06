@@ -8,7 +8,7 @@ use wgpu::{util::DeviceExt, Device};
 use crate::{
     bind_group_layout_descriptors,
     instance::Instance,
-    texture::{self, TextureUsage},
+    texture::{SampledTexture, TextureUsage},
     vertex::VertexRawWithTangents,
 };
 
@@ -24,39 +24,30 @@ pub struct ModelLoadingData {
     pub textures: Vec<(TextureUsage, PathBuf)>,
 }
 
-pub struct TextureData {
-    pub name: String,
-    pub texture: texture::SampledTexture,
-}
-
 pub struct Material {
     pub bind_group: wgpu::BindGroup,
 }
 
 impl Material {
-    pub fn new(device: &wgpu::Device, textures: &HashMap<TextureUsage, TextureData>) -> Self {
+    pub fn new(device: &wgpu::Device, textures: &HashMap<TextureUsage, SampledTexture>) -> Self {
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &device.create_bind_group_layout(&bind_group_layout_descriptors::PBR_TEXTURE),
             entries: &[
                 textures
                     .get(&TextureUsage::Albedo)
                     .unwrap()
-                    .texture
                     .get_texture_bind_group_entry(0),
                 textures
                     .get(&TextureUsage::Albedo)
                     .unwrap()
-                    .texture
                     .get_sampler_bind_group_entry(1),
                 textures
                     .get(&TextureUsage::Normal)
                     .unwrap()
-                    .texture
                     .get_texture_bind_group_entry(2),
                 textures
                     .get(&TextureUsage::Normal)
                     .unwrap()
-                    .texture
                     .get_sampler_bind_group_entry(3),
             ],
             label: None,

@@ -49,7 +49,7 @@ var sampler_cube: sampler_comparison;
 
 @group(4)
 @binding(0)
-var destination_texture: texture_storage_2d<rgba8unorm, write>;
+var destination_texture: texture_storage_2d<rgba16float, write>;
 
 @group(4) @binding(1)
 var screen_texture: texture_2d<f32>;

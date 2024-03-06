@@ -1,13 +1,11 @@
 use wgpu::{
-    BindGroup, BindGroupDescriptor, CommandEncoder, CommandEncoderDescriptor, Device, Extent3d,
-    InstanceDescriptor, RenderPass, RenderPassDepthStencilAttachment, SurfaceTexture,
-    TextureFormat,
+    CommandEncoder, CommandEncoderDescriptor, Device, Extent3d, InstanceDescriptor, RenderPass,
+    RenderPassDepthStencilAttachment, SurfaceTexture, TextureFormat,
 };
 
 use crate::{
-    bind_group_layout_descriptors::COMPUTE_PING_PONG,
     color,
-    texture::{self, SampledTexture, SampledTextureDescriptor},
+    texture::{self, SampledTexture},
     CLEAR_COLOR,
 };
 
@@ -19,9 +17,6 @@ pub struct Renderer {
     pub config: wgpu::SurfaceConfiguration,
     pub size: winit::dpi::PhysicalSize<u32>,
     pub surface_texture_format: TextureFormat,
-    pub full_screen_render_target_ping_pong_textures: Vec<SampledTexture>,
-    pub compute_bind_group_0_to_1: BindGroup,
-    pub compute_bind_group_1_to_0: BindGroup,
 
     surface: wgpu::Surface<'static>,
 
@@ -112,9 +107,6 @@ impl Renderer {
 
         let depth_texture = Renderer::create_depth_texture(&device, config.width, config.height);
 
-        let (textures, bind_group_0_to_1, bind_group_1_to_0) =
-            Self::create_pingpong_texture(&device, config.width, config.height);
-
         Renderer {
             surface,
             device,
@@ -124,73 +116,7 @@ impl Renderer {
             depth_texture,
             surface_texture_format,
             clear_color: color::wgpu_color_to_f32_array_rgba(CLEAR_COLOR),
-            full_screen_render_target_ping_pong_textures: textures,
-            compute_bind_group_0_to_1: bind_group_0_to_1,
-            compute_bind_group_1_to_0: bind_group_1_to_0,
         }
-    }
-
-    fn create_pingpong_texture(
-        device: &Device,
-        width: u32,
-        height: u32,
-    ) -> (Vec<SampledTexture>, BindGroup, BindGroup) {
-        let full_screen_render_target_ping_pong_textures = (0..2)
-            .map(|i| {
-                let mut usages = wgpu::TextureUsages::STORAGE_BINDING
-                    | wgpu::TextureUsages::COPY_SRC
-                    | wgpu::TextureUsages::COPY_DST
-                    | wgpu::TextureUsages::TEXTURE_BINDING;
-                if i == 0 {
-                    usages |= wgpu::TextureUsages::RENDER_ATTACHMENT;
-                }
-                let texture = SampledTexture::new(
-                    &device,
-                    &SampledTextureDescriptor {
-                        width,
-                        height,
-                        usages,
-                        format: TextureFormat::Rgba8Unorm,
-                    },
-                    "PingPong texture for postprocessing",
-                );
-                texture
-            })
-            .collect::<Vec<_>>();
-
-        let bind_group_0_to_1 = {
-            let layout = device.create_bind_group_layout(&COMPUTE_PING_PONG);
-
-            device.create_bind_group(&BindGroupDescriptor {
-                label: Some("Bind group of the destination/source of the postprocess pipeline"),
-                entries: &[
-                    full_screen_render_target_ping_pong_textures[0].get_texture_bind_group_entry(0),
-                    full_screen_render_target_ping_pong_textures[1].get_texture_bind_group_entry(1),
-                    full_screen_render_target_ping_pong_textures[1].get_sampler_bind_group_entry(2),
-                ],
-                layout: &layout,
-            })
-        };
-
-        let bind_group_1_to_0 = {
-            let layout = device.create_bind_group_layout(&COMPUTE_PING_PONG);
-
-            device.create_bind_group(&BindGroupDescriptor {
-                label: Some("Bind group of the destination/source of the postprocess pipeline"),
-                entries: &[
-                    full_screen_render_target_ping_pong_textures[1].get_texture_bind_group_entry(0),
-                    full_screen_render_target_ping_pong_textures[0].get_texture_bind_group_entry(1),
-                    full_screen_render_target_ping_pong_textures[0].get_sampler_bind_group_entry(2),
-                ],
-                layout: &layout,
-            })
-        };
-
-        (
-            full_screen_render_target_ping_pong_textures,
-            bind_group_0_to_1,
-            bind_group_1_to_0,
-        )
     }
 
     fn create_depth_texture(device: &Device, width: u32, height: u32) -> SampledTexture {
@@ -212,13 +138,6 @@ impl Renderer {
         self.surface.configure(&self.device, &self.config);
         self.depth_texture =
             Renderer::create_depth_texture(&self.device, self.config.width, self.config.height);
-
-        let (textures, bind_group_0_to_1, bind_group_1_to_0) =
-            Self::create_pingpong_texture(&self.device, self.config.width, self.config.height);
-
-        self.full_screen_render_target_ping_pong_textures = textures;
-        self.compute_bind_group_0_to_1 = bind_group_0_to_1;
-        self.compute_bind_group_1_to_0 = bind_group_1_to_0;
     }
 
     pub fn begin_frame<'a>(&'a self) -> CommandEncoder {

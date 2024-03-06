@@ -1,5 +1,6 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
+use std::rc::Rc;
 
 use async_std::{
     fs,
@@ -12,8 +13,8 @@ use wgpu::Device;
 
 use glam::{Vec2, Vec3};
 
-use crate::model::{ModelDescriptorFile, TextureData};
-use crate::texture::{self, TextureUsage};
+use crate::model::{Material, ModelDescriptorFile, TexturedRenderableMesh};
+use crate::texture::{self, SampledTexture, TextureUsage};
 use crate::{
     file_loader::FileLoader,
     model::{self, ModelLoadingData, RenderableMesh},
@@ -27,21 +28,87 @@ struct PendingTextureData {
     usage: TextureUsage,
 }
 
+struct PendingMaterialData {
+    textures: HashMap<TextureUsage, SampledTexture>,
+    missing_texture_load_ids: HashSet<u32>,
+}
+
+impl PendingMaterialData {
+    fn new(missing_ids: HashSet<u32>) -> Self {
+        PendingMaterialData {
+            textures: HashMap::new(),
+            missing_texture_load_ids: missing_ids,
+        }
+    }
+
+    fn add_texture(
+        &mut self,
+        texture_load_id: u32,
+        texture_usage: TextureUsage,
+        texture: SampledTexture,
+    ) {
+        self.textures.insert(texture_usage, texture);
+        self.missing_texture_load_ids.remove(&texture_load_id);
+    }
+
+    fn is_ready(&self) -> bool {
+        self.missing_texture_load_ids.is_empty()
+    }
+}
+
 pub struct ResourceLoader {
     asset_loader: FileLoader,
     loading_id_to_asset_data: HashMap<u32, PendingTextureData>,
-    pending_materials: Vec<u32>,
+    pending_materials: HashMap<u32, PendingMaterialData>,
+    next_material_id: u32,
+    texture_id_to_material_id: HashMap<u32, u32>,
+    default_mat: Rc<Material>,
 }
 
 impl ResourceLoader {
-    pub fn new() -> Self {
+    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
         let asset_loader = FileLoader::new();
         // let channels = crossbeam_channel::unbounded();
-        ResourceLoader {
+
+        let default_mat = Self::load_default_textures(device, queue);
+
+        let loader = ResourceLoader {
             asset_loader,
             loading_id_to_asset_data: HashMap::new(),
-            pending_materials: Vec::new(),
-        }
+            pending_materials: HashMap::new(),
+            next_material_id: 0,
+            texture_id_to_material_id: HashMap::new(),
+            default_mat,
+        };
+
+        loader
+    }
+
+    fn load_default_textures(device: &wgpu::Device, queue: &wgpu::Queue) -> Rc<Material> {
+        let default_normal_bytes = include_bytes!("../assets/defaults/normal.png");
+        let default_normal_texture = texture::SampledTexture::from_bytes(
+            device,
+            queue,
+            default_normal_bytes,
+            texture::TextureUsage::Normal,
+            "default normal texture",
+        )
+        .unwrap();
+        let default_albedo_bytes = include_bytes!("../assets/defaults/albedo.png");
+        let default_albedo_texture = texture::SampledTexture::from_bytes(
+            device,
+            queue,
+            default_albedo_bytes,
+            texture::TextureUsage::Albedo,
+            "default albedo texture",
+        )
+        .unwrap();
+
+        let mut default_material_textures = HashMap::new();
+        default_material_textures.insert(TextureUsage::Albedo, default_albedo_texture);
+        default_material_textures.insert(TextureUsage::Normal, default_normal_texture);
+
+        Rc::new(Material::new(device, &default_material_textures))
     }
 
     fn queue_texture_for_loading(&mut self, texture_to_load: PendingTextureData) -> u32 {
@@ -53,71 +120,105 @@ impl ResourceLoader {
         loading_id
     }
 
+    fn queue_material_for_loading(&mut self, textures_in_material: Vec<PendingTextureData>) -> u32 {
+        let current_material_id = self.next_material_id;
+        self.next_material_id += 1;
+        let mut pending_texture_ids = HashSet::new();
+
+        for texture in textures_in_material {
+            let loading_id = self.queue_texture_for_loading(texture);
+            self.texture_id_to_material_id
+                .insert(loading_id, current_material_id);
+            pending_texture_ids.insert(loading_id);
+        }
+
+        self.pending_materials.insert(
+            current_material_id,
+            PendingMaterialData::new(pending_texture_ids),
+        );
+
+        current_material_id
+    }
+
     pub fn poll_loaded_textures(
-        &self,
+        &mut self,
         device: &Device,
         queue: &wgpu::Queue,
-    ) -> Vec<(u32, TextureUsage, TextureData)> {
+    ) -> Vec<(u32, Rc<Material>)> {
         let results = self
             .asset_loader
             .poll_loaded_resources()
             .unwrap_or_default();
 
-        results
-            .into_iter()
-            .map(|asset_load_result| {
-                // TODO: Error handling
-                let pending_texture_data = self
-                    .loading_id_to_asset_data
-                    .get(&asset_load_result.id)
-                    .unwrap();
+        let mut materials_ready = Vec::new();
 
-                let file_name = pending_texture_data
-                    .file_name
-                    .file_name()
-                    .unwrap()
-                    .to_str()
-                    .unwrap();
-                let texture = texture::SampledTexture::from_image(
-                    &device,
-                    queue,
-                    &asset_load_result.loaded_image,
-                    pending_texture_data.usage,
-                    Some(file_name),
-                )
+        for asset_load_result in results {
+            // TODO: Error handling
+            let pending_texture_data = self
+                .loading_id_to_asset_data
+                .get(&asset_load_result.id)
                 .unwrap();
 
-                (
-                    asset_load_result.id,
-                    pending_texture_data.usage,
-                    TextureData {
-                        name: file_name.into(),
-                        texture,
-                    },
-                )
-            })
-            .collect::<Vec<_>>()
+            let file_name = pending_texture_data
+                .file_name
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap();
+            let texture = texture::SampledTexture::from_image(
+                &device,
+                queue,
+                &asset_load_result.loaded_image,
+                pending_texture_data.usage,
+                Some(file_name),
+            )
+            .unwrap();
+
+            let material_id = self
+                .texture_id_to_material_id
+                .get(&asset_load_result.id)
+                .unwrap();
+            let pending_material = self.pending_materials.get_mut(&material_id).unwrap();
+
+            pending_material.add_texture(asset_load_result.id, pending_texture_data.usage, texture);
+
+            if pending_material.is_ready() {
+                materials_ready.push((
+                    *material_id,
+                    Rc::new(Material::new(device, &pending_material.textures)),
+                ));
+            }
+        }
+
+        materials_ready
     }
 
     pub async fn load_asset_file(
         &mut self,
         asset_name: &str,
         device: &wgpu::Device,
-    ) -> anyhow::Result<(model::RenderableMesh, Vec<u32>)> {
+    ) -> anyhow::Result<(model::TexturedRenderableMesh, u32)> {
         let asset_data = process_asset_file(asset_name)?;
 
         let model = load_obj(&asset_data.model, &device, &asset_name.into()).await?;
-        let loading_ids = asset_data
+        let pending_textures = asset_data
             .textures
             .into_iter()
-            .map(|(texture_usage, path)| {
-                self.queue_texture_for_loading(PendingTextureData {
-                    file_name: path,
-                    usage: texture_usage,
-                })
+            .map(|(texture_usage, path)| PendingTextureData {
+                file_name: path,
+                usage: texture_usage,
             })
             .collect();
-        Ok((model, loading_ids))
+
+        let material_id = self.queue_material_for_loading(pending_textures);
+
+        Ok((
+            TexturedRenderableMesh {
+                material: self.default_mat.clone(),
+                mesh: model,
+            },
+            material_id,
+        ))
     }
 }
 

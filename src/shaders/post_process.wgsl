@@ -1,5 +1,3 @@
-const MAX_ITERATIONS: u32 = 50u;
-
 @group(0)
 @binding(0)
 var destination_texture: texture_storage_2d<rgba8unorm, write>;

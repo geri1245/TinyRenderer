@@ -1,9 +1,8 @@
-use wgpu::RenderPass;
+use wgpu::{RenderPass, TextureFormat};
 
 use crate::{
     camera_controller::CameraController,
     pipelines::{self, SkyboxRP},
-    renderer::Renderer,
 };
 
 pub struct Skybox {
@@ -11,14 +10,8 @@ pub struct Skybox {
 }
 
 impl Skybox {
-    pub fn new(renderer: &Renderer) -> Self {
-        let skybox_rp = pipelines::SkyboxRP::new(
-            &renderer.device,
-            &renderer.queue,
-            renderer.full_screen_render_target_ping_pong_textures[0]
-                .texture
-                .format(),
-        );
+    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, texture_format: TextureFormat) -> Self {
+        let skybox_rp = pipelines::SkyboxRP::new(device, queue, texture_format);
 
         Skybox { skybox_rp }
     }

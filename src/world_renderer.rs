@@ -8,20 +8,20 @@ use std::{
 use async_std::task::block_on;
 use glam::{Quat, Vec3};
 use pipelines::PipelineRecreationResult;
-use wgpu::{CommandEncoder, Device, TextureView};
+use wgpu::{CommandEncoder, Device, Extent3d, SurfaceTexture};
 
 use crate::{
     camera_controller::CameraController,
     instance::Instance,
     light_controller::LightController,
-    model::{InstancedRenderableMesh, Material, TextureData, TexturedRenderableMesh},
+    model::{InstancedRenderableMesh, Material, TexturedRenderableMesh},
     pipelines::{self, MainRP},
     post_process_manager::PostProcessManager,
     primitive_shapes,
     renderer::Renderer,
     resource_loader::ResourceLoader,
     skybox::Skybox,
-    texture::{self, TextureUsage},
+    texture::{self, SampledTexture, TextureUsage},
 };
 
 pub struct WorldRenderer {
@@ -33,7 +33,7 @@ pub struct WorldRenderer {
     post_process_manager: PostProcessManager,
     forward_rp: pipelines::ForwardRP,
     gbuffer_rp: pipelines::GBufferGeometryRP,
-    pending_textures: HashMap<TextureUsage, TextureData>,
+    pending_textures: HashMap<TextureUsage, SampledTexture>,
     resource_loader: ResourceLoader,
 }
 
@@ -67,7 +67,7 @@ impl WorldRenderer {
             },
         ];
 
-        let mut resource_loader = ResourceLoader::new();
+        let mut resource_loader = ResourceLoader::new(&renderer.device, &renderer.queue);
 
         let (obj_model, loading_id) = resource_loader
             .load_asset_file("cube", &renderer.device)
@@ -102,19 +102,10 @@ impl WorldRenderer {
             "plane texture",
         )
         .unwrap();
-        let default_albedo_texture_data = TextureData {
-            name: "Tree texture material".into(),
-            texture: default_albedo_texture,
-        };
-
-        let default_normal_texture_data = TextureData {
-            name: "Tree texture material".into(),
-            texture: default_normal_texture,
-        };
 
         let mut default_material_textures = HashMap::new();
-        default_material_textures.insert(TextureUsage::Albedo, default_albedo_texture_data);
-        default_material_textures.insert(TextureUsage::Normal, default_normal_texture_data);
+        default_material_textures.insert(TextureUsage::Albedo, default_albedo_texture);
+        default_material_textures.insert(TextureUsage::Normal, default_normal_texture);
 
         let default_material = Rc::new(Material::new(&renderer.device, &default_material_textures));
         let square = primitive_shapes::square(&renderer.device);
@@ -192,8 +183,6 @@ impl WorldRenderer {
             },
         ];
 
-        let skybox = Skybox::new(&renderer);
-
         let camera_controller = CameraController::new(&renderer);
         let light_controller = LightController::new(&renderer.device).await;
 
@@ -209,17 +198,23 @@ impl WorldRenderer {
 
         let meshes = vec![
             InstancedRenderableMesh::new(&renderer.device, square_with_material, square_instances),
-            InstancedRenderableMesh::new(
-                &renderer.device,
-                TexturedRenderableMesh {
-                    mesh: obj_model,
-                    material: default_material.clone(),
-                },
-                cube_instances,
-            ),
+            InstancedRenderableMesh::new(&renderer.device, obj_model, cube_instances),
         ];
 
-        let post_process_manager = PostProcessManager::new(&renderer.device).await;
+        let post_process_manager = PostProcessManager::new(
+            &renderer.device,
+            renderer.config.width,
+            renderer.config.height,
+        )
+        .await;
+
+        let skybox = Skybox::new(
+            &renderer.device,
+            &renderer.queue,
+            post_process_manager.full_screen_render_target_ping_pong_textures[0]
+                .texture
+                .format(),
+        );
 
         WorldRenderer {
             models: meshes,
@@ -239,7 +234,7 @@ impl WorldRenderer {
         &self,
         renderer: &Renderer,
         encoder: &mut CommandEncoder,
-        current_frame_texture_view: &TextureView,
+        final_fbo_image_texture: &SurfaceTexture,
     ) -> Result<(), wgpu::SurfaceError> {
         {
             self.light_controller
@@ -263,7 +258,10 @@ impl WorldRenderer {
             {
                 let mut render_pass = renderer.begin_main_render_pass(
                     encoder,
-                    current_frame_texture_view,
+                    &self
+                        .post_process_manager
+                        .full_screen_render_target_ping_pong_textures[0]
+                        .view,
                     &self.gbuffer_rp.textures.depth_texture.view,
                 );
 
@@ -271,7 +269,6 @@ impl WorldRenderer {
                     .render(&mut render_pass, &self.camera_controller);
 
                 {
-                    // render_pass.push_debug_group("Forward rendering light debug objects");
                     // self.forward_rp.render_model(
                     //     &mut render_pass,
                     //     &self.obj_model,
@@ -280,8 +277,6 @@ impl WorldRenderer {
                     //     1,
                     //     &self.light_controller.light_instance_buffer,
                     // );
-
-                    // render_pass.pop_debug_group();
                 }
             }
         }
@@ -298,18 +293,30 @@ impl WorldRenderer {
                 &self.light_controller,
                 &self.gbuffer_rp.bind_group,
                 &self.light_controller.shadow_rp.bind_group,
-                &renderer.compute_bind_group_0_to_1,
+                &self.post_process_manager.compute_bind_group_1_to_0,
                 renderer.config.width,
                 renderer.config.height,
             );
 
             self.post_process_manager.render(
                 &mut compute_pass,
-                &renderer.compute_bind_group_1_to_0,
                 renderer.config.width,
                 renderer.config.height,
             );
         }
+
+        encoder.copy_texture_to_texture(
+            self.post_process_manager
+                .full_screen_render_target_ping_pong_textures[1]
+                .texture
+                .as_image_copy(),
+            final_fbo_image_texture.texture.as_image_copy(),
+            Extent3d {
+                depth_or_array_layers: 1,
+                width: renderer.config.width,
+                height: renderer.config.height,
+            },
+        );
 
         Ok(())
     }
@@ -350,6 +357,8 @@ impl WorldRenderer {
 
     pub fn resize_main_camera(&mut self, renderer: &Renderer, width: u32, height: u32) {
         self.gbuffer_rp.resize(&renderer.device, width, height);
+        self.post_process_manager
+            .resize(&renderer.device, width, height);
 
         self.camera_controller.resize(width as f32 / height as f32);
     }
@@ -364,17 +373,12 @@ impl WorldRenderer {
 
         self.light_controller.update(delta_time, &render_queue);
 
-        let textures = self
+        let materials_loaded = self
             .resource_loader
             .poll_loaded_textures(device, render_queue);
 
-        for (id, texture_type, texture) in textures {
-            self.pending_textures.insert(texture_type, texture);
-        }
-
-        if self.pending_textures.len() == 2 {
-            let new_mat = Rc::new(Material::new(device, &self.pending_textures));
-            self.models[1].mesh.material = new_mat;
+        for (id, material) in materials_loaded {
+            self.models[1].mesh.material = material;
         }
     }
 }

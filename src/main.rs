@@ -32,13 +32,6 @@ mod vertex;
 mod world;
 mod world_renderer;
 
-const CLEAR_COLOR: wgpu::Color = wgpu::Color {
-    r: 0.1,
-    g: 0.2,
-    b: 0.3,
-    a: 1.0,
-};
-
 pub async fn run() {
     simple_logger::init_with_level(log::Level::Warn).unwrap();
     let event_loop = EventLoop::new().unwrap();

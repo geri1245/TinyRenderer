@@ -1,9 +1,9 @@
 use glam::{Mat4, Vec4};
 use std::time;
-use wgpu::util::DeviceExt;
+use wgpu::{util::DeviceExt, Device};
 use winit::event::DeviceEvent;
 
-use crate::{bind_group_layout_descriptors, camera::Camera, renderer::Renderer};
+use crate::{bind_group_layout_descriptors, camera::Camera};
 
 /// Contains the rendering-related concepts of the camera
 pub struct CameraController {
@@ -14,30 +14,23 @@ pub struct CameraController {
 }
 
 impl CameraController {
-    pub fn new(renderer: &Renderer) -> CameraController {
-        let camera = Camera::new(renderer.config.width as f32 / renderer.config.height as f32);
+    pub fn new(device: &Device, aspect_ratio: f32) -> CameraController {
+        let camera = Camera::new(aspect_ratio);
 
-        let binding_buffer =
-            renderer
-                .device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Camera Buffer"),
-                    contents: bytemuck::cast_slice(&[Self::get_raw(&camera)]),
-                    usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-                });
+        let binding_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Camera Buffer"),
+            contents: bytemuck::cast_slice(&[Self::get_raw(&camera)]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
 
-        let bind_group = renderer
-            .device
-            .create_bind_group(&wgpu::BindGroupDescriptor {
-                layout: &renderer
-                    .device
-                    .create_bind_group_layout(&bind_group_layout_descriptors::CAMERA),
-                entries: &[wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: binding_buffer.as_entire_binding(),
-                }],
-                label: Some("camera_bind_group"),
-            });
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &device.create_bind_group_layout(&bind_group_layout_descriptors::CAMERA),
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: binding_buffer.as_entire_binding(),
+            }],
+            label: Some("camera_bind_group"),
+        });
 
         Self {
             camera,

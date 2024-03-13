@@ -7,7 +7,7 @@ use crate::{
     bind_group_layout_descriptors,
     buffer_content::BufferContent,
     instance,
-    model::InstancedRenderableMesh,
+    model::InstancedTexturedRenderableMesh,
     texture::{self, SampledTexture, SampledTextureDescriptor},
     vertex,
 };
@@ -81,7 +81,7 @@ impl GBufferGeometryRP {
                 entry_point: "vs_main",
                 buffers: &[
                     vertex::VertexRawWithTangents::buffer_layout(),
-                    instance::InstanceRaw::buffer_layout(),
+                    instance::SceneComponentRaw::buffer_layout(),
                 ],
             },
             fragment: Some(wgpu::FragmentState {
@@ -221,14 +221,14 @@ impl GBufferGeometryRP {
     pub fn render_mesh<'a>(
         &'a self,
         render_pass: &mut RenderPass<'a>,
-        mesh: &'a InstancedRenderableMesh,
+        mesh: &'a InstancedTexturedRenderableMesh,
         camera_bind_group: &'a BindGroup,
     ) {
         render_pass.set_pipeline(&self.render_pipeline);
         render_pass.set_bind_group(1, &camera_bind_group, &[]);
-        render_pass.set_vertex_buffer(1, mesh.instance_buffer.slice(..));
+        render_pass.set_vertex_buffer(1, mesh.mesh.instance_buffer.slice(..));
 
-        render_pass.set_bind_group(0, &mesh.mesh.material.bind_group, &[]);
+        render_pass.set_bind_group(0, &mesh.material.bind_group, &[]);
         render_pass.set_vertex_buffer(0, mesh.mesh.mesh.vertex_buffer.slice(..));
         render_pass.set_index_buffer(
             mesh.mesh.mesh.index_buffer.slice(..),
@@ -237,7 +237,7 @@ impl GBufferGeometryRP {
         render_pass.draw_indexed(
             0..mesh.mesh.mesh.index_count,
             0,
-            0..mesh.instances.len() as u32,
+            0..mesh.mesh.instances.len() as u32,
         );
     }
 

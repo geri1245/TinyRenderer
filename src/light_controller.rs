@@ -1,5 +1,5 @@
 use async_std::task::block_on;
-use glam::{Quat, Vec3};
+use glam::Vec3;
 use wgpu::{
     util::{align_to, DeviceExt},
     BufferDescriptor, CommandEncoder, Device, Extent3d, TextureViewDimension,
@@ -7,11 +7,13 @@ use wgpu::{
 
 use crate::{
     bind_group_layout_descriptors,
-    instance::{Instance, InstanceRaw},
+    instance::SceneComponentRaw,
     lights::{DirectionalLight, LightRaw, LightRawSmall, PointLight},
-    model::InstancedRenderableMesh,
+    model::InstancedTexturedRenderableMesh,
     pipelines::{self, PipelineRecreationResult},
     texture::SampledTexture,
+    world::World,
+    world_renderer::MeshType,
 };
 
 // TODO: Wherever this is used, dinamically calculate the number of lights
@@ -36,11 +38,11 @@ pub struct LightController {
     // Used for drawing the debug visualizations of the lights
     pub light_instance_buffer: wgpu::Buffer,
     pub shadow_rp: pipelines::ShadowRP,
-    pub debug_light_meshes: Vec<InstancedRenderableMesh>,
+    pub debug_light_meshes: Vec<InstancedTexturedRenderableMesh>,
 }
 
 impl LightController {
-    pub async fn new(render_device: &wgpu::Device) -> LightController {
+    pub async fn new(render_device: &wgpu::Device, world: &mut World) -> LightController {
         // Make the `uniform_alignment` >= `light_uniform_size` and aligned to `min_uniform_buffer_offset_alignment`, as that is a requirement if we want to use dynamic offsets
         let matrix_size4x4 = core::mem::size_of::<LightRawSmall>() as u64;
         let uniform_alignment = {
@@ -183,7 +185,7 @@ impl LightController {
                 usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             });
 
-        // let debug_light_meshes = vec![InstancedRenderableMesh::new(render_device, , vec![])];
+        world.add_debug_object(crate::world::DebugObjectType::Cube, &point_light.transform);
 
         Self {
             point_light,
@@ -200,7 +202,7 @@ impl LightController {
     }
 
     pub fn set_light_position(&mut self, new_position: Vec3) {
-        self.point_light.position = new_position;
+        self.point_light.transform.position = new_position;
     }
 
     pub fn update(&mut self, _delta_time: std::time::Duration, render_queue: &wgpu::Queue) {
@@ -232,11 +234,11 @@ impl LightController {
         );
     }
 
-    pub fn render_shadows(&self, encoder: &mut CommandEncoder, mesh: &InstancedRenderableMesh) {
+    pub fn render_shadows(&self, encoder: &mut CommandEncoder, meshes: &Vec<MeshType>) {
         for i in 0..6 {
             self.shadow_rp.render(
                 encoder,
-                mesh,
+                meshes,
                 &self.light_bind_group_viewproj_only,
                 &self.point_light.depth_texture[i],
                 (i as u64 * self.uniform_buffer_alignment) as u32,
@@ -244,7 +246,7 @@ impl LightController {
         }
         self.shadow_rp.render(
             encoder,
-            mesh,
+            meshes,
             &self.light_bind_group_viewproj_only,
             &self.directional_light.depth_texture,
             6 * self.uniform_buffer_alignment as u32,
@@ -263,12 +265,8 @@ impl LightController {
         }
     }
 
-    pub fn get_raw_instances(light: &PointLight) -> Vec<InstanceRaw> {
-        let light_instances = vec![Instance {
-            position: light.position.into(),
-            scale: Vec3::splat(0.1),
-            rotation: Quat::IDENTITY,
-        }];
+    pub fn get_raw_instances(light: &PointLight) -> Vec<SceneComponentRaw> {
+        let light_instances = vec![light.transform];
         light_instances
             .iter()
             .map(|instance| instance.to_raw())

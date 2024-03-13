@@ -7,7 +7,7 @@ use super::render_pipeline_base::PipelineBase;
 const SHADER_SOURCE: &'static str = "src/shaders/post_process.wgsl";
 
 pub enum PostProcessPipelineTargetTextureVariant {
-    Rgba16Float,
+    _Rgba16Float,
     Rgba8Unorm,
 }
 
@@ -38,7 +38,7 @@ impl PostProcessRP {
         variant: PostProcessPipelineTargetTextureVariant,
     ) -> PipelineLayout {
         let bind_group_descriptor = match variant {
-            PostProcessPipelineTargetTextureVariant::Rgba16Float => {
+            PostProcessPipelineTargetTextureVariant::_Rgba16Float => {
                 &bind_group_layout_descriptors::COMPUTE_PING_PONG
             }
             PostProcessPipelineTargetTextureVariant::Rgba8Unorm => {

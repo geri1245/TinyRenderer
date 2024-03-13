@@ -3,11 +3,7 @@ use wgpu::{
     RenderPassDepthStencilAttachment, SurfaceTexture, TextureFormat,
 };
 
-use crate::{
-    color,
-    texture::{self, SampledTexture},
-    CLEAR_COLOR,
-};
+use crate::texture::{self, SampledTexture};
 
 pub const MAX_LIGHTS: usize = 10;
 
@@ -21,7 +17,6 @@ pub struct Renderer {
     surface: wgpu::Surface<'static>,
 
     depth_texture: texture::SampledTexture,
-    clear_color: [f32; 4],
 }
 
 impl Renderer {
@@ -115,7 +110,6 @@ impl Renderer {
             size,
             depth_texture,
             surface_texture_format,
-            clear_color: color::wgpu_color_to_f32_array_rgba(CLEAR_COLOR),
         }
     }
 
@@ -155,23 +149,21 @@ impl Renderer {
         output_frame_content.present();
     }
 
-    pub fn begin_main_render_pass<'a>(
+    pub fn begin_render_pass<'a>(
         &'a self,
         encoder: &'a mut CommandEncoder,
         view: &'a wgpu::TextureView,
         depth_texture_view: &'a wgpu::TextureView,
     ) -> RenderPass<'a> {
         encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("Render pass that uses the GBuffer"),
+            label: Some("main render pass"),
             timestamp_writes: None,
             occlusion_query_set: None,
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view: &view,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(color::f32_array_rgba_to_wgpu_color(
-                        self.clear_color,
-                    )),
+                    load: wgpu::LoadOp::Load,
                     store: wgpu::StoreOp::Store,
                 },
             })],

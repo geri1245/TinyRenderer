@@ -34,7 +34,7 @@ impl ForwardRP {
                     entry_point: "vs_main",
                     buffers: &[
                         vertex::VertexRawWithTangents::buffer_layout(),
-                        instance::InstanceRaw::buffer_layout(),
+                        instance::SceneComponentRaw::buffer_layout(),
                     ],
                 },
                 fragment: Some(wgpu::FragmentState {
@@ -80,15 +80,8 @@ impl ForwardRP {
         render_pass.set_bind_group(1, &camera_bind_group, &[]);
         render_pass.set_vertex_buffer(1, mesh.instance_buffer.slice(..));
 
-        render_pass.set_vertex_buffer(0, mesh.mesh.mesh.vertex_buffer.slice(..));
-        render_pass.set_index_buffer(
-            mesh.mesh.mesh.index_buffer.slice(..),
-            wgpu::IndexFormat::Uint32,
-        );
-        render_pass.draw_indexed(
-            0..mesh.mesh.mesh.index_count,
-            0,
-            0..mesh.instances.len() as u32,
-        );
+        render_pass.set_vertex_buffer(0, mesh.mesh.vertex_buffer.slice(..));
+        render_pass.set_index_buffer(mesh.mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+        render_pass.draw_indexed(0..mesh.mesh.index_count, 0, 0..mesh.instances.len() as u32);
     }
 }

@@ -181,8 +181,8 @@ impl Gui {
         queue.submit(Some(encoder.finish()));
     }
 
-    pub fn set_shader_compilation_result(&mut self, error: String) {
-        self.shader_error = error;
+    pub fn set_shader_compilation_result(&mut self, result: &Vec<String>) {
+        self.shader_error = result.join("\n");
     }
 
     pub fn handle_event<'a, T>(

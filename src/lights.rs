@@ -1,6 +1,8 @@
 use std::f32::consts;
 
-use glam::{Mat4, Vec3, Vec3Swizzles};
+use glam::{Mat4, Quat, Vec3, Vec3Swizzles};
+
+use crate::instance::SceneComponent;
 
 const POINT_LIGHT_FAR_PLANE: f32 = 100.0;
 const DIRECTIONAL_LIGHT_FAR_PLANE: f32 = 250.0;
@@ -9,7 +11,7 @@ const DIRECTIONAL_LIGHT_PROJECTION_CUBE_SIZE: f32 = 10.0;
 
 #[derive(Debug)]
 pub struct PointLight {
-    pub position: Vec3,
+    pub transform: SceneComponent,
     pub color: Vec3,
     // In the final implementation this should radiate light in every direction
     pub target: Vec3,
@@ -55,7 +57,11 @@ impl PointLight {
         target: Vec3,
     ) -> Self {
         PointLight {
-            position,
+            transform: SceneComponent {
+                position,
+                rotation: Quat::IDENTITY,
+                scale: Vec3::splat(0.2),
+            },
             color,
             target,
             depth_texture,
@@ -80,12 +86,15 @@ impl PointLight {
         DIFF_AND_UP_VECTORS
             .iter()
             .map(|&(diff, up)| {
-                let view =
-                    Mat4::look_at_rh(self.position.into(), (self.position + diff).into(), up);
+                let view = Mat4::look_at_rh(
+                    self.transform.position.into(),
+                    (self.transform.position + diff).into(),
+                    up,
+                );
                 proj * view
             })
             .map(|view_proj| {
-                let mut position_and_far_plane_distance = self.position.xyzz();
+                let mut position_and_far_plane_distance = self.transform.position.xyzz();
                 position_and_far_plane_distance.w = self.far_plane;
                 LightRawSmall {
                     light_view_proj: view_proj.to_cols_array_2d(),
@@ -97,7 +106,7 @@ impl PointLight {
 
     pub fn to_raw(&self) -> LightRaw {
         let view = Mat4::look_at_rh(
-            self.position.into(),
+            self.transform.position.into(),
             self.target.into(),
             Vec3::new(0.0_f32, 1.0, 0.0),
         );
@@ -106,7 +115,7 @@ impl PointLight {
         let view_proj = proj * view;
         LightRaw {
             light_view_proj: view_proj.to_cols_array_2d(),
-            position_or_direction: self.position.into(),
+            position_or_direction: self.transform.position.into(),
             light_type: 1,
             color: self.color.into(),
             far_plane_distance: 100.0,

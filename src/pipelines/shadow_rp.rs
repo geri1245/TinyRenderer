@@ -4,7 +4,7 @@ use wgpu::{BindGroup, CommandEncoder, Device, RenderPassDepthStencilAttachment, 
 
 use crate::{
     bind_group_layout_descriptors, buffer_content::BufferContent, instance,
-    model::InstancedRenderableMesh, texture::SampledTexture, vertex,
+    texture::SampledTexture, vertex, world_renderer::MeshType,
 };
 
 use super::{render_pipeline_base::PipelineBase, PipelineRecreationResult};
@@ -78,7 +78,7 @@ impl ShadowRP {
                     entry_point: "vs_main",
                     buffers: &[
                         vertex::VertexRawWithTangents::buffer_layout(),
-                        instance::InstanceRaw::buffer_layout(),
+                        instance::SceneComponentRaw::buffer_layout(),
                     ],
                 },
                 fragment: None,
@@ -171,7 +171,7 @@ impl ShadowRP {
     pub fn render(
         &self,
         encoder: &mut CommandEncoder,
-        mesh: &InstancedRenderableMesh,
+        meshes: &Vec<MeshType>,
         light_bind_group: &BindGroup,
         depth_target: &wgpu::TextureView,
         light_bind_group_offset: u32,
@@ -195,17 +195,22 @@ impl ShadowRP {
 
         shadow_pass.set_bind_group(0, &light_bind_group, &[light_bind_group_offset]);
 
-        shadow_pass.set_vertex_buffer(1, mesh.instance_buffer.slice(..));
+        for mesh in meshes {
+            if let MeshType::TexturedMesh(renderable) = mesh {
+                let renderable = &renderable.mesh;
+                shadow_pass.set_vertex_buffer(1, renderable.instance_buffer.slice(..));
 
-        shadow_pass.set_vertex_buffer(0, mesh.mesh.mesh.vertex_buffer.slice(..));
-        shadow_pass.set_index_buffer(
-            mesh.mesh.mesh.index_buffer.slice(..),
-            wgpu::IndexFormat::Uint32,
-        );
-        shadow_pass.draw_indexed(
-            0..mesh.mesh.mesh.index_count,
-            0,
-            0..mesh.instances.len() as u32,
-        );
+                shadow_pass.set_vertex_buffer(0, renderable.mesh.vertex_buffer.slice(..));
+                shadow_pass.set_index_buffer(
+                    renderable.mesh.index_buffer.slice(..),
+                    wgpu::IndexFormat::Uint32,
+                );
+                shadow_pass.draw_indexed(
+                    0..renderable.mesh.index_count,
+                    0,
+                    0..renderable.instances.len() as u32,
+                );
+            }
+        }
     }
 }

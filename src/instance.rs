@@ -4,7 +4,8 @@ use glam::{Mat3, Mat4, Quat, Vec3};
 
 use crate::buffer_content::BufferContent;
 
-pub struct Instance {
+#[derive(Debug, Copy, Clone)]
+pub struct SceneComponent {
     pub position: Vec3,
     pub scale: Vec3,
     pub rotation: Quat,
@@ -12,14 +13,14 @@ pub struct Instance {
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct InstanceRaw {
+pub struct SceneComponentRaw {
     pub model_matrix: [[f32; 4]; 4],
     pub rotation_only_matrix: [[f32; 3]; 3],
 }
 
-impl Instance {
-    pub fn to_raw(&self) -> InstanceRaw {
-        InstanceRaw {
+impl SceneComponent {
+    pub fn to_raw(&self) -> SceneComponentRaw {
+        SceneComponentRaw {
             model_matrix: Mat4::from_scale_rotation_translation(
                 self.scale,
                 self.rotation,
@@ -33,10 +34,10 @@ impl Instance {
     }
 }
 
-impl BufferContent for InstanceRaw {
+impl BufferContent for SceneComponentRaw {
     fn buffer_layout<'a>() -> wgpu::VertexBufferLayout<'a> {
         wgpu::VertexBufferLayout {
-            array_stride: mem::size_of::<InstanceRaw>() as wgpu::BufferAddress,
+            array_stride: mem::size_of::<SceneComponentRaw>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Instance,
             // We pass matrices to the shader column-by-column. We will reassemble it in the shader
             attributes: &[

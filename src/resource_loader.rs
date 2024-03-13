@@ -13,7 +13,7 @@ use wgpu::Device;
 
 use glam::{Vec2, Vec3};
 
-use crate::model::{Material, ModelDescriptorFile, TexturedRenderableMesh};
+use crate::model::{Material, ModelDescriptorFile};
 use crate::texture::{self, SampledTexture, TextureUsage};
 use crate::{
     file_loader::FileLoader,
@@ -62,7 +62,7 @@ pub struct ResourceLoader {
     pending_materials: HashMap<u32, PendingMaterialData>,
     next_material_id: u32,
     texture_id_to_material_id: HashMap<u32, u32>,
-    default_mat: Rc<Material>,
+    pub default_mat: Rc<Material>,
 }
 
 impl ResourceLoader {
@@ -82,6 +82,10 @@ impl ResourceLoader {
         };
 
         loader
+    }
+
+    pub fn get_default_material(&self) -> Rc<Material> {
+        self.default_mat.clone()
     }
 
     fn load_default_textures(device: &wgpu::Device, queue: &wgpu::Queue) -> Rc<Material> {
@@ -197,7 +201,7 @@ impl ResourceLoader {
         &mut self,
         asset_name: &str,
         device: &wgpu::Device,
-    ) -> anyhow::Result<(model::TexturedRenderableMesh, u32)> {
+    ) -> anyhow::Result<(model::RenderableMesh, u32)> {
         let asset_data = process_asset_file(asset_name)?;
 
         let model = load_obj(&asset_data.model, &device, &asset_name.into()).await?;
@@ -212,13 +216,7 @@ impl ResourceLoader {
 
         let material_id = self.queue_material_for_loading(pending_textures);
 
-        Ok((
-            TexturedRenderableMesh {
-                material: self.default_mat.clone(),
-                mesh: model,
-            },
-            material_id,
-        ))
+        Ok((model, material_id))
     }
 }
 

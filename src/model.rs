@@ -7,7 +7,7 @@ use wgpu::{util::DeviceExt, Device};
 
 use crate::{
     bind_group_layout_descriptors,
-    instance::Instance,
+    instance::SceneComponent,
     texture::{SampledTexture, TextureUsage},
     vertex::VertexRawWithTangents,
 };
@@ -57,11 +57,6 @@ impl Material {
     }
 }
 
-pub struct TexturedRenderableMesh {
-    pub mesh: RenderableMesh,
-    pub material: Rc<Material>,
-}
-
 pub struct RenderableMesh {
     pub name: String,
     pub vertex_buffer: wgpu::Buffer,
@@ -70,13 +65,19 @@ pub struct RenderableMesh {
 }
 
 pub struct InstancedRenderableMesh {
-    pub mesh: TexturedRenderableMesh,
-    pub instances: Vec<Instance>,
+    pub mesh: Rc<RenderableMesh>,
+    pub instances: Vec<SceneComponent>,
     pub instance_buffer: wgpu::Buffer,
 }
 
+pub struct InstancedTexturedRenderableMesh {
+    pub mesh: InstancedRenderableMesh,
+    pub material: Rc<Material>,
+    pub material_id: Option<u32>,
+}
+
 impl InstancedRenderableMesh {
-    pub fn new(device: &Device, mesh: TexturedRenderableMesh, instances: Vec<Instance>) -> Self {
+    pub fn new(instances: Vec<SceneComponent>, device: &Device, mesh: Rc<RenderableMesh>) -> Self {
         let raw_instances = instances
             .iter()
             .map(|instance| instance.to_raw())
@@ -87,10 +88,10 @@ impl InstancedRenderableMesh {
             usage: wgpu::BufferUsages::VERTEX,
         });
 
-        InstancedRenderableMesh {
-            mesh,
-            instances,
+        Self {
             instance_buffer,
+            instances,
+            mesh,
         }
     }
 }

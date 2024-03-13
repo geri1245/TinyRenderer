@@ -1,4 +1,7 @@
+use crate::camera_controller::CameraController;
 use crate::gui::{Gui, GuiEvent};
+use crate::light_controller::LightController;
+use crate::world::World;
 use crate::world_renderer::WorldRenderer;
 use crate::{frame_timer::BasicTimer, renderer::Renderer};
 use crossbeam_channel::{unbounded, Receiver};
@@ -17,7 +20,11 @@ pub struct App {
     pub renderer: Renderer,
     pub frame_timer: BasicTimer,
     gui: Gui,
-    world: WorldRenderer,
+    camera_controller: CameraController,
+    light_controller: LightController,
+
+    world_renderer: WorldRenderer,
+    world: World,
     should_draw_gui: bool,
     gui_event_receiver: Receiver<GuiEvent>,
 }
@@ -29,25 +36,40 @@ impl App {
 
         let gui = Gui::new(&window, &renderer.device, &renderer.queue, gui_event_sender);
 
-        let world: WorldRenderer = WorldRenderer::new(&renderer).await;
+        let mut world = World::new(&renderer.device, &renderer.queue).await;
+        let world_renderer: WorldRenderer = WorldRenderer::new(&renderer).await;
+
+        let camera_controller = CameraController::new(
+            &renderer.device,
+            renderer.config.width as f32 / renderer.config.height as f32,
+        );
+        let light_controller = LightController::new(&renderer.device, &mut world).await;
 
         let frame_timer = BasicTimer::new();
 
         Self {
             renderer,
             frame_timer,
-            world,
+            world_renderer,
             gui,
             should_draw_gui: true,
             gui_event_receiver,
+            world,
+            camera_controller,
+            light_controller,
         }
     }
 
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         if new_size.width > 0 && new_size.height > 0 && new_size != self.renderer.size {
+            self.camera_controller
+                .resize(new_size.width as f32 / new_size.height as f32);
             self.renderer.resize(new_size);
-            self.world
-                .resize_main_camera(&self.renderer, new_size.width, new_size.height);
+            self.world_renderer.handle_size_changed(
+                &self.renderer,
+                new_size.width,
+                new_size.height,
+            );
         }
     }
 
@@ -73,7 +95,7 @@ impl App {
             },
         );
 
-        self.world.camera_controller.process_device_events(event);
+        self.camera_controller.process_device_events(event);
     }
 
     pub fn handle_window_event(&mut self, event: WindowEvent) -> WindowEventHandlingResult {
@@ -95,8 +117,7 @@ impl App {
             // self.resize(); // TODO Handle scale factor change
             // }
             WindowEvent::MouseInput { state, button, .. } if button == MouseButton::Right => {
-                self.world
-                    .camera_controller
+                self.camera_controller
                     .set_is_movement_enabled(state == ElementState::Pressed);
             }
             _ => {}
@@ -118,8 +139,14 @@ impl App {
             .texture
             .create_view(&TextureViewDescriptor::default());
 
-        self.world
-            .render(&self.renderer, &mut encoder, &current_frame_texture)?;
+        self.world_renderer.render(
+            &self.renderer,
+            &mut encoder,
+            &current_frame_texture,
+            &self.world.meshes,
+            &self.light_controller,
+            &self.camera_controller,
+        )?;
 
         self.renderer.queue.submit(Some(encoder.finish()));
 
@@ -138,28 +165,48 @@ impl App {
         Ok(())
     }
 
-    pub fn handle_gui_events(&mut self) {
+    pub fn handle_events_received_from_gui(&mut self) {
         while let Ok(event) = self.gui_event_receiver.try_recv() {
             match event {
-                GuiEvent::RecompileShaders => match self
-                    .world
-                    .recompile_shaders_if_needed(&self.renderer.device)
-                {
-                    Ok(_) => self.gui.set_shader_compilation_result("Sucess!".into()),
-                    Err(error) => self.gui.set_shader_compilation_result(error.to_string()),
-                },
+                GuiEvent::RecompileShaders => self.try_recompile_shaders(),
                 GuiEvent::LightPositionChanged { new_position } => self
-                    .world
                     .light_controller
                     .set_light_position(new_position.into()),
             }
         }
     }
 
+    fn try_recompile_shaders(&mut self) {
+        let results = vec![
+            self.light_controller
+                .try_recompile_shaders(&self.renderer.device),
+            self.world_renderer
+                .recompile_shaders_if_needed(&self.renderer.device),
+        ];
+
+        let mut errors = Vec::new();
+        for result in results {
+            if let Err(error) = result {
+                errors.push(error.to_string());
+            }
+        }
+
+        if errors.is_empty() {
+            self.gui
+                .set_shader_compilation_result(&vec!["Sucess!".into()]);
+        } else {
+            self.gui.set_shader_compilation_result(&errors);
+        }
+    }
+
     pub fn update(&mut self, delta: Duration) {
-        self.handle_gui_events();
+        self.handle_events_received_from_gui();
         self.world
-            .update(delta, &self.renderer.device, &self.renderer.queue);
+            .update(&self.renderer.device, &self.renderer.queue);
+
+        self.camera_controller.update(delta, &self.renderer.queue);
+
+        self.light_controller.update(delta, &self.renderer.queue);
     }
 
     pub fn toggle_should_draw_gui(&mut self) {

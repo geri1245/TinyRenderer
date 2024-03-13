@@ -1,191 +1,41 @@
-use std::{
-    collections::HashMap,
-    f32::consts::{FRAC_PI_2, PI},
-    rc::Rc,
-    time,
-};
-
 use async_std::task::block_on;
-use glam::{Quat, Vec3};
 use pipelines::PipelineRecreationResult;
 use wgpu::{CommandEncoder, Device, Extent3d, SurfaceTexture};
 
 use crate::{
     camera_controller::CameraController,
-    instance::Instance,
     light_controller::LightController,
-    model::{InstancedRenderableMesh, Material, TexturedRenderableMesh},
+    model::{InstancedRenderableMesh, InstancedTexturedRenderableMesh},
     pipelines::{self, MainRP},
     post_process_manager::PostProcessManager,
-    primitive_shapes,
     renderer::Renderer,
-    resource_loader::ResourceLoader,
     skybox::Skybox,
-    texture::{self, SampledTexture, TextureUsage},
 };
 
+pub enum MeshType {
+    DebugMesh(InstancedRenderableMesh),
+    TexturedMesh(InstancedTexturedRenderableMesh),
+}
+
+impl MeshType {
+    pub fn _get_mesh(&self) -> &InstancedRenderableMesh {
+        match self {
+            MeshType::DebugMesh(mesh) => mesh,
+            MeshType::TexturedMesh(mesh) => &mesh.mesh,
+        }
+    }
+}
+
 pub struct WorldRenderer {
-    models: Vec<InstancedRenderableMesh>,
     pub skybox: Skybox,
-    pub camera_controller: CameraController,
-    pub light_controller: LightController,
     main_rp: MainRP,
     post_process_manager: PostProcessManager,
     forward_rp: pipelines::ForwardRP,
     gbuffer_rp: pipelines::GBufferGeometryRP,
-    pending_textures: HashMap<TextureUsage, SampledTexture>,
-    resource_loader: ResourceLoader,
 }
 
 impl WorldRenderer {
     pub async fn new(renderer: &Renderer) -> Self {
-        let cube_instances = vec![
-            Instance {
-                position: Vec3::new(10.0, 10.0, 0.0),
-                scale: Vec3::splat(3.0),
-                rotation: Quat::from_axis_angle(Vec3::ZERO, 0.0),
-            },
-            Instance {
-                position: Vec3::new(-20.0, 10.0, 0.0),
-                scale: Vec3::splat(2.0),
-                rotation: Quat::from_axis_angle(Vec3::ZERO, 0.0),
-            },
-            Instance {
-                position: Vec3::new(0.0, 10.0, 30.0),
-                scale: Vec3::splat(2.0),
-                rotation: Quat::from_axis_angle(Vec3::ZERO, 0.0),
-            },
-            Instance {
-                position: Vec3::new(30.0, 20.0, 10.0),
-                scale: Vec3::splat(2.0),
-                rotation: Quat::from_axis_angle(Vec3::ZERO, 0.0),
-            },
-            Instance {
-                position: Vec3::new(25.0, 10.0, 20.0),
-                scale: Vec3::splat(1.5),
-                rotation: Quat::from_axis_angle(Vec3::ZERO, 0.0),
-            },
-        ];
-
-        let mut resource_loader = ResourceLoader::new(&renderer.device, &renderer.queue);
-
-        let (obj_model, loading_id) = resource_loader
-            .load_asset_file("cube", &renderer.device)
-            .await
-            .unwrap();
-
-        let default_normal_bytes = include_bytes!("../assets/defaults/normal.png");
-        let default_normal_texture = texture::SampledTexture::from_bytes(
-            &renderer.device,
-            &renderer.queue,
-            default_normal_bytes,
-            texture::TextureUsage::Normal,
-            "default normal texture",
-        )
-        .unwrap();
-        let default_albedo_bytes = include_bytes!("../assets/defaults/albedo.png");
-        let default_albedo_texture = texture::SampledTexture::from_bytes(
-            &renderer.device,
-            &renderer.queue,
-            default_albedo_bytes,
-            texture::TextureUsage::Albedo,
-            "default albedo texture",
-        )
-        .unwrap();
-
-        let plane_texture_raw = include_bytes!("../assets/happy-tree.png");
-        let plane_albedo = texture::SampledTexture::from_bytes(
-            &renderer.device,
-            &renderer.queue,
-            plane_texture_raw,
-            texture::TextureUsage::Albedo,
-            "plane texture",
-        )
-        .unwrap();
-
-        let mut default_material_textures = HashMap::new();
-        default_material_textures.insert(TextureUsage::Albedo, default_albedo_texture);
-        default_material_textures.insert(TextureUsage::Normal, default_normal_texture);
-
-        let default_material = Rc::new(Material::new(&renderer.device, &default_material_textures));
-        let square = primitive_shapes::square(&renderer.device);
-        let square_with_material = TexturedRenderableMesh {
-            material: default_material.clone(),
-            mesh: square,
-        };
-
-        let square_instances = vec![
-            // Bottom
-            Instance {
-                position: Vec3::new(0.0, -10.0, 0.0),
-                rotation: Quat::IDENTITY,
-                scale: 100.0_f32
-                    * Vec3 {
-                        x: 1.0_f32,
-                        y: 1.0,
-                        z: 1.0,
-                    },
-            },
-            // Top
-            Instance {
-                position: Vec3::new(0.0, 40.0, 0.0),
-                rotation: Quat::from_axis_angle(Vec3::X, PI),
-                scale: 100.0_f32
-                    * Vec3 {
-                        x: 1.0_f32,
-                        y: 1.0,
-                        z: 1.0,
-                    },
-            },
-            // +X
-            Instance {
-                position: Vec3::new(-40.0, 0.0, 0.0),
-                rotation: Quat::from_axis_angle(Vec3::Z, -FRAC_PI_2),
-                scale: 100.0_f32
-                    * Vec3 {
-                        x: 1.0_f32,
-                        y: 1.0,
-                        z: 1.0,
-                    },
-            },
-            // -X
-            Instance {
-                position: Vec3::new(40.0, 0.0, 0.0),
-                rotation: Quat::from_axis_angle(Vec3::Z, FRAC_PI_2),
-                scale: 100.0_f32
-                    * Vec3 {
-                        x: 1.0_f32,
-                        y: 1.0,
-                        z: 1.0,
-                    },
-            },
-            // -Z
-            Instance {
-                position: Vec3::new(0.0, 0.0, -40.0),
-                rotation: Quat::from_axis_angle(Vec3::X, FRAC_PI_2),
-                scale: 100.0_f32
-                    * Vec3 {
-                        x: 1.0_f32,
-                        y: 1.0,
-                        z: 1.0,
-                    },
-            },
-            // Z
-            Instance {
-                position: Vec3::new(0.0, 0.0, 40.0),
-                rotation: Quat::from_axis_angle(Vec3::X, -FRAC_PI_2),
-                scale: 100.0_f32
-                    * Vec3 {
-                        x: 1.0_f32,
-                        y: 1.0,
-                        z: 1.0,
-                    },
-            },
-        ];
-
-        let camera_controller = CameraController::new(&renderer);
-        let light_controller = LightController::new(&renderer.device).await;
-
         let main_rp = pipelines::MainRP::new(&renderer.device).await.unwrap();
         let gbuffer_rp = pipelines::GBufferGeometryRP::new(
             &renderer.device,
@@ -194,12 +44,8 @@ impl WorldRenderer {
         )
         .await
         .unwrap();
-        let forward_rp = pipelines::ForwardRP::new(&renderer.device, renderer.config.format);
-
-        let meshes = vec![
-            InstancedRenderableMesh::new(&renderer.device, square_with_material, square_instances),
-            InstancedRenderableMesh::new(&renderer.device, obj_model, cube_instances),
-        ];
+        let forward_rp =
+            pipelines::ForwardRP::new(&renderer.device, wgpu::TextureFormat::Rgba16Float);
 
         let post_process_manager = PostProcessManager::new(
             &renderer.device,
@@ -217,15 +63,11 @@ impl WorldRenderer {
         );
 
         WorldRenderer {
-            models: meshes,
             skybox,
-            camera_controller,
-            light_controller,
             main_rp,
             gbuffer_rp,
             forward_rp,
-            pending_textures: Default::default(),
-            resource_loader,
+
             post_process_manager,
         }
     }
@@ -235,28 +77,45 @@ impl WorldRenderer {
         renderer: &Renderer,
         encoder: &mut CommandEncoder,
         final_fbo_image_texture: &SurfaceTexture,
+        renderables: &Vec<MeshType>,
+        light_controller: &LightController,
+        camera_controller: &CameraController,
     ) -> Result<(), wgpu::SurfaceError> {
         {
-            self.light_controller
-                .render_shadows(encoder, &self.models[1]);
+            light_controller.render_shadows(encoder, &renderables);
 
             {
                 let mut render_pass = self.gbuffer_rp.begin_render(encoder);
-                self.gbuffer_rp.render_mesh(
-                    &mut render_pass,
-                    &self.models[1],
-                    &self.camera_controller.bind_group,
-                );
-
-                self.gbuffer_rp.render_mesh(
-                    &mut render_pass,
-                    &self.models[0],
-                    &self.camera_controller.bind_group,
-                );
+                for renderable in renderables {
+                    if let MeshType::TexturedMesh(mesh) = renderable {
+                        self.gbuffer_rp.render_mesh(
+                            &mut render_pass,
+                            mesh,
+                            &camera_controller.bind_group,
+                        );
+                    }
+                }
             }
 
             {
-                let mut render_pass = renderer.begin_main_render_pass(
+                let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                    label: Some("Compute pass"),
+                    timestamp_writes: None,
+                });
+
+                self.main_rp.render(
+                    &mut compute_pass,
+                    &camera_controller,
+                    &light_controller,
+                    &self.gbuffer_rp.bind_group,
+                    &light_controller.shadow_rp.bind_group,
+                    &self.post_process_manager.compute_bind_group_1_to_0,
+                    renderer.config.width,
+                    renderer.config.height,
+                );
+            }
+            {
+                let mut render_pass = renderer.begin_render_pass(
                     encoder,
                     &self
                         .post_process_manager
@@ -265,38 +124,27 @@ impl WorldRenderer {
                     &self.gbuffer_rp.textures.depth_texture.view,
                 );
 
-                self.skybox
-                    .render(&mut render_pass, &self.camera_controller);
+                self.skybox.render(&mut render_pass, &camera_controller);
 
                 {
-                    // self.forward_rp.render_model(
-                    //     &mut render_pass,
-                    //     &self.obj_model,
-                    //     &self.camera_controller.bind_group,
-                    //     &self.light_controller.light_bind_group,
-                    //     1,
-                    //     &self.light_controller.light_instance_buffer,
-                    // );
+                    for renderable in renderables {
+                        if let MeshType::DebugMesh(mesh) = renderable {
+                            self.forward_rp.render_model(
+                                &mut render_pass,
+                                mesh,
+                                &camera_controller.bind_group,
+                                &light_controller.light_bind_group,
+                            );
+                        }
+                    }
                 }
             }
         }
-
         {
             let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                label: Some("Compute pass"),
+                label: Some("Postprocessing"),
                 timestamp_writes: None,
             });
-
-            self.main_rp.render(
-                &mut compute_pass,
-                &self.camera_controller,
-                &self.light_controller,
-                &self.gbuffer_rp.bind_group,
-                &self.light_controller.shadow_rp.bind_group,
-                &self.post_process_manager.compute_bind_group_1_to_0,
-                renderer.config.width,
-                renderer.config.height,
-            );
 
             self.post_process_manager.render(
                 &mut compute_pass,
@@ -350,35 +198,12 @@ impl WorldRenderer {
             }?;
         }
 
-        self.light_controller.try_recompile_shaders(device)?;
-
         Ok(())
     }
 
-    pub fn resize_main_camera(&mut self, renderer: &Renderer, width: u32, height: u32) {
+    pub fn handle_size_changed(&mut self, renderer: &Renderer, width: u32, height: u32) {
         self.gbuffer_rp.resize(&renderer.device, width, height);
         self.post_process_manager
             .resize(&renderer.device, width, height);
-
-        self.camera_controller.resize(width as f32 / height as f32);
-    }
-
-    pub fn update(
-        &mut self,
-        delta_time: time::Duration,
-        device: &wgpu::Device,
-        render_queue: &wgpu::Queue,
-    ) {
-        self.camera_controller.update(delta_time, &render_queue);
-
-        self.light_controller.update(delta_time, &render_queue);
-
-        let materials_loaded = self
-            .resource_loader
-            .poll_loaded_textures(device, render_queue);
-
-        for (id, material) in materials_loaded {
-            self.models[1].mesh.material = material;
-        }
     }
 }

@@ -108,7 +108,7 @@ impl WorldRenderer {
                     &camera_controller,
                     &light_controller,
                     &self.gbuffer_rp.bind_group,
-                    &light_controller.shadow_rp.bind_group,
+                    &light_controller.shadow_bind_group,
                     &self.post_process_manager.compute_bind_group_1_to_0,
                     renderer.config.width,
                     renderer.config.height,

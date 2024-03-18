@@ -85,12 +85,20 @@ var s_diffuse: sampler;
 var t_normal: texture_2d<f32>;
 @group(0) @binding(3)
 var s_normal: sampler;
+@group(0) @binding(4)
+var t_roughness: texture_2d<f32>;
+@group(0) @binding(5)
+var s_roughness: sampler;
+@group(0) @binding(6)
+var t_metalness: texture_2d<f32>;
+@group(0) @binding(7)
+var s_metalness: sampler;
 
 struct GBufferOutput {
   @location(0) position: vec4<f32>,
   @location(1) normal: vec4<f32>,
   @location(2) albedo: vec4<f32>,
-  @location(3) metal_rough_ao: vec4<f32>,
+  @location(3) rough_metal_ao: vec4<f32>,
 }
 
 @fragment
@@ -106,7 +114,12 @@ fn fs_main(in: VertexOutput) -> GBufferOutput {
     let tangent_space_normal = 2.0 * textureSample(t_normal, s_normal, in.tex_coord).xyz - 1.0;
     output.normal = vec4(normalize(tbn_mat * tangent_space_normal), 1.0);
     output.albedo = textureSample(t_diffuse, s_diffuse, in.tex_coord);
-    output.metal_rough_ao = vec4(0.0, 0.1, 0.01, 0.0);
+    output.rough_metal_ao = vec4(
+        textureSample(t_roughness, s_roughness, in.tex_coord).x,
+        textureSample(t_metalness, s_metalness, in.tex_coord).x,
+        1.0,
+        0.0
+    );
 
     return output;
 }

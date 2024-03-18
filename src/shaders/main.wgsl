@@ -34,9 +34,9 @@ var t_albedo: texture_2d<f32>;
 @group(2) @binding(5)
 var s_albedo: sampler;
 @group(2) @binding(6)
-var t_metal_rough_ao: texture_2d<f32>;
+var t_rough_metal_ao: texture_2d<f32>;
 @group(2) @binding(7)
-var s_metal_rough_ao: sampler;
+var s_rough_metal_ao: sampler;
 
 @group(3) @binding(0)
 var t_shadow: texture_depth_2d_array;
@@ -151,14 +151,11 @@ fn get_light_diffuse_and_specular_contribution(pixel_to_light: vec3<f32>, pixel_
 }
 
 fn calculate_point_light_contribution(
-    light: Light, pixel_to_camera: vec3<f32>, pixel_position: vec3<f32>, normal: vec3<f32>, albedo: vec3<f32>,
-    metalness: f32, roughness: f32
+    pixel_to_light: vec3<f32>, light_color: vec3<f32>, attenuation: f32, pixel_to_camera: vec3<f32>, pixel_position: vec3<f32>, normal: vec3<f32>, albedo: vec3<f32>, metalness: f32, roughness: f32
 ) -> vec3<f32> {
-    let pixel_to_light = normalize(light.position_or_direction - pixel_position);
     let half_dir = normalize(pixel_to_camera + pixel_to_light);
-    let pixel_to_light_distance = length(light.position_or_direction - pixel_position);
-    let attenuation = 1.0 / (pixel_to_light_distance * pixel_to_light_distance);
-    let radiance = light.color * 10 * attenuation;
+    let pixel_to_light_distance = length(pixel_to_light);
+    let radiance = light_color * 10 * attenuation;
 
     let F0 = mix(F0_NON_METALLIC, albedo, metalness);
     let F = fresnel_schlick(max(dot(half_dir, pixel_to_camera), 0.0), F0);
@@ -194,10 +191,10 @@ fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
     let albedo_and_shininess = textureSampleLevel(t_albedo, s_albedo, uv, 0.0);
     let albedo = albedo_and_shininess.xyz;
     let position = textureSampleLevel(t_position, s_position, uv, 0.0);
-    let metal_rough_ao = textureSampleLevel(t_metal_rough_ao, s_metal_rough_ao, uv, 0.0);
-    let metalness = metal_rough_ao.x;
-    let roughness = metal_rough_ao.y;
-    let ao = metal_rough_ao.z;
+    let rough_metal_ao = textureSampleLevel(t_rough_metal_ao, s_rough_metal_ao, uv, 0.0);
+    let roughness = rough_metal_ao.x;
+    let metalness = rough_metal_ao.y;
+    let ao = rough_metal_ao.z;
 
     var irradiance = vec3<f32>(0, 0, 0);
 
@@ -208,23 +205,29 @@ fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
         if light.light_type == 1 {
             let shadow = get_shadow_value(i, position.xyz);
             if shadow > 0.0 {
+                let pixel_to_light = light.position_or_direction - position.xyz;
+                let pixel_to_light_distance = length(pixel_to_light);
+                let attenuation = 1.0 / (pixel_to_light_distance * pixel_to_light_distance);
+
                 irradiance += calculate_point_light_contribution(
-                    light, pixel_to_camera, position.xyz, normal, albedo, metalness, roughness
+                    pixel_to_light, light.color, attenuation, pixel_to_camera, position.xyz, normal, albedo, metalness, roughness
                 );
             }
         } else if light.light_type == 2 {
             let shadow = fetch_shadow(i, light.view_proj * position);
-            let diffuse_and_specular = get_light_diffuse_and_specular_contribution(
-                -light.position_or_direction, pixel_to_camera, normal
-            ) * shadow;
-            // irradiance += (c_ambient_strength + diffuse_and_specular) * light.color;
+            if shadow > 0.0 {
+                irradiance += calculate_point_light_contribution(
+                    -light.position_or_direction, light.color, 1.0, pixel_to_camera, position.xyz, normal, albedo, metalness, roughness
+                );
+            }
         }
     }
 
-    let ambient = vec3(0.03) * albedo * ao;
-    var color = ambient + irradiance;
+    let ambient = vec3(0.02) * albedo;
+    let hdrColor = ambient + irradiance;
 
-    color = color / (color + vec3(1.0));
+    // color = color / (color + vec3(1.0));
+    var color = vec3(1.0) - exp(-hdrColor * 0.5);
     color = pow(color, vec3(1.0 / 2.2));
 
     let pixel_coords = vec2(i32(id.x), i32(id.y));

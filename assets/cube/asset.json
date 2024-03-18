@@ -1,7 +1,7 @@
 {
   "model": "cube.obj",
   "textures": {
-    "Albedo": "wall.jpg",
-    "Normal": "wall_normal.jpg"
+    "Albedo": "albedo.jpg",
+    "Normal": "normal.jpg"
   }
 }

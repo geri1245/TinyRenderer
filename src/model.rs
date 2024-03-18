@@ -29,7 +29,10 @@ pub struct Material {
 }
 
 impl Material {
-    pub fn new(device: &wgpu::Device, textures: &HashMap<TextureUsage, SampledTexture>) -> Self {
+    pub fn new(
+        device: &wgpu::Device,
+        textures: &HashMap<TextureUsage, Rc<SampledTexture>>,
+    ) -> Self {
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &device.create_bind_group_layout(&bind_group_layout_descriptors::PBR_TEXTURE),
             entries: &[
@@ -49,6 +52,22 @@ impl Material {
                     .get(&TextureUsage::Normal)
                     .unwrap()
                     .get_sampler_bind_group_entry(3),
+                textures
+                    .get(&TextureUsage::Roughness)
+                    .unwrap()
+                    .get_texture_bind_group_entry(4),
+                textures
+                    .get(&TextureUsage::Roughness)
+                    .unwrap()
+                    .get_sampler_bind_group_entry(5),
+                textures
+                    .get(&TextureUsage::Metalness)
+                    .unwrap()
+                    .get_texture_bind_group_entry(6),
+                textures
+                    .get(&TextureUsage::Metalness)
+                    .unwrap()
+                    .get_sampler_bind_group_entry(7),
             ],
             label: None,
         });

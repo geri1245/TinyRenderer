@@ -173,7 +173,7 @@ impl LightController {
 
         let point_light = PointLight::new(
             point_light_shadow_target_view,
-            Vec3::new(10.0, 20.0, 0.0),
+            Vec3::new(30.0, 40.0, 0.0),
             Vec3::new(25.0, 20.0, 20.0),
             Vec3::ZERO,
         );

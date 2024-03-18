@@ -9,6 +9,16 @@ const DIRECTIONAL_LIGHT_FAR_PLANE: f32 = 250.0;
 const NEAR_PLANE: f32 = 0.1;
 const DIRECTIONAL_LIGHT_PROJECTION_CUBE_SIZE: f32 = 10.0;
 
+pub enum LightType {
+    Directional(DirectionalLight),
+    Point(PointLight),
+}
+
+pub struct LightComponent {
+    color: Vec3,
+    light: LightType,
+}
+
 #[derive(Debug)]
 pub struct PointLight {
     pub transform: SceneComponent,

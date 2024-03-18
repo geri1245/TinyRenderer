@@ -29,7 +29,7 @@ struct PendingTextureData {
 }
 
 struct PendingMaterialData {
-    textures: HashMap<TextureUsage, SampledTexture>,
+    textures: HashMap<TextureUsage, Rc<SampledTexture>>,
     missing_texture_load_ids: HashSet<u32>,
 }
 
@@ -45,7 +45,7 @@ impl PendingMaterialData {
         &mut self,
         texture_load_id: u32,
         texture_usage: TextureUsage,
-        texture: SampledTexture,
+        texture: Rc<SampledTexture>,
     ) {
         self.textures.insert(texture_usage, texture);
         self.missing_texture_load_ids.remove(&texture_load_id);
@@ -53,6 +53,20 @@ impl PendingMaterialData {
 
     fn is_ready(&self) -> bool {
         self.missing_texture_load_ids.is_empty()
+    }
+
+    fn get_material(
+        &mut self,
+        device: &Device,
+        default_textures: &HashMap<TextureUsage, Rc<SampledTexture>>,
+    ) -> Rc<Material> {
+        for (usage, texture) in default_textures {
+            if !self.textures.contains_key(&usage) {
+                self.textures.insert(*usage, texture.clone());
+            }
+        }
+
+        Rc::new(Material::new(device, &self.textures))
     }
 }
 
@@ -63,6 +77,7 @@ pub struct ResourceLoader {
     next_material_id: u32,
     texture_id_to_material_id: HashMap<u32, u32>,
     pub default_mat: Rc<Material>,
+    default_textures: HashMap<TextureUsage, Rc<SampledTexture>>,
 }
 
 impl ResourceLoader {
@@ -70,7 +85,7 @@ impl ResourceLoader {
         let asset_loader = FileLoader::new();
         // let channels = crossbeam_channel::unbounded();
 
-        let default_mat = Self::load_default_textures(device, queue);
+        let (default_mat, default_textures) = Self::load_default_textures(device, queue);
 
         let loader = ResourceLoader {
             asset_loader,
@@ -79,6 +94,7 @@ impl ResourceLoader {
             next_material_id: 0,
             texture_id_to_material_id: HashMap::new(),
             default_mat,
+            default_textures,
         };
 
         loader
@@ -88,31 +104,53 @@ impl ResourceLoader {
         self.default_mat.clone()
     }
 
-    fn load_default_textures(device: &wgpu::Device, queue: &wgpu::Queue) -> Rc<Material> {
-        let default_normal_bytes = include_bytes!("../assets/defaults/normal.png");
-        let default_normal_texture = texture::SampledTexture::from_bytes(
-            device,
-            queue,
-            default_normal_bytes,
-            texture::TextureUsage::Normal,
-            "default normal texture",
-        )
-        .unwrap();
-        let default_albedo_bytes = include_bytes!("../assets/defaults/albedo.png");
-        let default_albedo_texture = texture::SampledTexture::from_bytes(
-            device,
-            queue,
-            default_albedo_bytes,
-            texture::TextureUsage::Albedo,
-            "default albedo texture",
-        )
-        .unwrap();
+    fn load_default_textures(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+    ) -> (Rc<Material>, HashMap<TextureUsage, Rc<SampledTexture>>) {
+        const TEXTURES: [(&[u8], &'static str, texture::TextureUsage); 4] = [
+            (
+                include_bytes!("../assets/defaults/albedo.png"),
+                "default albedo texture",
+                texture::TextureUsage::Albedo,
+            ),
+            (
+                include_bytes!("../assets/defaults/normal.png"),
+                "default normal texture",
+                texture::TextureUsage::Normal,
+            ),
+            (
+                include_bytes!("../assets/defaults/metalness.png"),
+                "default metalness texture",
+                texture::TextureUsage::Metalness,
+            ),
+            (
+                include_bytes!("../assets/defaults/roughness.png"),
+                "default roughness texture",
+                texture::TextureUsage::Roughness,
+            ),
+        ];
 
         let mut default_material_textures = HashMap::new();
-        default_material_textures.insert(TextureUsage::Albedo, default_albedo_texture);
-        default_material_textures.insert(TextureUsage::Normal, default_normal_texture);
 
-        Rc::new(Material::new(device, &default_material_textures))
+        for (data, name, usage) in TEXTURES {
+            let texture = Rc::new(
+                texture::SampledTexture::from_bytes(
+                    device,
+                    queue,
+                    data,
+                    texture::TextureUsage::Normal,
+                    name,
+                )
+                .unwrap(),
+            );
+            default_material_textures.insert(usage, texture);
+        }
+
+        (
+            Rc::new(Material::new(device, &default_material_textures)),
+            default_material_textures,
+        )
     }
 
     fn queue_texture_for_loading(&mut self, texture_to_load: PendingTextureData) -> u32 {
@@ -169,14 +207,16 @@ impl ResourceLoader {
                 .unwrap()
                 .to_str()
                 .unwrap();
-            let texture = texture::SampledTexture::from_image(
-                &device,
-                queue,
-                &asset_load_result.loaded_image,
-                pending_texture_data.usage,
-                Some(file_name),
-            )
-            .unwrap();
+            let texture = Rc::new(
+                texture::SampledTexture::from_image(
+                    &device,
+                    queue,
+                    &asset_load_result.loaded_image,
+                    pending_texture_data.usage,
+                    Some(file_name),
+                )
+                .unwrap(),
+            );
 
             let material_id = self
                 .texture_id_to_material_id
@@ -189,7 +229,7 @@ impl ResourceLoader {
             if pending_material.is_ready() {
                 materials_ready.push((
                     *material_id,
-                    Rc::new(Material::new(device, &pending_material.textures)),
+                    pending_material.get_material(device, &self.default_textures),
                 ));
             }
         }

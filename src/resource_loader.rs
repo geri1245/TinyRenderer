@@ -9,7 +9,7 @@ use async_std::{
 };
 use std::io::{BufRead, BufReader};
 use tobj::MTLLoadResult;
-use wgpu::Device;
+use wgpu::{Device, Extent3d};
 
 use glam::{Vec2, Vec3};
 
@@ -159,17 +159,26 @@ impl ResourceLoader {
 
         for (data, name, usage) in TEXTURES {
             let texture = Rc::new(
-                texture::SampledTexture::from_bytes(
+                texture::SampledTexture::from_image_bytes(
                     device,
                     queue,
                     data,
                     texture::TextureUsage::Normal,
-                    name,
+                    Some(name),
                 )
                 .unwrap(),
             );
             default_material_textures.insert(usage, texture);
         }
+
+        let texture = SampledTexture::from_hdr_image(
+            device,
+            queue,
+            "assets/skybox/hdr/golf_course.hdr",
+            Some("hdr skybox"),
+        )
+        .unwrap();
+        default_material_textures.insert(TextureUsage::Albedo, Rc::new(texture));
 
         (
             Rc::new(Material::new(device, &default_material_textures)),
@@ -231,11 +240,18 @@ impl ResourceLoader {
                 .unwrap()
                 .to_str()
                 .unwrap();
+
+            let texture_size = Extent3d {
+                width: asset_load_result.loaded_image.width(),
+                height: asset_load_result.loaded_image.height(),
+                depth_or_array_layers: 1,
+            };
             let texture = Rc::new(
                 texture::SampledTexture::from_image(
                     &device,
                     queue,
                     &asset_load_result.loaded_image,
+                    texture_size,
                     pending_texture_data.usage,
                     Some(file_name),
                 )

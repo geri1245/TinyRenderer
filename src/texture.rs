@@ -1,9 +1,8 @@
 use std::{fs::File, io::BufReader};
 
 use anyhow::*;
-use image::RgbaImage;
 use serde::Deserialize;
-use wgpu::{TextureFormat, TextureUsages};
+use wgpu::{Extent3d, TextureFormat, TextureUsages};
 
 const IMAGE_SIZE: u32 = 512;
 
@@ -26,6 +25,7 @@ pub enum TextureUsage {
     Normal,
     Metalness,
     Roughness,
+    HdrAlbedo,
 }
 
 impl SampledTexture {
@@ -51,38 +51,79 @@ impl SampledTexture {
         }
     }
 
-    pub fn from_bytes(
+    pub fn from_image_bytes(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         bytes: &[u8],
         usage: TextureUsage,
-        label: &str,
+        label: Option<&str>,
     ) -> Result<Self> {
         let img = image::load_from_memory(bytes)?;
         let rgba = img.to_rgba8();
-        Self::from_image(device, queue, &rgba, usage, Some(label))
+        let size = Extent3d {
+            width: img.width(),
+            height: img.height(),
+            depth_or_array_layers: 1,
+        };
+
+        Self::from_image(device, queue, &rgba, size, usage, label)
+    }
+
+    pub fn from_hdr_image(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        path: &str,
+        label: Option<&str>,
+    ) -> Result<Self> {
+        let f = File::open(path)?;
+        let f = BufReader::new(f);
+        let image = radiant::load(f)?;
+        let mut bytes = Vec::new();
+        for rgba in image.data {
+            bytes.push(rgba.r);
+            bytes.push(rgba.g);
+            bytes.push(rgba.b);
+            bytes.push(1.0); // Add an alpha value, as we can't have a 3 channel float texture
+        }
+
+        let texture_size = Extent3d {
+            width: image.width as u32,
+            height: image.height as u32,
+            depth_or_array_layers: 1,
+        };
+
+        Self::from_image(
+            device,
+            queue,
+            bytemuck::cast_slice(&bytes),
+            texture_size,
+            TextureUsage::HdrAlbedo,
+            label,
+        )
     }
 
     pub fn from_image(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        img: &RgbaImage,
+        bytes: &[u8],
+        size: Extent3d,
         usage: TextureUsage,
         label: Option<&str>,
     ) -> Result<Self> {
-        let dimensions = img.dimensions();
-
-        let size = wgpu::Extent3d {
-            width: dimensions.0,
-            height: dimensions.1,
-            depth_or_array_layers: 1,
-        };
         let format = match usage {
             TextureUsage::Albedo => wgpu::TextureFormat::Rgba8UnormSrgb,
             TextureUsage::Normal => wgpu::TextureFormat::Rgba8Unorm,
             TextureUsage::Metalness => wgpu::TextureFormat::R16Float,
             TextureUsage::Roughness => wgpu::TextureFormat::R16Float,
+            TextureUsage::HdrAlbedo => wgpu::TextureFormat::Rgba32Float,
         };
+
+        let bytes_per_pixel = match format {
+            wgpu::TextureFormat::Rgba32Float => 4 * 4,
+            wgpu::TextureFormat::R16Float => 2,
+            _ => 4,
+        };
+
         let texture = device.create_texture(&wgpu::TextureDescriptor {
             label,
             size,
@@ -96,10 +137,10 @@ impl SampledTexture {
 
         queue.write_texture(
             texture.as_image_copy(),
-            &img,
+            bytes,
             wgpu::ImageDataLayout {
                 offset: 0,
-                bytes_per_row: Some(4 * dimensions.0),
+                bytes_per_row: Some(bytes_per_pixel * size.width),
                 rows_per_image: None,
             },
             size,

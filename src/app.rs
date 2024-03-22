@@ -2,6 +2,7 @@ use crate::camera_controller::CameraController;
 use crate::gui::{Gui, GuiEvent};
 use crate::light_controller::LightController;
 use crate::resource_loader::ResourceLoader;
+use crate::texture::SampledTexture;
 use crate::world::World;
 use crate::world_renderer::WorldRenderer;
 use crate::{frame_timer::BasicTimer, renderer::Renderer};

@@ -11,19 +11,18 @@ use crate::{
 };
 
 #[derive(Eq, PartialEq, Hash)]
-pub enum DebugObjectType {
+pub enum PrimitiveMeshes {
     Cube,
 }
 
 pub struct World {
     pub meshes: Vec<MeshType>,
-    resource_loader: ResourceLoader,
-    debug_objects: HashMap<DebugObjectType, Rc<RenderableMesh>>,
-    pending_meshes: Vec<(DebugObjectType, SceneComponent)>,
+    debug_objects: HashMap<PrimitiveMeshes, Rc<RenderableMesh>>,
+    pending_meshes: Vec<(PrimitiveMeshes, SceneComponent)>,
 }
 
 impl World {
-    pub async fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
+    pub async fn new(device: &wgpu::Device, resource_loader: &mut ResourceLoader) -> Self {
         let cube_instances = vec![
             SceneComponent {
                 position: Vec3::new(10.0, 10.0, 0.0),
@@ -121,8 +120,6 @@ impl World {
             },
         ];
 
-        let mut resource_loader = ResourceLoader::new(device, queue);
-
         let (cube_model, material_loading_id) = resource_loader
             .load_asset_file("cube", device)
             .await
@@ -147,17 +144,21 @@ impl World {
         ];
 
         let mut debug_objects = HashMap::new();
-        debug_objects.insert(DebugObjectType::Cube, cube);
+        debug_objects.insert(PrimitiveMeshes::Cube, cube);
 
         World {
             meshes,
-            resource_loader,
             debug_objects,
             pending_meshes: vec![],
         }
     }
 
-    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
+    pub fn update(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        resource_loader: &mut ResourceLoader,
+    ) {
         for (object_type, scene_component) in self.pending_meshes.drain(..) {
             let renderable_mesh = self.debug_objects.get(&object_type).unwrap();
             self.meshes
@@ -167,7 +168,7 @@ impl World {
                     renderable_mesh.clone(),
                 )));
         }
-        let materials_loaded = self.resource_loader.poll_loaded_textures(device, queue);
+        let materials_loaded = resource_loader.poll_loaded_textures(device, queue);
 
         for (id, material) in materials_loaded {
             for mesh in &mut self.meshes {
@@ -184,7 +185,7 @@ impl World {
 
     pub fn add_debug_object(
         &mut self,
-        debug_mesh: DebugObjectType,
+        debug_mesh: PrimitiveMeshes,
         scene_component: &SceneComponent,
     ) {
         self.pending_meshes

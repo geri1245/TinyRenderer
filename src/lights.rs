@@ -9,25 +9,18 @@ const DIRECTIONAL_LIGHT_FAR_PLANE: f32 = 250.0;
 const NEAR_PLANE: f32 = 0.1;
 const DIRECTIONAL_LIGHT_PROJECTION_CUBE_SIZE: f32 = 10.0;
 
-pub enum LightType {
-    Directional(DirectionalLight),
-    Point(PointLight),
-}
-
-pub struct LightComponent {
+#[derive(Debug)]
+pub struct LightParams {
     color: Vec3,
-    light: LightType,
+    far_plane: f32,
+    near_plane: f32,
 }
 
 #[derive(Debug)]
 pub struct PointLight {
     pub transform: SceneComponent,
-    pub color: Vec3,
-    // In the final implementation this should radiate light in every direction
-    pub target: Vec3,
     pub depth_texture: Vec<wgpu::TextureView>,
-    far_plane: f32,
-    near_plane: f32,
+    light_params: LightParams,
 }
 
 #[repr(C)]
@@ -60,29 +53,29 @@ pub struct LightRawSmall {
 }
 
 impl PointLight {
-    pub fn new(
-        depth_texture: Vec<wgpu::TextureView>,
-        position: Vec3,
-        color: Vec3,
-        target: Vec3,
-    ) -> Self {
+    pub fn new(depth_texture: Vec<wgpu::TextureView>, position: Vec3, color: Vec3) -> Self {
         PointLight {
             transform: SceneComponent {
                 position,
                 rotation: Quat::IDENTITY,
                 scale: Vec3::splat(0.2),
             },
-            color,
-            target,
             depth_texture,
-            far_plane: POINT_LIGHT_FAR_PLANE,
-            near_plane: NEAR_PLANE,
+            light_params: LightParams {
+                color,
+                far_plane: POINT_LIGHT_FAR_PLANE,
+                near_plane: NEAR_PLANE,
+            },
         }
     }
 
     pub fn get_viewprojs_raw(&self) -> Vec<LightRawSmall> {
-        let proj =
-            glam::Mat4::perspective_rh(consts::FRAC_PI_2, 1.0, self.near_plane, self.far_plane);
+        let proj = glam::Mat4::perspective_rh(
+            consts::FRAC_PI_2,
+            1.0,
+            self.light_params.near_plane,
+            self.light_params.far_plane,
+        );
 
         const DIFF_AND_UP_VECTORS: [(Vec3, Vec3); 6] = [
             (Vec3::X, Vec3::Y),
@@ -105,7 +98,7 @@ impl PointLight {
             })
             .map(|view_proj| {
                 let mut position_and_far_plane_distance = self.transform.position.xyzz();
-                position_and_far_plane_distance.w = self.far_plane;
+                position_and_far_plane_distance.w = self.light_params.far_plane;
                 LightRawSmall {
                     light_view_proj: view_proj.to_cols_array_2d(),
                     position_and_far_plane_distance: position_and_far_plane_distance.into(),
@@ -117,17 +110,21 @@ impl PointLight {
     pub fn to_raw(&self) -> LightRaw {
         let view = Mat4::look_at_rh(
             self.transform.position.into(),
-            self.target.into(),
+            Vec3::ZERO,
             Vec3::new(0.0_f32, 1.0, 0.0),
         );
-        let proj =
-            glam::Mat4::perspective_rh(consts::FRAC_PI_3, 1.0, self.near_plane, self.far_plane);
+        let proj = glam::Mat4::perspective_rh(
+            consts::FRAC_PI_3,
+            1.0,
+            self.light_params.near_plane,
+            self.light_params.far_plane,
+        );
         let view_proj = proj * view;
         LightRaw {
             light_view_proj: view_proj.to_cols_array_2d(),
             position_or_direction: self.transform.position.into(),
             light_type: 1,
-            color: self.color.into(),
+            color: self.light_params.color.into(),
             far_plane_distance: 100.0,
         }
     }

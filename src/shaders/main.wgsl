@@ -141,20 +141,10 @@ fn geometery_smith(normal: vec3<f32>, view: vec3<f32>, light: vec3<f32>, roughne
     return ggx1 * ggx2;
 }
 
-fn get_light_diffuse_and_specular_contribution(pixel_to_light: vec3<f32>, pixel_to_camera: vec3<f32>, normal: vec3<f32>) -> f32 {
-    let diffuse_strength = max(dot(normal, pixel_to_light), 0.0);
-
-    let half_dir = normalize(pixel_to_camera + pixel_to_light);
-    let specular_strength = pow(max(dot(half_dir, normal), 0.0), 32.0);
-
-    return diffuse_strength + specular_strength;
-}
-
-fn calculate_point_light_contribution(
+fn calculate_light_contribution(
     pixel_to_light: vec3<f32>, light_color: vec3<f32>, attenuation: f32, pixel_to_camera: vec3<f32>, pixel_position: vec3<f32>, normal: vec3<f32>, albedo: vec3<f32>, metalness: f32, roughness: f32
 ) -> vec3<f32> {
     let half_dir = normalize(pixel_to_camera + pixel_to_light);
-    let pixel_to_light_distance = length(pixel_to_light);
     let radiance = light_color * 10 * attenuation;
 
     let F0 = mix(F0_NON_METALLIC, albedo, metalness);
@@ -209,15 +199,15 @@ fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
                 let pixel_to_light_distance = length(pixel_to_light);
                 let attenuation = 1.0 / (pixel_to_light_distance * pixel_to_light_distance);
 
-                irradiance += calculate_point_light_contribution(
-                    pixel_to_light, light.color, attenuation, pixel_to_camera, position.xyz, normal, albedo, metalness, roughness
+                irradiance += calculate_light_contribution(
+                    normalize(pixel_to_light), light.color, attenuation, pixel_to_camera, position.xyz, normal, albedo, metalness, roughness
                 );
             }
         } else if light.light_type == 2 {
             let shadow = fetch_shadow(i, light.view_proj * position);
             if shadow > 0.0 {
-                irradiance += calculate_point_light_contribution(
-                    -light.position_or_direction, light.color, 1.0, pixel_to_camera, position.xyz, normal, albedo, metalness, roughness
+                irradiance += calculate_light_contribution(
+                    -light.position_or_direction, light.color, 0.6, pixel_to_camera, position.xyz, normal, albedo, metalness, roughness
                 );
             }
         }

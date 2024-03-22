@@ -20,7 +20,7 @@ pub struct ModelDescriptorFile {
 }
 
 pub struct ModelLoadingData {
-    pub model: PathBuf,
+    pub path: PathBuf,
     pub textures: Vec<(TextureUsage, PathBuf)>,
 }
 

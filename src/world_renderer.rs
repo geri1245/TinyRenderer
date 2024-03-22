@@ -4,11 +4,13 @@ use wgpu::{CommandEncoder, Device, Extent3d, SurfaceTexture};
 
 use crate::{
     camera_controller::CameraController,
+    equirectangular_to_cubemap_renderer::EquirectangularToCubemapRenderer,
     light_controller::LightController,
     model::{InstancedRenderableMesh, InstancedTexturedRenderableMesh},
     pipelines::{self, MainRP},
     post_process_manager::PostProcessManager,
     renderer::Renderer,
+    resource_loader::{PrimitiveShape, ResourceLoader},
     skybox::Skybox,
 };
 
@@ -32,10 +34,11 @@ pub struct WorldRenderer {
     post_process_manager: PostProcessManager,
     forward_rp: pipelines::ForwardRP,
     gbuffer_rp: pipelines::GBufferGeometryRP,
+    equirec_to_cubemap_renderer: EquirectangularToCubemapRenderer,
 }
 
 impl WorldRenderer {
-    pub async fn new(renderer: &Renderer) -> Self {
+    pub async fn new(renderer: &Renderer, resource_loader: &mut ResourceLoader) -> Self {
         let main_rp = pipelines::MainRP::new(&renderer.device).await.unwrap();
         let gbuffer_rp = pipelines::GBufferGeometryRP::new(
             &renderer.device,
@@ -62,6 +65,15 @@ impl WorldRenderer {
                 .format(),
         );
 
+        // TODO: change the format, or use some constant here
+        let equirec_to_cubemap_renderer = EquirectangularToCubemapRenderer::new(
+            &renderer.device,
+            wgpu::TextureFormat::Rgba16Float,
+            resource_loader.get_primitive_shape(PrimitiveShape::Cube),
+        )
+        .await
+        .unwrap();
+
         WorldRenderer {
             skybox,
             main_rp,
@@ -69,6 +81,7 @@ impl WorldRenderer {
             forward_rp,
 
             post_process_manager,
+            equirec_to_cubemap_renderer,
         }
     }
 

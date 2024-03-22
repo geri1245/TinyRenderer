@@ -38,7 +38,9 @@ impl MainRP {
             label: Some("Main Render Pipeline Layout"),
             bind_group_layouts: &[
                 &device.create_bind_group_layout(&bind_group_layout_descriptors::LIGHT),
-                &device.create_bind_group_layout(&bind_group_layout_descriptors::CAMERA),
+                &device.create_bind_group_layout(
+                    &bind_group_layout_descriptors::BUFFER_VISIBLE_EVERYWHERE,
+                ),
                 &device.create_bind_group_layout(&bind_group_layout_descriptors::GBUFFER),
                 &device
                     .create_bind_group_layout(&bind_group_layout_descriptors::SHADOW_DEPTH_TEXTURE),

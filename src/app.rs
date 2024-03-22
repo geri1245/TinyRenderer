@@ -1,6 +1,7 @@
 use crate::camera_controller::CameraController;
 use crate::gui::{Gui, GuiEvent};
 use crate::light_controller::LightController;
+use crate::resource_loader::ResourceLoader;
 use crate::world::World;
 use crate::world_renderer::WorldRenderer;
 use crate::{frame_timer::BasicTimer, renderer::Renderer};
@@ -17,8 +18,9 @@ pub enum WindowEventHandlingResult {
 }
 
 pub struct App {
-    pub renderer: Renderer,
-    pub frame_timer: BasicTimer,
+    renderer: Renderer,
+    resource_loader: ResourceLoader,
+    frame_timer: BasicTimer,
     gui: Gui,
     camera_controller: CameraController,
     light_controller: LightController,
@@ -33,11 +35,13 @@ impl App {
     pub async fn new(window: &Window) -> Self {
         let renderer = Renderer::new(window).await;
         let (gui_event_sender, gui_event_receiver) = unbounded::<GuiEvent>();
+        let mut resource_loader = ResourceLoader::new(&renderer.device, &renderer.queue).await;
 
         let gui = Gui::new(&window, &renderer.device, &renderer.queue, gui_event_sender);
 
-        let mut world = World::new(&renderer.device, &renderer.queue).await;
-        let world_renderer: WorldRenderer = WorldRenderer::new(&renderer).await;
+        let mut world = World::new(&renderer.device, &mut resource_loader).await;
+        let world_renderer: WorldRenderer =
+            WorldRenderer::new(&renderer, &mut resource_loader).await;
 
         let camera_controller = CameraController::new(
             &renderer.device,
@@ -57,20 +61,26 @@ impl App {
             world,
             camera_controller,
             light_controller,
+            resource_loader,
         }
+    }
+
+    pub fn reconfigure(&mut self) {
+        self.resize_unchecked(self.renderer.size);
     }
 
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         if new_size.width > 0 && new_size.height > 0 && new_size != self.renderer.size {
-            self.camera_controller
-                .resize(new_size.width as f32 / new_size.height as f32);
-            self.renderer.resize(new_size);
-            self.world_renderer.handle_size_changed(
-                &self.renderer,
-                new_size.width,
-                new_size.height,
-            );
+            self.resize_unchecked(new_size);
         }
+    }
+
+    fn resize_unchecked(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
+        self.camera_controller
+            .resize(new_size.width as f32 / new_size.height as f32);
+        self.renderer.resize(new_size);
+        self.world_renderer
+            .handle_size_changed(&self.renderer, new_size.width, new_size.height);
     }
 
     pub fn handle_event<'a, T>(
@@ -201,8 +211,11 @@ impl App {
 
     pub fn update(&mut self, delta: Duration) {
         self.handle_events_received_from_gui();
-        self.world
-            .update(&self.renderer.device, &self.renderer.queue);
+        self.world.update(
+            &self.renderer.device,
+            &self.renderer.queue,
+            &mut self.resource_loader,
+        );
 
         self.camera_controller.update(delta, &self.renderer.queue);
 

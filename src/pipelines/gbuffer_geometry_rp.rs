@@ -68,7 +68,9 @@ impl GBufferGeometryRP {
             label: Some("Geometry pass pipeline layout"),
             bind_group_layouts: &[
                 &device.create_bind_group_layout(&bind_group_layout_descriptors::PBR_TEXTURE),
-                &device.create_bind_group_layout(&bind_group_layout_descriptors::CAMERA),
+                &device.create_bind_group_layout(
+                    &bind_group_layout_descriptors::BUFFER_VISIBLE_EVERYWHERE,
+                ),
             ],
             push_constant_ranges: &[],
         });

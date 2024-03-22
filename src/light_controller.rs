@@ -123,7 +123,7 @@ impl LightController {
             point_shadow_view,
         );
 
-        world.add_debug_object(crate::world::DebugObjectType::Cube, &point_light.transform);
+        world.add_debug_object(crate::world::PrimitiveMeshes::Cube, &point_light.transform);
 
         Self {
             point_light,
@@ -232,9 +232,8 @@ impl LightController {
 
         let point_light = PointLight::new(
             point_light_shadow_target_view,
-            Vec3::new(30.0, 40.0, 0.0),
+            Vec3::new(200.0, 200.0, 50.0),
             Vec3::new(5.0, 10.0, 10.0),
-            Vec3::ZERO,
         );
 
         (point_light, point_light_texture)

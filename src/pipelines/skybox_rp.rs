@@ -16,7 +16,9 @@ impl SkyboxRP {
         let texture = texture::SampledTexture::create_skybox_texture(&device, &queue);
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &device.create_bind_group_layout(&bind_group_layout_descriptors::SKYBOX),
+            layout: &device.create_bind_group_layout(
+                &bind_group_layout_descriptors::TEXTURE_CUBE_FRAGMENT_WITH_SAMPLER,
+            ),
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
@@ -33,8 +35,12 @@ impl SkyboxRP {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Skybox pipeline layout"),
             bind_group_layouts: &[
-                &device.create_bind_group_layout(&bind_group_layout_descriptors::SKYBOX),
-                &device.create_bind_group_layout(&bind_group_layout_descriptors::CAMERA),
+                &device.create_bind_group_layout(
+                    &bind_group_layout_descriptors::TEXTURE_CUBE_FRAGMENT_WITH_SAMPLER,
+                ),
+                &device.create_bind_group_layout(
+                    &bind_group_layout_descriptors::BUFFER_VISIBLE_EVERYWHERE,
+                ),
             ],
             push_constant_ranges: &[],
         });

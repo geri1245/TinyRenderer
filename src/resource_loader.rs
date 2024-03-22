@@ -7,7 +7,7 @@ use async_std::{
     path::{Path, PathBuf},
     task::block_on,
 };
-use std::io::BufReader;
+use std::io::{BufRead, BufReader};
 use tobj::MTLLoadResult;
 use wgpu::Device;
 
@@ -22,6 +22,11 @@ use crate::{
 
 const ASSET_FILE_NAME: &str = "asset.json";
 const TEXTURES_FOLDER_NAME: &str = "textures";
+
+#[derive(Debug, Hash, PartialEq, Eq)]
+pub enum PrimitiveShape {
+    Cube,
+}
 
 struct PendingTextureData {
     file_name: PathBuf,
@@ -78,14 +83,15 @@ pub struct ResourceLoader {
     texture_id_to_material_id: HashMap<u32, u32>,
     pub default_mat: Rc<Material>,
     default_textures: HashMap<TextureUsage, Rc<SampledTexture>>,
+    primitive_shapes: HashMap<PrimitiveShape, Rc<RenderableMesh>>,
 }
 
 impl ResourceLoader {
-    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
+    pub async fn new(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
         let asset_loader = FileLoader::new();
-        // let channels = crossbeam_channel::unbounded();
 
         let (default_mat, default_textures) = Self::load_default_textures(device, queue);
+        let primitive_shapes = Self::load_primitive_shapes(device).await.unwrap();
 
         let loader = ResourceLoader {
             asset_loader,
@@ -95,6 +101,7 @@ impl ResourceLoader {
             texture_id_to_material_id: HashMap::new(),
             default_mat,
             default_textures,
+            primitive_shapes,
         };
 
         loader
@@ -102,6 +109,23 @@ impl ResourceLoader {
 
     pub fn get_default_material(&self) -> Rc<Material> {
         self.default_mat.clone()
+    }
+
+    pub fn get_primitive_shape(&self, shape: PrimitiveShape) -> Rc<RenderableMesh> {
+        self.primitive_shapes.get(&shape).unwrap().clone()
+    }
+
+    async fn load_primitive_shapes(
+        device: &Device,
+    ) -> anyhow::Result<HashMap<PrimitiveShape, Rc<RenderableMesh>>> {
+        let bytes: Vec<u8> = include_bytes!("../assets/cube/cube.obj").into();
+        let mut reader = BufReader::new(&bytes[..]);
+        let mesh = Rc::new(load_obj(&mut reader, device, &"cube".into()).await?);
+
+        let mut primitive_shapes = HashMap::new();
+        primitive_shapes.insert(PrimitiveShape::Cube, mesh);
+
+        return Ok(primitive_shapes);
     }
 
     fn load_default_textures(
@@ -244,7 +268,8 @@ impl ResourceLoader {
     ) -> anyhow::Result<(model::RenderableMesh, u32)> {
         let asset_data = process_asset_file(asset_name)?;
 
-        let model = load_obj(&asset_data.model, &device, &asset_name.into()).await?;
+        let mut file_buf_reader = open_file_for_reading(&asset_data.path)?;
+        let model = load_obj(&mut file_buf_reader, &device, &asset_name.into()).await?;
         let pending_textures = asset_data
             .textures
             .into_iter()
@@ -292,7 +317,7 @@ fn process_asset_file(asset_name: &str) -> anyhow::Result<ModelLoadingData> {
     let model_info: ModelDescriptorFile = serde_json::from_str(&json_string)?;
 
     Ok(ModelLoadingData {
-        model: model_folder.join(model_info.model),
+        path: model_folder.join(model_info.model),
         textures: model_info
             .textures
             .into_iter()
@@ -306,14 +331,16 @@ fn process_asset_file(asset_name: &str) -> anyhow::Result<ModelLoadingData> {
     })
 }
 
-pub async fn load_obj(
-    path: &PathBuf,
+pub async fn load_obj<Reader>(
+    reader: &mut Reader,
     device: &wgpu::Device,
     asset_name: &String,
-) -> anyhow::Result<RenderableMesh> {
-    let mut file_buf_reader = open_file_for_reading(&path)?;
+) -> anyhow::Result<RenderableMesh>
+where
+    Reader: BufRead,
+{
     let (mut models, _obj_materials) =
-        tobj::load_obj_buf_async(&mut file_buf_reader, &tobj::GPU_LOAD_OPTIONS, |_| async {
+        tobj::load_obj_buf_async(reader, &tobj::GPU_LOAD_OPTIONS, |_| async {
             // We don't care about the mtl file, so this is just a dummy loader implementation
             MTLLoadResult::Ok((Default::default(), Default::default()))
         })

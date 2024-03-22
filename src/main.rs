@@ -1,23 +1,19 @@
-use app::WindowEventHandlingResult;
-use winit::{
-    event::*,
-    event_loop::EventLoop,
-    keyboard::{KeyCode, PhysicalKey},
-    window::WindowBuilder,
-};
-
 mod app;
 mod bind_group_layout_descriptors;
+mod buffer_capture;
 mod buffer_content;
 mod camera;
 mod camera_controller;
 mod color;
+mod equirec_to_cubemap_renderer;
+mod equirectangular_to_cubemap_renderer;
 mod file_loader;
 mod frame_timer;
 mod gui;
 mod instance;
 mod light_controller;
 mod lights;
+mod mainloop;
 mod model;
 mod pipelines;
 mod post_process_manager;
@@ -32,69 +28,22 @@ mod vertex;
 mod world;
 mod world_renderer;
 
-pub async fn run() {
-    simple_logger::init_with_level(log::Level::Warn).unwrap();
-    let event_loop = EventLoop::new().unwrap();
-
-    let window = WindowBuilder::new().build(&event_loop).unwrap();
-    // window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
-    window.set_title("Awesome application");
-
-    let mut app = app::App::new(&window).await;
-
-    event_loop
-        .run(move |event, control_flow| {
-            app.handle_event(&window, &event);
-
-            match event {
-                Event::WindowEvent { event, window_id } if window_id == window.id() => {
-                    match event {
-                        WindowEvent::Resized(new_size) => app.resize(new_size),
-                        WindowEvent::CloseRequested => control_flow.exit(),
-                        // WindowEvent::ScaleFactorChanged {
-                        //     scale_factor,
-                        //     inner_size_writer,
-                        // } => todo!(),
-                        WindowEvent::RedrawRequested => {
-                            match app.request_redraw(&window) {
-                                Ok(_) => (),
-                                // Reconfigure the surface if lost
-                                Err(wgpu::SurfaceError::Lost) => app.resize(app.renderer.size),
-                                // The system is out of memory, we should probably quit
-                                Err(wgpu::SurfaceError::OutOfMemory) => control_flow.exit(),
-                                // All other errors (Outdated, Timeout) should be resolved by the next frame
-                                Err(e) => eprintln!("{:?}", e),
-                            }
-                        }
-                        _ => {}
-                    }
-                    if let WindowEventHandlingResult::RequestExit = app.handle_window_event(event) {
-                        control_flow.exit();
-                    }
-                }
-                // TODO: instead of doing this from here, trigger the redraw from inside the app
-                // using the limited framerate
-                Event::AboutToWait => {
-                    window.request_redraw();
-                }
-                Event::DeviceEvent {
-                    event, device_id, ..
-                } => {
-                    if let DeviceEvent::Key(ref input) = event {
-                        if input.physical_key == PhysicalKey::Code(KeyCode::Escape) {
-                            control_flow.exit();
-                            return;
-                        }
-                    }
-
-                    app.handle_device_event(&window, device_id, event);
-                }
-                _ => {}
-            }
-        })
-        .unwrap();
-}
-
 fn main() {
-    async_std::task::block_on(run());
+    let args = std::env::args().collect::<Vec<_>>();
+    const EQUIREC_TO_CUBE_COMMAND_LINE_ARG_NAME: &str = "--equirec_to_cube";
+
+    if let Some(arg_pos) = args
+        .iter()
+        .position(|item| item == EQUIREC_TO_CUBE_COMMAND_LINE_ARG_NAME)
+    {
+        if args.len() < arg_pos + 1 {
+            panic!("Please specify the name of the equirectangular map to convert!");
+        }
+
+        async_std::task::block_on(equirec_to_cubemap_renderer::render_equirec_to_cubemap(
+            &args[arg_pos + 1],
+        ));
+    }
+
+    async_std::task::block_on(mainloop::run_main_loop());
 }

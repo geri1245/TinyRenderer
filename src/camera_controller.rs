@@ -24,7 +24,9 @@ impl CameraController {
         });
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &device.create_bind_group_layout(&bind_group_layout_descriptors::CAMERA),
+            layout: &device.create_bind_group_layout(
+                &bind_group_layout_descriptors::BUFFER_VISIBLE_EVERYWHERE,
+            ),
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
                 resource: binding_buffer.as_entire_binding(),

@@ -1,46 +1,31 @@
-use std::rc::Rc;
-
-use wgpu::{RenderPass, TextureFormat};
+use wgpu::{Device, RenderPass, TextureFormat};
 
 use crate::{
-    bind_group_layout_descriptors,
     camera_controller::CameraController,
     pipelines::{self, SkyboxRP},
-    texture::SampledTexture,
 };
 
 pub struct Skybox {
     skybox_rp: SkyboxRP,
-    _bind_group: Rc<wgpu::BindGroup>,
+    texture_format: TextureFormat,
 }
 
 impl Skybox {
-    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, texture_format: TextureFormat) -> Self {
-        let skybox_rp = pipelines::SkyboxRP::new(device, texture_format);
-
-        let texture = SampledTexture::create_skybox_texture(&device, &queue);
-
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &device.create_bind_group_layout(
-                &bind_group_layout_descriptors::TEXTURE_CUBE_FRAGMENT_WITH_SAMPLER,
-            ),
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&texture.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&texture.sampler),
-                },
-            ],
-            label: None,
-        });
+    pub async fn new(device: &wgpu::Device, texture_format: TextureFormat) -> Self {
+        let skybox_rp = pipelines::SkyboxRP::new(device, texture_format)
+            .await
+            .unwrap();
 
         Skybox {
             skybox_rp,
-            _bind_group: Rc::new(bind_group),
+            texture_format,
         }
+    }
+
+    pub async fn try_recompile_shader(&mut self, device: &Device) -> anyhow::Result<()> {
+        self.skybox_rp
+            .try_recompile_shader(device, self.texture_format)
+            .await
     }
 
     pub fn render<'a, 'b: 'a>(

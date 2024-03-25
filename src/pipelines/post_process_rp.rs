@@ -1,11 +1,12 @@
-use wgpu::{BindGroup, ComputePass, Device, PipelineLayout, ShaderModule};
+use wgpu::{BindGroup, ComputePass, ComputePipeline, Device, ShaderModule};
 
 use crate::bind_group_layout_descriptors;
 
-use super::render_pipeline_base::PipelineBase;
+use super::shader_compiler::{ShaderCompilationResult, ShaderCompiler};
 
 const SHADER_SOURCE: &'static str = "src/shaders/post_process.wgsl";
 
+#[derive(Clone, Copy)]
 pub enum PostProcessPipelineTargetTextureVariant {
     _Rgba16Float,
     Rgba8Unorm,
@@ -13,30 +14,53 @@ pub enum PostProcessPipelineTargetTextureVariant {
 
 pub struct PostProcessRP {
     pipeline: wgpu::ComputePipeline,
-    shader_compilation_time: u64,
+    shader_compiler: ShaderCompiler,
 }
-
-impl PipelineBase for PostProcessRP {}
 
 impl PostProcessRP {
     pub async fn new(
         device: &wgpu::Device,
         variant: PostProcessPipelineTargetTextureVariant,
     ) -> anyhow::Result<Self> {
-        let shader = Self::compile_shader_if_needed(SHADER_SOURCE, device).await?;
+        let mut shader_compiler = ShaderCompiler::new(SHADER_SOURCE);
+        let shader_compilation_result = shader_compiler.compile_shader_if_needed(device).await?;
 
-        Ok(Self::new_internal(
-            device,
-            variant,
-            &shader.shader_module,
-            shader.last_write_time,
-        ))
+        match shader_compilation_result {
+            ShaderCompilationResult::AlreadyUpToDate => {
+                panic!("This shader hasn't been compiled yet, can't be up to date!")
+            }
+            ShaderCompilationResult::Success(shader) => Ok(Self {
+                pipeline: Self::create_pipeline(device, &shader, variant),
+                shader_compiler,
+            }),
+        }
     }
 
-    fn create_pipeline_layout(
+    pub async fn try_recompile_shader(
+        &mut self,
         device: &Device,
         variant: PostProcessPipelineTargetTextureVariant,
-    ) -> PipelineLayout {
+    ) -> anyhow::Result<()> {
+        let result = self
+            .shader_compiler
+            .compile_shader_if_needed(device)
+            .await?;
+
+        match result {
+            ShaderCompilationResult::AlreadyUpToDate => Ok(()),
+            ShaderCompilationResult::Success(shader_module) => {
+                let pipeline = Self::create_pipeline(device, &shader_module, variant);
+                self.pipeline = pipeline;
+                Ok(())
+            }
+        }
+    }
+
+    fn create_pipeline(
+        device: &Device,
+        shader: &ShaderModule,
+        variant: PostProcessPipelineTargetTextureVariant,
+    ) -> ComputePipeline {
         let bind_group_descriptor = match variant {
             PostProcessPipelineTargetTextureVariant::_Rgba16Float => {
                 &bind_group_layout_descriptors::COMPUTE_PING_PONG
@@ -45,30 +69,18 @@ impl PostProcessRP {
                 &bind_group_layout_descriptors::COMPUTE_FINAL_STAGE
             }
         };
-        device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Main Render Pipeline Layout"),
             bind_group_layouts: &[&device.create_bind_group_layout(bind_group_descriptor)],
             push_constant_ranges: &[],
-        })
-    }
+        });
 
-    fn new_internal(
-        device: &Device,
-        variant: PostProcessPipelineTargetTextureVariant,
-        shader: &ShaderModule,
-        shader_compilation_time: u64,
-    ) -> Self {
-        let compute_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+        device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
             label: Some("Compute pipeline for posteffects"),
             module: shader,
             entry_point: "cs_main",
-            layout: Some(&Self::create_pipeline_layout(device, variant)),
-        });
-
-        Self {
-            pipeline: compute_pipeline,
-            shader_compilation_time,
-        }
+            layout: Some(&pipeline_layout),
+        })
     }
 
     pub fn run_copmute_pass<'a>(

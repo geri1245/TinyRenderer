@@ -10,7 +10,7 @@ use crate::{
     instance::SceneComponentRaw,
     lights::{DirectionalLight, LightRaw, LightRawSmall, PointLight},
     model::InstancedTexturedRenderableMesh,
-    pipelines::{self, PipelineRecreationResult},
+    pipelines::ShadowRP,
     texture::SampledTexture,
     world::World,
     world_renderer::MeshType,
@@ -35,7 +35,7 @@ pub struct LightController {
     uniform_buffer_alignment: u64,
     pub light_bind_group: wgpu::BindGroup,
     pub light_bind_group_viewproj_only: wgpu::BindGroup,
-    pub shadow_rp: pipelines::ShadowRP,
+    pub shadow_rp: ShadowRP,
     pub debug_light_meshes: Vec<InstancedTexturedRenderableMesh>,
     /// Contains the depth maps for the current lights
     pub shadow_bind_group: wgpu::BindGroup,
@@ -280,15 +280,9 @@ impl LightController {
     }
 
     pub fn try_recompile_shaders(&mut self, device: &Device) -> anyhow::Result<()> {
-        let result = block_on(self.shadow_rp.try_recompile_shader(device));
-        match result {
-            PipelineRecreationResult::AlreadyUpToDate => Ok(()),
-            PipelineRecreationResult::Success(new_pipeline) => {
-                self.shadow_rp = new_pipeline;
-                Ok(())
-            }
-            PipelineRecreationResult::Failed(error) => Err(error),
-        }
+        block_on(self.shadow_rp.try_recompile_shader(device))?;
+
+        Ok(())
     }
 
     pub fn get_raw_instances(light: &PointLight) -> Vec<SceneComponentRaw> {

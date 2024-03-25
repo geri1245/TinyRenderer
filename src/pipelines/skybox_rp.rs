@@ -1,13 +1,60 @@
-use std::borrow::Cow;
+use wgpu::{Device, RenderPipeline, ShaderModule};
 
 use crate::{bind_group_layout_descriptors, camera_controller::CameraController, texture};
 
+use super::shader_compiler::{ShaderCompilationResult, ShaderCompiler};
+
+const SHADER_SOURCE: &'static str = "src/shaders/skybox.wgsl";
+
 pub struct SkyboxRP {
     pipeline: wgpu::RenderPipeline,
+    shader_compiler: ShaderCompiler,
 }
 
 impl SkyboxRP {
-    pub fn new(device: &wgpu::Device, texture_format: wgpu::TextureFormat) -> Self {
+    pub async fn new(
+        device: &wgpu::Device,
+        texture_format: wgpu::TextureFormat,
+    ) -> anyhow::Result<Self> {
+        let mut shader_compiler = ShaderCompiler::new(SHADER_SOURCE);
+        let shader_compilation_result = shader_compiler.compile_shader_if_needed(device).await?;
+
+        match shader_compilation_result {
+            ShaderCompilationResult::AlreadyUpToDate => {
+                panic!("This shader hasn't been compiled yet, can't be up to date!")
+            }
+            ShaderCompilationResult::Success(shader) => Ok(Self {
+                pipeline: Self::create_pipeline(device, &shader, texture_format),
+                shader_compiler,
+            }),
+        }
+    }
+
+    pub async fn try_recompile_shader(
+        &mut self,
+        device: &Device,
+        texture_format: wgpu::TextureFormat,
+    ) -> anyhow::Result<()> {
+        let result = self
+            .shader_compiler
+            .compile_shader_if_needed(device)
+            .await?;
+
+        match result {
+            ShaderCompilationResult::AlreadyUpToDate => Ok(()),
+            ShaderCompilationResult::Success(shader_module) => {
+                let pipeline = Self::create_pipeline(device, &shader_module, texture_format);
+                self.pipeline = pipeline;
+                Ok(())
+            }
+        }
+    }
+
+    fn create_pipeline(
+        device: &wgpu::Device,
+        shader: &ShaderModule,
+        texture_format: wgpu::TextureFormat,
+    ) -> RenderPipeline {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Skybox pipeline layout"),
             bind_group_layouts: &[
@@ -21,12 +68,7 @@ impl SkyboxRP {
             push_constant_ranges: &[],
         });
 
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Skybox shader"),
-            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("../shaders/skybox.wgsl"))),
-        });
-
-        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Skybox pipeline"),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
@@ -59,9 +101,7 @@ impl SkyboxRP {
             }),
             multisample: wgpu::MultisampleState::default(),
             multiview: None,
-        });
-
-        SkyboxRP { pipeline }
+        })
     }
 
     pub fn render<'a, 'b: 'a>(

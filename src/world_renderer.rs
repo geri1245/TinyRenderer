@@ -1,10 +1,11 @@
 use async_std::task::block_on;
-use pipelines::PipelineRecreationResult;
 use wgpu::{CommandEncoder, Device, Extent3d, SurfaceTexture};
 
 use crate::{
     camera_controller::CameraController,
     equirectangular_to_cubemap_renderer::EquirectangularToCubemapRenderer,
+    forward_renderer::ForwardRenderer,
+    gbuffer_geometry_renderer::GBufferGeometryRenderer,
     light_controller::LightController,
     model::{InstancedRenderableMesh, InstancedTexturedRenderableMesh},
     pipelines::{self, MainRP},
@@ -32,23 +33,23 @@ pub struct WorldRenderer {
     pub skybox: Skybox,
     main_rp: MainRP,
     post_process_manager: PostProcessManager,
-    forward_rp: pipelines::ForwardRP,
-    gbuffer_rp: pipelines::GBufferGeometryRP,
+    forward_renderer: ForwardRenderer,
+    gbuffer_geometry_renderer: GBufferGeometryRenderer,
     equirec_to_cubemap_renderer: EquirectangularToCubemapRenderer,
 }
 
 impl WorldRenderer {
     pub async fn new(renderer: &Renderer, resource_loader: &mut ResourceLoader) -> Self {
         let main_rp = pipelines::MainRP::new(&renderer.device).await.unwrap();
-        let gbuffer_rp = pipelines::GBufferGeometryRP::new(
+        let gbuffer_geometry_renderer = GBufferGeometryRenderer::new(
             &renderer.device,
             renderer.config.width,
             renderer.config.height,
         )
-        .await
-        .unwrap();
+        .await;
+
         let forward_rp =
-            pipelines::ForwardRP::new(&renderer.device, wgpu::TextureFormat::Rgba16Float);
+            ForwardRenderer::new(&renderer.device, wgpu::TextureFormat::Rgba16Float).await;
 
         let post_process_manager = PostProcessManager::new(
             &renderer.device,
@@ -59,11 +60,11 @@ impl WorldRenderer {
 
         let skybox = Skybox::new(
             &renderer.device,
-            &renderer.queue,
             post_process_manager.full_screen_render_target_ping_pong_textures[0]
                 .texture
                 .format(),
-        );
+        )
+        .await;
 
         // TODO: change the format, or use some constant here
         let equirec_to_cubemap_renderer = EquirectangularToCubemapRenderer::new(
@@ -78,8 +79,8 @@ impl WorldRenderer {
         WorldRenderer {
             skybox,
             main_rp,
-            gbuffer_rp,
-            forward_rp,
+            gbuffer_geometry_renderer,
+            forward_renderer: forward_rp,
 
             post_process_manager,
             equirec_to_cubemap_renderer,
@@ -101,10 +102,10 @@ impl WorldRenderer {
             light_controller.render_shadows(encoder, &renderables);
 
             {
-                let mut render_pass = self.gbuffer_rp.begin_render(encoder);
+                let mut render_pass = self.gbuffer_geometry_renderer.begin_render(encoder);
                 for renderable in renderables {
                     if let MeshType::TexturedMesh(mesh) = renderable {
-                        self.gbuffer_rp.render_mesh(
+                        self.gbuffer_geometry_renderer.render(
                             &mut render_pass,
                             mesh,
                             &camera_controller.bind_group,
@@ -123,7 +124,7 @@ impl WorldRenderer {
                     &mut compute_pass,
                     &camera_controller,
                     &light_controller,
-                    &self.gbuffer_rp.bind_group,
+                    &self.gbuffer_geometry_renderer.bind_group,
                     &light_controller.shadow_bind_group,
                     &self.post_process_manager.compute_bind_group_1_to_0,
                     renderer.config.width,
@@ -137,7 +138,7 @@ impl WorldRenderer {
                         .post_process_manager
                         .full_screen_render_target_ping_pong_textures[0]
                         .view,
-                    &self.gbuffer_rp.textures.depth_texture.view,
+                    &self.gbuffer_geometry_renderer.textures.depth_texture.view,
                 );
 
                 self.skybox.render(
@@ -149,7 +150,7 @@ impl WorldRenderer {
                 {
                     for renderable in renderables {
                         if let MeshType::DebugMesh(mesh) = renderable {
-                            self.forward_rp.render_model(
+                            self.forward_renderer.render(
                                 &mut render_pass,
                                 mesh,
                                 &camera_controller.bind_group,
@@ -195,34 +196,23 @@ impl WorldRenderer {
         // it's not a real limitation at this point
         // If later more heavyweight modifications are necessary, then this can be "fixed"
         {
-            let main_result = block_on(self.main_rp.try_recompile_shader(device));
-
-            match main_result {
-                PipelineRecreationResult::AlreadyUpToDate => Ok(()),
-                PipelineRecreationResult::Success(new_pipeline) => {
-                    self.main_rp = new_pipeline;
-                    Ok(())
-                }
-                PipelineRecreationResult::Failed(error) => Err(error),
-            }?;
-        }
-        {
-            let gbuffer_geometry_result = block_on(self.gbuffer_rp.try_recompile_shader(device));
-            match gbuffer_geometry_result {
-                PipelineRecreationResult::AlreadyUpToDate => Ok(()),
-                PipelineRecreationResult::Success(new_pipeline) => {
-                    self.gbuffer_rp = new_pipeline;
-                    Ok(())
-                }
-                PipelineRecreationResult::Failed(error) => Err(error),
-            }?;
+            block_on(self.main_rp.try_recompile_shader(device))?;
+            block_on(self.gbuffer_geometry_renderer.try_recompile_shader(device))?;
+            block_on(
+                self.equirec_to_cubemap_renderer
+                    .try_recompile_shader(device),
+            )?;
+            block_on(self.post_process_manager.try_recompile_shader(device))?;
+            block_on(self.skybox.try_recompile_shader(device))?;
+            block_on(self.forward_renderer.try_recompile_shader(device))?;
         }
 
         Ok(())
     }
 
     pub fn handle_size_changed(&mut self, renderer: &Renderer, width: u32, height: u32) {
-        self.gbuffer_rp.resize(&renderer.device, width, height);
+        self.gbuffer_geometry_renderer
+            .resize(&renderer.device, width, height);
         self.post_process_manager
             .resize(&renderer.device, width, height);
     }

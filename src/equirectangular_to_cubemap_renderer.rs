@@ -26,6 +26,7 @@ pub struct EquirectangularToCubemapRenderer {
     hdr_map_bind_group: wgpu::BindGroup,
     render_params: Vec<RenderParams>,
     pub cube_map_to_sample: Rc<wgpu::BindGroup>,
+    color_format: wgpu::TextureFormat,
 }
 
 impl EquirectangularToCubemapRenderer {
@@ -114,7 +115,14 @@ impl EquirectangularToCubemapRenderer {
             hdr_map_bind_group,
             render_params,
             cube_map_to_sample: Rc::new(sampled_cubemap_bind_group),
+            color_format,
         })
+    }
+
+    pub async fn try_recompile_shader(&mut self, device: &Device) -> anyhow::Result<()> {
+        self.pipeline
+            .try_recompile_shader(device, self.color_format)
+            .await
     }
 
     pub fn render(&self, encoder: &mut CommandEncoder) {

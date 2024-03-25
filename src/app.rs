@@ -203,7 +203,7 @@ impl App {
 
         if errors.is_empty() {
             self.gui
-                .set_shader_compilation_result(&vec!["Sucess!".into()]);
+                .set_shader_compilation_result(&vec!["Success!".into()]);
         } else {
             self.gui.set_shader_compilation_result(&errors);
         }

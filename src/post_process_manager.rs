@@ -15,14 +15,14 @@ pub struct PostProcessManager {
     pub full_screen_render_target_ping_pong_textures: Vec<SampledTexture>,
     pub compute_bind_group_0_to_1: BindGroup,
     pub compute_bind_group_1_to_0: BindGroup,
+
+    texture_variant: PostProcessPipelineTargetTextureVariant,
 }
 
 impl PostProcessManager {
     pub async fn new(device: &Device, width: u32, height: u32) -> Self {
-        let pipeline =
-            PostProcessRP::new(device, PostProcessPipelineTargetTextureVariant::Rgba8Unorm)
-                .await
-                .unwrap();
+        let variant = PostProcessPipelineTargetTextureVariant::Rgba8Unorm;
+        let pipeline = PostProcessRP::new(device, variant).await.unwrap();
         let (textures, bind_group_0_to_1, bind_group_1_to_0) =
             Self::create_pingpong_texture(&device, width, height);
 
@@ -31,7 +31,14 @@ impl PostProcessManager {
             full_screen_render_target_ping_pong_textures: textures,
             compute_bind_group_0_to_1: bind_group_0_to_1,
             compute_bind_group_1_to_0: bind_group_1_to_0,
+            texture_variant: variant,
         }
+    }
+
+    pub async fn try_recompile_shader(&mut self, device: &wgpu::Device) -> anyhow::Result<()> {
+        self.pipeline
+            .try_recompile_shader(device, self.texture_variant)
+            .await
     }
 
     pub fn resize(&mut self, device: &wgpu::Device, width: u32, height: u32) {

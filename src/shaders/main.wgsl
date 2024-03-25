@@ -217,8 +217,8 @@ fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
     let hdrColor = ambient + irradiance;
 
     // Tone mapping
-    var color = hdrColor / (hdrColor + vec3(1.0)); // Reinhard
-    // var color = vec3(1.0) - exp(-hdrColor * 0.5); // Exposure-based
+    // var color = hdrColor / (hdrColor + vec3(1.0)); // Reinhard
+    var color = vec3(1.0) - exp(-hdrColor * 0.5); // Exposure-based
 
     // Gamma correction
     color = pow(color, vec3(1.0 / 2.2));

@@ -42,6 +42,7 @@ pub const LIGHT_WITH_DYNAMIC_OFFSET: wgpu::BindGroupLayoutDescriptor =
         }],
     };
 
+// TODO: compress the metalness/roughness/ao into a single multichannel texture
 pub const PBR_TEXTURE: wgpu::BindGroupLayoutDescriptor = wgpu::BindGroupLayoutDescriptor {
     label: Some("Physically based textures bind group layout descriptor"),
     entries: &[

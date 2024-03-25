@@ -1,9 +1,15 @@
 use glam::{Mat4, Vec4};
 use std::time;
-use wgpu::{util::DeviceExt, Device};
+use wgpu::Device;
 use winit::event::DeviceEvent;
 
-use crate::{bind_group_layout_descriptors, camera::Camera};
+use crate::{
+    bind_group_layout_descriptors,
+    buffer::{
+        create_bind_group_from_buffer_entire_binding_init, BufferInitBindGroupCreationOptions,
+    },
+    camera::Camera,
+};
 
 /// Contains the rendering-related concepts of the camera
 pub struct CameraController {
@@ -17,22 +23,16 @@ impl CameraController {
     pub fn new(device: &Device, aspect_ratio: f32) -> CameraController {
         let camera = Camera::new(aspect_ratio);
 
-        let binding_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Camera Buffer"),
-            contents: bytemuck::cast_slice(&[Self::get_raw(&camera)]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &device.create_bind_group_layout(
-                &bind_group_layout_descriptors::BUFFER_VISIBLE_EVERYWHERE,
-            ),
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: binding_buffer.as_entire_binding(),
-            }],
-            label: Some("camera_bind_group"),
-        });
+        let (binding_buffer, bind_group) = create_bind_group_from_buffer_entire_binding_init(
+            device,
+            &BufferInitBindGroupCreationOptions {
+                bind_group_layout_descriptor:
+                    &bind_group_layout_descriptors::BUFFER_VISIBLE_EVERYWHERE,
+                usages: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                label: "Camera".into(),
+            },
+            bytemuck::cast_slice(&[Self::get_raw(&camera)]),
+        );
 
         Self {
             camera,

@@ -6,16 +6,6 @@ struct VertexInput {
     @location(4) bitangent: vec3<f32>,
 };
 
-struct InstanceInput {
-    @location(5) model_matrix_0: vec4<f32>,
-    @location(6) model_matrix_1: vec4<f32>,
-    @location(7) model_matrix_2: vec4<f32>,
-    @location(8) model_matrix_3: vec4<f32>,
-    @location(9) normal_matrix_0: vec3<f32>,
-    @location(10) normal_matrix_1: vec3<f32>,
-    @location(11) normal_matrix_2: vec3<f32>,
-};
-
 @group(0) @binding(0)
 var<uniform> viewproj: mat4x4<f32>;
 
@@ -26,26 +16,20 @@ struct VertexOutput {
 
 @vertex
 fn vs_main(
-    model: VertexInput,
-    instance: InstanceInput,
+    vertex_in: VertexInput,
 ) -> VertexOutput {
-    let world_matrix = mat4x4<f32>(
-        instance.model_matrix_0,
-        instance.model_matrix_1,
-        instance.model_matrix_2,
-        instance.model_matrix_3,
-    );
-    let vertex_position = vec4<f32>(model.position, 1.0);
-    var final_position = viewproj * world_matrix * vertex_position;
+    let vertex_position = vec4<f32>(vertex_in.position, 1.0);
+    var final_position = viewproj * vertex_position;
     // WGPU expects the cubemap textures to be correct when we look at the cube from the outside
     // When we are inside the cube (eg. creating the environment map), the textures are flipped on the
     // horizontal axis. This is the reason why we are flipping the texture on the x axis here.
     // This way sampling the result cubemap in the lighting shader can be done without any extra effort
     final_position.x *= -1.0;
+    // final_position.y *= -1.0;
 
     var output: VertexOutput;
     output.clip_position = final_position;
-    output.local_position = model.position;
+    output.local_position = vertex_in.position;
 
     return output;
 }
@@ -63,6 +47,7 @@ fn sample_spherical_map(v: vec3<f32>) -> vec2<f32> {
     var uv = vec2(atan2(v.z, v.x), asin(v.y));
     uv *= invAtan;
     uv += 0.5;
+    uv.y = 1.0 - uv.y;
     return uv;
 }
 

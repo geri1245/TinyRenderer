@@ -1,5 +1,6 @@
 mod app;
 mod bind_group_layout_descriptors;
+mod buffer;
 mod buffer_capture;
 mod buffer_content;
 mod camera;

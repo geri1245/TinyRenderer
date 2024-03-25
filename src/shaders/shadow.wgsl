@@ -41,6 +41,8 @@ fn vs_main(
     // When we are inside the cube (eg. baking the shadows for point lights), the textures are flipped on the
     // horizontal axis. This is the reason why we are flipping the baked shadow texture on the x axis here.
     // This way sampling the shadow cubemap in the lighting shader can be done without any extra effort
+    // IMPORTANT: The face culling is set to Back faces on the pipeline, but because of this negative multiplier
+    // this will actually be front face culling (face direction changes because of the negative scaling)
     final_position.x *= -1.0;
 
     return final_position;

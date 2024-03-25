@@ -213,11 +213,14 @@ fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
         }
     }
 
-    let ambient = vec3(0.02) * albedo;
+    let ambient = vec3(0.002) * albedo;
     let hdrColor = ambient + irradiance;
 
-    // color = color / (color + vec3(1.0));
-    var color = vec3(1.0) - exp(-hdrColor * 0.5);
+    // Tone mapping
+    var color = hdrColor / (hdrColor + vec3(1.0)); // Reinhard
+    // var color = vec3(1.0) - exp(-hdrColor * 0.5); // Exposure-based
+
+    // Gamma correction
     color = pow(color, vec3(1.0 / 2.2));
 
     let pixel_coords = vec2(i32(id.x), i32(id.y));

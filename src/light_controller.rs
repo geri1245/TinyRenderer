@@ -6,6 +6,7 @@ use wgpu::{
 
 use crate::{
     bind_group_layout_descriptors,
+    buffer::{create_bind_group_from_buffer_entire_binding, BufferBindGroupCreationOptions},
     instance::SceneComponentRaw,
     lights::{DirectionalLight, LightRaw, LightRawSmall, PointLight},
     model::InstancedTexturedRenderableMesh,
@@ -16,7 +17,7 @@ use crate::{
 };
 
 // TODO: Wherever this is used, dinamically calculate the number of lights
-const NUM_OF_LIGHTS: u32 = 2u32;
+const NUM_OF_LIGHTS: u64 = 2;
 
 const SHADOW_SIZE: wgpu::Extent3d = wgpu::Extent3d {
     width: 2048,
@@ -56,24 +57,6 @@ impl LightController {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-
-        let light_raw_size = core::mem::size_of::<LightRaw>() as wgpu::BufferAddress;
-        let light_uniform_buffer = device.create_buffer(&BufferDescriptor {
-            label: Some("Light uniform buffer"),
-            size: light_raw_size * NUM_OF_LIGHTS as u64,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-
-        let light_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &device.create_bind_group_layout(&bind_group_layout_descriptors::LIGHT),
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: light_uniform_buffer.as_entire_binding(),
-            }],
-            label: Some("Light bind group"),
-        });
-
         let light_bind_group_viewproj_only = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &device.create_bind_group_layout(
                 &bind_group_layout_descriptors::LIGHT_WITH_DYNAMIC_OFFSET,
@@ -88,6 +71,17 @@ impl LightController {
             }],
             label: Some("Light projection matrix only bind group"),
         });
+
+        let (light_uniform_buffer, light_bind_group) =
+            create_bind_group_from_buffer_entire_binding::<LightRaw>(
+                device,
+                &BufferBindGroupCreationOptions {
+                    bind_group_layout_descriptor: &bind_group_layout_descriptors::LIGHT,
+                    num_of_items: NUM_OF_LIGHTS,
+                    usages: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                    label: "Light".into(),
+                },
+            );
 
         let shadow_rp = crate::pipelines::ShadowRP::new(&device).await.unwrap();
 
@@ -110,7 +104,7 @@ impl LightController {
             directional_shadow_texture
                 .texture
                 .create_view(&wgpu::TextureViewDescriptor {
-                    array_layer_count: Some(NUM_OF_LIGHTS),
+                    array_layer_count: Some(NUM_OF_LIGHTS as u32),
                     dimension: Some(TextureViewDimension::D2Array),
                     ..Default::default()
                 });
@@ -232,8 +226,8 @@ impl LightController {
 
         let point_light = PointLight::new(
             point_light_shadow_target_view,
-            Vec3::new(200.0, 200.0, 50.0),
-            Vec3::new(5.0, 10.0, 10.0),
+            Vec3::new(10.0, 20.0, 0.0),
+            Vec3::new(2.0, 5.0, 4.0),
         );
 
         (point_light, point_light_texture)

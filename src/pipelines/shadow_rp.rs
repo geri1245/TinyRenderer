@@ -68,6 +68,8 @@ impl ShadowRP {
                 primitive: wgpu::PrimitiveState {
                     topology: wgpu::PrimitiveTopology::TriangleList,
                     front_face: wgpu::FrontFace::Ccw,
+                    // IMPORTANT: The face culling is set to Back faces here, but because there is a negative multiplier
+                    // in the shader, this will actually mean front face culling (so we are actually drawing back faces here)
                     cull_mode: Some(wgpu::Face::Back),
                     unclipped_depth: device
                         .features()

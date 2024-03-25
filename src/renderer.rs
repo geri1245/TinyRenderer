@@ -47,8 +47,9 @@ impl Renderer {
             .unwrap();
 
         let supported_features = adapter.features();
-        let required_features =
-            wgpu::Features::DEPTH_CLIP_CONTROL | wgpu::Features::TEXTURE_FORMAT_16BIT_NORM;
+        let required_features = wgpu::Features::DEPTH_CLIP_CONTROL
+            | wgpu::Features::TEXTURE_FORMAT_16BIT_NORM
+            | wgpu::Features::FLOAT32_FILTERABLE;
         if !supported_features.contains(required_features) {
             panic!("Not all required features are supported. \nRequired features: {:?}\nSupported features: {:?}", required_features, supported_features);
         }
@@ -141,7 +142,7 @@ impl Renderer {
             Renderer::create_depth_texture(&self.device, self.config.width, self.config.height);
     }
 
-    pub fn begin_frame<'a>(&'a self) -> CommandEncoder {
+    pub fn get_encoder(&self) -> CommandEncoder {
         self.device
             .create_command_encoder(&CommandEncoderDescriptor {
                 label: Some("Render Encoder"),

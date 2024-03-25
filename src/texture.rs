@@ -66,7 +66,28 @@ impl SampledTexture {
             depth_or_array_layers: 1,
         };
 
-        Self::from_image(device, queue, &rgba, size, usage, label)
+        match usage {
+            TextureUsage::Metalness | TextureUsage::Roughness => {
+                let data = rgba
+                    .into_vec()
+                    .chunks_exact(4)
+                    .map(|a| a[0] as f32 / 255.0)
+                    .collect::<Vec<_>>();
+                Self::from_image(
+                    device,
+                    queue,
+                    bytemuck::cast_slice(&data),
+                    size,
+                    usage,
+                    label,
+                )
+            }
+            TextureUsage::HdrAlbedo => panic!("Hdr not supported in this function"),
+            TextureUsage::Albedo | TextureUsage::Normal => {
+                let data = &rgba.into_vec();
+                Self::from_image(device, queue, data, size, usage, label)
+            }
+        }
     }
 
     pub fn from_hdr_image(
@@ -111,16 +132,16 @@ impl SampledTexture {
         label: Option<&str>,
     ) -> Result<Self> {
         let format = match usage {
-            TextureUsage::Albedo => wgpu::TextureFormat::Rgba8UnormSrgb,
+            TextureUsage::Albedo => wgpu::TextureFormat::Rgba8Unorm,
             TextureUsage::Normal => wgpu::TextureFormat::Rgba8Unorm,
-            TextureUsage::Metalness => wgpu::TextureFormat::R16Float,
-            TextureUsage::Roughness => wgpu::TextureFormat::R16Float,
+            TextureUsage::Metalness => wgpu::TextureFormat::R32Float,
+            TextureUsage::Roughness => wgpu::TextureFormat::R32Float,
             TextureUsage::HdrAlbedo => wgpu::TextureFormat::Rgba32Float,
         };
 
         let bytes_per_pixel = match format {
             wgpu::TextureFormat::Rgba32Float => 4 * 4,
-            wgpu::TextureFormat::R16Float => 2,
+            wgpu::TextureFormat::R32Float => 4,
             _ => 4,
         };
 
@@ -147,6 +168,7 @@ impl SampledTexture {
         );
 
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,

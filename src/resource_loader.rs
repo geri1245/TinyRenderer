@@ -159,26 +159,11 @@ impl ResourceLoader {
 
         for (data, name, usage) in TEXTURES {
             let texture = Rc::new(
-                texture::SampledTexture::from_image_bytes(
-                    device,
-                    queue,
-                    data,
-                    texture::TextureUsage::Normal,
-                    Some(name),
-                )
-                .unwrap(),
+                texture::SampledTexture::from_image_bytes(device, queue, data, usage, Some(name))
+                    .unwrap(),
             );
             default_material_textures.insert(usage, texture);
         }
-
-        let texture = SampledTexture::from_hdr_image(
-            device,
-            queue,
-            "assets/skybox/hdr/golf_course.hdr",
-            Some("hdr skybox"),
-        )
-        .unwrap();
-        default_material_textures.insert(TextureUsage::Albedo, Rc::new(texture));
 
         (
             Rc::new(Material::new(device, &default_material_textures)),

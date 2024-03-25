@@ -68,6 +68,7 @@ impl WorldRenderer {
         // TODO: change the format, or use some constant here
         let equirec_to_cubemap_renderer = EquirectangularToCubemapRenderer::new(
             &renderer.device,
+            &renderer.queue,
             wgpu::TextureFormat::Rgba16Float,
             resource_loader.get_primitive_shape(PrimitiveShape::Cube),
         )
@@ -95,6 +96,8 @@ impl WorldRenderer {
         camera_controller: &CameraController,
     ) -> Result<(), wgpu::SurfaceError> {
         {
+            self.equirec_to_cubemap_renderer.render(encoder);
+
             light_controller.render_shadows(encoder, &renderables);
 
             {
@@ -137,7 +140,11 @@ impl WorldRenderer {
                     &self.gbuffer_rp.textures.depth_texture.view,
                 );
 
-                self.skybox.render(&mut render_pass, &camera_controller);
+                self.skybox.render(
+                    &mut render_pass,
+                    &camera_controller,
+                    &self.equirec_to_cubemap_renderer.cube_map_to_sample,
+                );
 
                 {
                     for renderable in renderables {

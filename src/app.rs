@@ -2,7 +2,6 @@ use crate::camera_controller::CameraController;
 use crate::gui::{Gui, GuiEvent};
 use crate::light_controller::LightController;
 use crate::resource_loader::ResourceLoader;
-use crate::texture::SampledTexture;
 use crate::world::World;
 use crate::world_renderer::WorldRenderer;
 use crate::{frame_timer::BasicTimer, renderer::Renderer};
@@ -144,7 +143,7 @@ impl App {
         let delta = self.frame_timer.get_delta_and_reset_timer();
         self.update(delta);
 
-        let mut encoder = self.renderer.begin_frame();
+        let mut encoder = self.renderer.get_encoder();
         let current_frame_texture = self.renderer.get_current_frame_texture()?;
         let current_frame_texture_view = current_frame_texture
             .texture

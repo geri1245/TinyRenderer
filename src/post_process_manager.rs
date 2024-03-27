@@ -1,28 +1,33 @@
 use wgpu::{BindGroup, BindGroupDescriptor, ComputePass, Device, TextureFormat};
 
 use crate::{
-    bind_group_layout_descriptors::{COMPUTE_FINAL_STAGE, COMPUTE_PING_PONG},
-    pipelines::{PostProcessPipelineTargetTextureVariant, PostProcessRP},
+    bind_group_layout_descriptors::{self, COMPUTE_FINAL_STAGE, COMPUTE_PING_PONG},
+    pipelines::SimpleCP,
     texture::{SampledTexture, SampledTextureDescriptor},
 };
+
+const POST_PROCESS_SHADER_SOURCE: &'static str = "src/shaders/post_process.wgsl";
 
 const POSTPROCESS_TEXTURE_FORMAT: TextureFormat = TextureFormat::Rgba16Float;
 const WORKGROUP_SIZE_PER_DIMENSION: u32 = 8;
 
 pub struct PostProcessManager {
-    pub pipeline: PostProcessRP,
+    pipeline: SimpleCP,
 
     pub full_screen_render_target_ping_pong_textures: Vec<SampledTexture>,
     pub compute_bind_group_0_to_1: BindGroup,
     pub compute_bind_group_1_to_0: BindGroup,
-
-    texture_variant: PostProcessPipelineTargetTextureVariant,
 }
 
 impl PostProcessManager {
     pub async fn new(device: &Device, width: u32, height: u32) -> Self {
-        let variant = PostProcessPipelineTargetTextureVariant::Rgba8Unorm;
-        let pipeline = PostProcessRP::new(device, variant).await.unwrap();
+        let pipeline = SimpleCP::new(
+            device,
+            &bind_group_layout_descriptors::COMPUTE_FINAL_STAGE,
+            POST_PROCESS_SHADER_SOURCE,
+        )
+        .await
+        .unwrap();
         let (textures, bind_group_0_to_1, bind_group_1_to_0) =
             Self::create_pingpong_texture(&device, width, height);
 
@@ -31,13 +36,12 @@ impl PostProcessManager {
             full_screen_render_target_ping_pong_textures: textures,
             compute_bind_group_0_to_1: bind_group_0_to_1,
             compute_bind_group_1_to_0: bind_group_1_to_0,
-            texture_variant: variant,
         }
     }
 
     pub async fn try_recompile_shader(&mut self, device: &wgpu::Device) -> anyhow::Result<()> {
         self.pipeline
-            .try_recompile_shader(device, self.texture_variant)
+            .try_recompile_shader(device, &bind_group_layout_descriptors::COMPUTE_FINAL_STAGE)
             .await
     }
 

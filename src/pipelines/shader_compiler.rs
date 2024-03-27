@@ -27,7 +27,7 @@ impl ShaderCompiler {
     ) -> anyhow::Result<ShaderCompilationResult> {
         let last_write_time = match fs::metadata(&self.shader_source).await {
             Ok(metadata) => metadata.last_write_time(),
-            // If we can't get the last write time, not a big deal, the compilation is what matters
+            // If we can't get the last write time, let's just recompile the shader
             Err(_) => 0u64,
         };
 

@@ -6,6 +6,7 @@ mod buffer_content;
 mod camera;
 mod camera_controller;
 mod color;
+mod diffuse_irradiance_renderer;
 mod equirec_to_cubemap_renderer;
 mod equirectangular_to_cubemap_renderer;
 mod file_loader;

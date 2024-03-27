@@ -1,0 +1,1 @@
+// Precomputes the diffuse irradiance map for a given cubemap and stores it in another cubemap

@@ -3,10 +3,7 @@ use wgpu::{
     RenderPassDepthStencilAttachment, SurfaceTexture, TextureFormat,
 };
 
-use crate::{
-    buffer_capture::OutputBuffer,
-    texture::{self, SampledTexture},
-};
+use crate::texture::{self, SampledTexture};
 
 pub const MAX_LIGHTS: usize = 10;
 
@@ -16,7 +13,6 @@ pub struct Renderer {
     pub config: wgpu::SurfaceConfiguration,
     pub size: winit::dpi::PhysicalSize<u32>,
     pub surface_texture_format: TextureFormat,
-    output_buffer: OutputBuffer,
 
     surface: wgpu::Surface<'static>,
 
@@ -107,8 +103,6 @@ impl Renderer {
 
         let depth_texture = Renderer::create_depth_texture(&device, config.width, config.height);
 
-        let output_buffer = OutputBuffer::new(&device, config.width, config.height);
-
         Renderer {
             surface,
             device,
@@ -117,7 +111,6 @@ impl Renderer {
             size,
             depth_texture,
             surface_texture_format,
-            output_buffer,
         }
     }
 

@@ -6,8 +6,8 @@ mod buffer_content;
 mod camera;
 mod camera_controller;
 mod color;
+mod cubemap_helpers;
 mod diffuse_irradiance_renderer;
-mod equirec_to_cubemap_renderer;
 mod equirectangular_to_cubemap_renderer;
 mod file_loader;
 mod forward_renderer;
@@ -33,21 +33,5 @@ mod world;
 mod world_renderer;
 
 fn main() {
-    let args = std::env::args().collect::<Vec<_>>();
-    const EQUIREC_TO_CUBE_COMMAND_LINE_ARG_NAME: &str = "--equirec_to_cube";
-
-    if let Some(arg_pos) = args
-        .iter()
-        .position(|item| item == EQUIREC_TO_CUBE_COMMAND_LINE_ARG_NAME)
-    {
-        if args.len() < arg_pos + 1 {
-            panic!("Please specify the name of the equirectangular map to convert!");
-        }
-
-        async_std::task::block_on(equirec_to_cubemap_renderer::render_equirec_to_cubemap(
-            &args[arg_pos + 1],
-        ));
-    }
-
     async_std::task::block_on(mainloop::run_main_loop());
 }

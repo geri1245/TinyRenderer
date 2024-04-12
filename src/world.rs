@@ -86,16 +86,16 @@ impl World {
             //         },
             // },
             // -X
-            SceneComponent {
-                position: Vec3::new(40.0, 0.0, 0.0),
-                rotation: Quat::from_axis_angle(Vec3::Z, FRAC_PI_2),
-                scale: 100.0_f32
-                    * Vec3 {
-                        x: 1.0_f32,
-                        y: 1.0,
-                        z: 1.0,
-                    },
-            },
+            // SceneComponent {
+            //     position: Vec3::new(40.0, 0.0, 0.0),
+            //     rotation: Quat::from_axis_angle(Vec3::Z, FRAC_PI_2),
+            //     scale: 100.0_f32
+            //         * Vec3 {
+            //             x: 1.0_f32,
+            //             y: 1.0,
+            //             z: 1.0,
+            //         },
+            // },
             // -Z
             SceneComponent {
                 position: Vec3::new(0.0, 0.0, -40.0),
@@ -107,17 +107,17 @@ impl World {
                         z: 1.0,
                     },
             },
-            // Z
-            SceneComponent {
-                position: Vec3::new(0.0, 0.0, 40.0),
-                rotation: Quat::from_axis_angle(Vec3::X, -FRAC_PI_2),
-                scale: 100.0_f32
-                    * Vec3 {
-                        x: 1.0_f32,
-                        y: 1.0,
-                        z: 1.0,
-                    },
-            },
+            // // Z
+            // SceneComponent {
+            //     position: Vec3::new(0.0, 0.0, 40.0),
+            //     rotation: Quat::from_axis_angle(Vec3::X, -FRAC_PI_2),
+            //     scale: 100.0_f32
+            //         * Vec3 {
+            //             x: 1.0_f32,
+            //             y: 1.0,
+            //             z: 1.0,
+            //         },
+            // },
         ];
 
         let (cube_model, material_loading_id) = resource_loader

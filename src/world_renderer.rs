@@ -1,8 +1,9 @@
 use async_std::task::block_on;
-use wgpu::{CommandEncoder, Device, Extent3d, SurfaceTexture};
+use wgpu::{CommandEncoder, Device, Extent3d, SubmissionIndex, SurfaceTexture};
 
 use crate::{
     camera_controller::CameraController,
+    diffuse_irradiance_renderer::DiffuseIrradianceRenderer,
     equirectangular_to_cubemap_renderer::EquirectangularToCubemapRenderer,
     forward_renderer::ForwardRenderer,
     gbuffer_geometry_renderer::GBufferGeometryRenderer,
@@ -36,6 +37,8 @@ pub struct WorldRenderer {
     forward_renderer: ForwardRenderer,
     gbuffer_geometry_renderer: GBufferGeometryRenderer,
     equirec_to_cubemap_renderer: EquirectangularToCubemapRenderer,
+    diffuse_irradiance_renderer: DiffuseIrradianceRenderer,
+    first_render: bool,
 }
 
 impl WorldRenderer {
@@ -76,6 +79,16 @@ impl WorldRenderer {
         .await
         .unwrap();
 
+        // TODO: change the format, or use some constant here
+        let diffuse_irradiance_renderer = DiffuseIrradianceRenderer::new(
+            &renderer.device,
+            &renderer.queue,
+            wgpu::TextureFormat::Rgba16Float,
+            resource_loader.get_primitive_shape(PrimitiveShape::Cube),
+        )
+        .await
+        .unwrap();
+
         WorldRenderer {
             skybox,
             main_rp,
@@ -84,7 +97,22 @@ impl WorldRenderer {
 
             post_process_manager,
             equirec_to_cubemap_renderer,
+            diffuse_irradiance_renderer,
+            first_render: true,
         }
+    }
+
+    pub fn one_shot_render_save_to_file(&self, submission_index: SubmissionIndex, device: &Device) {
+        self.diffuse_irradiance_renderer
+            .write_current_ibl_to_file(device, submission_index)
+    }
+
+    pub fn one_shot_render(&self, encoder: &mut CommandEncoder) {
+        self.equirec_to_cubemap_renderer.render(encoder);
+        // self.diffuse_irradiance_renderer.render(
+        //     encoder,
+        //     &self.equirec_to_cubemap_renderer.cube_map_to_sample,
+        // );
     }
 
     pub fn render(
@@ -97,8 +125,6 @@ impl WorldRenderer {
         camera_controller: &CameraController,
     ) -> Result<(), wgpu::SurfaceError> {
         {
-            self.equirec_to_cubemap_renderer.render(encoder);
-
             light_controller.render_shadows(encoder, &renderables);
 
             {
@@ -144,7 +170,7 @@ impl WorldRenderer {
                 self.skybox.render(
                     &mut render_pass,
                     &camera_controller,
-                    &self.equirec_to_cubemap_renderer.cube_map_to_sample,
+                    &self.diffuse_irradiance_renderer.diffuse_irradiance_cubemap,
                 );
 
                 {
@@ -205,7 +231,14 @@ impl WorldRenderer {
             block_on(self.post_process_manager.try_recompile_shader(device))?;
             block_on(self.skybox.try_recompile_shader(device))?;
             block_on(self.forward_renderer.try_recompile_shader(device))?;
+            block_on(
+                self.diffuse_irradiance_renderer
+                    .try_recompile_shader(device),
+            )?;
         }
+
+        // Force the single-shot renderers to render again
+        self.first_render = true;
 
         Ok(())
     }

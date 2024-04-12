@@ -111,8 +111,8 @@ impl SkyboxRP {
         skybox_texture_bind_group: &'a wgpu::BindGroup,
     ) {
         render_pass.set_pipeline(&self.pipeline);
-        render_pass.set_bind_group(1, &camera_controller.bind_group, &[]);
         render_pass.set_bind_group(0, skybox_texture_bind_group, &[]);
+        render_pass.set_bind_group(1, &camera_controller.bind_group, &[]);
         render_pass.draw(0..3, 0..1);
     }
 }

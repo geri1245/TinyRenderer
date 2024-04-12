@@ -8,7 +8,7 @@ use crate::{frame_timer::BasicTimer, renderer::Renderer};
 use crossbeam_channel::{unbounded, Receiver};
 use std::time::Duration;
 use wgpu::TextureViewDescriptor;
-use winit::event::{DeviceEvent, ElementState, MouseButton, WindowEvent};
+use winit::event::{DeviceEvent, ElementState, KeyEvent, MouseButton, WindowEvent};
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::Window;
 
@@ -29,6 +29,8 @@ pub struct App {
     world: World,
     should_draw_gui: bool,
     gui_event_receiver: Receiver<GuiEvent>,
+
+    first_render: bool,
 }
 
 impl App {
@@ -62,6 +64,7 @@ impl App {
             camera_controller,
             light_controller,
             resource_loader,
+            first_render: true,
         }
     }
 
@@ -112,13 +115,7 @@ impl App {
         match event {
             WindowEvent::CloseRequested => return WindowEventHandlingResult::RequestExit,
 
-            WindowEvent::KeyboardInput { event, .. } => {
-                if event.state == ElementState::Pressed
-                    && event.physical_key == PhysicalKey::Code(KeyCode::KeyF)
-                {
-                    self.toggle_should_draw_gui();
-                }
-            }
+            WindowEvent::KeyboardInput { event, .. } => self.handle_keyboard_event(event),
 
             WindowEvent::Resized(new_size) => {
                 self.resize(new_size);
@@ -136,12 +133,31 @@ impl App {
         WindowEventHandlingResult::Handled
     }
 
-    pub fn request_redraw(
-        &mut self,
-        window: &winit::window::Window,
-    ) -> Result<(), wgpu::SurfaceError> {
+    fn handle_keyboard_event(&mut self, key_event: KeyEvent) {
+        if key_event.state == ElementState::Pressed {
+            if let PhysicalKey::Code(key) = key_event.physical_key {
+                match key {
+                    KeyCode::KeyF => self.toggle_should_draw_gui(),
+                    KeyCode::KeyI => self.first_render = true,
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    pub fn render(&mut self, window: &winit::window::Window) -> Result<(), wgpu::SurfaceError> {
         let delta = self.frame_timer.get_delta_and_reset_timer();
         self.update(delta);
+
+        let mut encoder = self.renderer.get_encoder();
+        if self.first_render {
+            self.world_renderer.one_shot_render(&mut encoder);
+            let submission_index = self.renderer.queue.submit(Some(encoder.finish()));
+            self.world_renderer
+                .one_shot_render_save_to_file(submission_index, &self.renderer.device);
+
+            self.first_render = false;
+        }
 
         let mut encoder = self.renderer.get_encoder();
         let current_frame_texture = self.renderer.get_current_frame_texture()?;
@@ -207,6 +223,8 @@ impl App {
         } else {
             self.gui.set_shader_compilation_result(&errors);
         }
+
+        self.first_render = true;
     }
 
     pub fn update(&mut self, delta: Duration) {

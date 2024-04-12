@@ -34,9 +34,7 @@ impl Skybox {
         camera_controller: &'b CameraController,
         cubemap_bind_group: &'b wgpu::BindGroup,
     ) {
-        render_pass.push_debug_group("Skybox rendering");
         self.skybox_rp
             .render(render_pass, camera_controller, &cubemap_bind_group);
-        render_pass.pop_debug_group();
     }
 }

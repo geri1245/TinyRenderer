@@ -103,8 +103,8 @@ impl WorldRenderer {
     }
 
     pub fn one_shot_render_save_to_file(&self, submission_index: SubmissionIndex, device: &Device) {
-        self.diffuse_irradiance_renderer
-            .write_current_ibl_to_file(device, submission_index)
+        // self.diffuse_irradiance_renderer
+        //     .write_current_ibl_to_file(device, submission_index)
     }
 
     pub fn one_shot_render(&self, encoder: &mut CommandEncoder) {

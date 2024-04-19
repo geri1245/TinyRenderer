@@ -8,6 +8,12 @@ pub enum ShaderCompilationResult {
     Success(ShaderModule),
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum ShaderCompilationSuccess {
+    AlreadyUpToDate,
+    Recompiled,
+}
+
 pub struct ShaderCompiler {
     last_compile_time: u64,
     shader_source: &'static str,

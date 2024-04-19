@@ -5,7 +5,10 @@ use crate::{
     light_controller::LightController,
 };
 
-use super::shader_compiler::{ShaderCompilationResult, ShaderCompiler};
+use super::{
+    shader_compiler::{ShaderCompilationResult, ShaderCompiler},
+    ShaderCompilationSuccess,
+};
 
 const SHADER_SOURCE: &'static str = "src/shaders/main.wgsl";
 
@@ -46,6 +49,9 @@ impl MainRP {
                     &device.create_bind_group_layout(
                         &bind_group_layout_descriptors::COMPUTE_PING_PONG,
                     ),
+                    &device.create_bind_group_layout(
+                        &bind_group_layout_descriptors::TEXTURE_CUBE_FRAGMENT_COMPUTE_WITH_SAMPLER,
+                    ),
                 ],
                 push_constant_ranges: &[],
             });
@@ -58,18 +64,23 @@ impl MainRP {
         })
     }
 
-    pub async fn try_recompile_shader(&mut self, device: &Device) -> anyhow::Result<()> {
+    pub async fn try_recompile_shader(
+        &mut self,
+        device: &Device,
+    ) -> anyhow::Result<ShaderCompilationSuccess> {
         let result = self
             .shader_compiler
             .compile_shader_if_needed(device)
             .await?;
 
         match result {
-            ShaderCompilationResult::AlreadyUpToDate => Ok(()),
+            ShaderCompilationResult::AlreadyUpToDate => {
+                Ok(ShaderCompilationSuccess::AlreadyUpToDate)
+            }
             ShaderCompilationResult::Success(shader_module) => {
                 let pipeline = Self::create_pipeline(device, &shader_module);
                 self.compute_pipeline = pipeline;
-                Ok(())
+                Ok(ShaderCompilationSuccess::Recompiled)
             }
         }
     }
@@ -81,6 +92,7 @@ impl MainRP {
         light_controller: &'a LightController,
         gbuffer_bind_group: &'a wgpu::BindGroup,
         shadow_bind_group: &'a wgpu::BindGroup,
+        diffuse_irradiance_map_bind_group: &'a wgpu::BindGroup,
         copmute_pass_textures_bind_group: &'a wgpu::BindGroup,
         width: u32,
         height: u32,
@@ -92,6 +104,7 @@ impl MainRP {
         render_pass.set_bind_group(2, gbuffer_bind_group, &[]);
         render_pass.set_bind_group(3, shadow_bind_group, &[]);
         render_pass.set_bind_group(4, copmute_pass_textures_bind_group, &[]);
+        render_pass.set_bind_group(5, diffuse_irradiance_map_bind_group, &[]);
 
         render_pass.dispatch_workgroups(width, height, 1);
     }

@@ -56,6 +56,11 @@ var screen_texture: texture_2d<f32>;
 @group(4) @binding(2)
 var screen_texture_samp: sampler;
 
+@group(5) @binding(0)
+var diffuse_irradiance_map: texture_cube<f32>;
+@group(5) @binding(1)
+var diffuse_irradiance_sampler: sampler;
+
 fn is_valid_tex_coord(tex_coord: vec2<f32>) -> bool {
     return tex_coord.x >= 0.0 && tex_coord.x <= 1.0 && tex_coord.y >= 0.0 && tex_coord.y <= 1.0;
 }
@@ -107,9 +112,13 @@ const c_light_attenuation_quadratic: f32 = 0.0005;
 const F0_NON_METALLIC: vec3<f32> = vec3(0.04);
 const PI: f32 = 3.14159265359;
 
-fn fresnel_schlick(cosTheta: f32, v: vec3<f32>) -> vec3<f32> {
-    return v + (vec3(1.0) - v) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+fn fresnel_schlick(cosTheta: f32, F0: vec3<f32>) -> vec3<f32> {
+    return F0 + (vec3(1.0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }
+
+fn fresnel_schlick_roughness(cosTheta: f32, F0: vec3<f32>, roughness: f32) -> vec3<f32> {
+    return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+} 
 
 fn distribution_ggx(normal: vec3<f32>, half_dir: vec3<f32>, roughness: f32) -> f32 {
     let rough_squared = roughness * roughness;
@@ -167,6 +176,17 @@ fn calculate_light_contribution(
     return light_contribution;
 }
 
+fn get_diffuse_irradiance(normal: vec3<f32>, view: vec3<f32>, roughness: f32, albedo: vec3<f32>, metalness: f32) -> vec3<f32> {
+    let F0 = mix(F0_NON_METALLIC, albedo, metalness);
+    let specular_reflection_portion = fresnel_schlick_roughness(max(dot(normal, view), 0.0), F0, roughness);
+    let diffuse_reflection_portion = 1.0 - specular_reflection_portion;
+
+    let all_irradiance = textureSampleLevel(diffuse_irradiance_map, diffuse_irradiance_sampler, normal, 0.0).rgb;
+    let diffuse_irradiance = diffuse_reflection_portion * all_irradiance;
+
+    return diffuse_irradiance * albedo;
+}
+
 @compute
 @workgroup_size(1)
 fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
@@ -184,15 +204,16 @@ fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
     let rough_metal_ao = textureSampleLevel(t_rough_metal_ao, s_rough_metal_ao, uv, 0.0);
     let roughness = rough_metal_ao.x;
     let metalness = rough_metal_ao.y;
-    let ao = rough_metal_ao.z;
+    let ambient_occlusion = rough_metal_ao.z;
+    let pixel_to_camera = normalize(camera.position.xyz - position.xyz);
 
     var irradiance = vec3<f32>(0, 0, 0);
 
     for (var i = 0u; i < 2; i += 1u) {
         let light = lights[i];
-        let pixel_to_camera = normalize(camera.position.xyz - position.xyz);
 
         if light.light_type == 1 {
+            // Point lights
             let shadow = get_shadow_value(i, position.xyz);
             if shadow > 0.0 {
                 let pixel_to_light = light.position_or_direction - position.xyz;
@@ -204,6 +225,7 @@ fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
                 );
             }
         } else if light.light_type == 2 {
+            // Directional lights
             let shadow = fetch_shadow(i, light.view_proj * position);
             if shadow > 0.0 {
                 irradiance += calculate_light_contribution(
@@ -213,14 +235,16 @@ fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
         }
     }
 
-    let ambient = vec3(0.002) * albedo;
-    let hdrColor = ambient + irradiance;
+    let diffuse_ambient_light = get_diffuse_irradiance(normal, pixel_to_camera, roughness, albedo, metalness);
+    let ambient = diffuse_ambient_light * ambient_occlusion;
+
+    let finalHdrColor = ambient + irradiance;
 
     // Tone mapping
-    // var color = hdrColor / (hdrColor + vec3(1.0)); // Reinhard
-    var color = vec3(1.0) - exp(-hdrColor * 0.5); // Exposure-based
+    // var color = finalHdrColor / (finalHdrColor + vec3(1.0)); // Reinhard
+    var color = vec3(1.0) - exp(-finalHdrColor * 0.5); // Exposure-based
 
-    // Gamma correction
+    // // Gamma correction
     color = pow(color, vec3(1.0 / 2.2));
 
     let pixel_coords = vec2(i32(id.x), i32(id.y));

@@ -1,4 +1,7 @@
 // Precomputes the diffuse irradiance map for a given cubemap and stores it in another cubemap
+@group(0) @binding(0)
+var<uniform> viewproj: mat4x4<f32>;
+
 struct VertexInput {
     @location(0) position: vec3<f32>,
     @location(1) tex_coord: vec2<f32>,
@@ -6,9 +9,6 @@ struct VertexInput {
     @location(3) tangent: vec3<f32>,
     @location(4) bitangent: vec3<f32>,
 };
-
-@group(0) @binding(0)
-var<uniform> viewproj: mat4x4<f32>;
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,

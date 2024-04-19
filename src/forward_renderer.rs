@@ -1,6 +1,9 @@
 use wgpu::{BindGroup, Device, RenderPass};
 
-use crate::{model::InstancedRenderableMesh, pipelines::ForwardRP};
+use crate::{
+    model::InstancedRenderableMesh,
+    pipelines::{ForwardRP, ShaderCompilationSuccess},
+};
 
 pub struct ForwardRenderer {
     forward_rp: ForwardRP,
@@ -17,7 +20,10 @@ impl ForwardRenderer {
         }
     }
 
-    pub async fn try_recompile_shader(&mut self, device: &Device) -> anyhow::Result<()> {
+    pub async fn try_recompile_shader(
+        &mut self,
+        device: &Device,
+    ) -> anyhow::Result<ShaderCompilationSuccess> {
         self.forward_rp
             .try_recompile_shader(device, self.texture_format)
             .await

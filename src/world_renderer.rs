@@ -1,5 +1,7 @@
+use std::collections::VecDeque;
+
 use async_std::task::block_on;
-use wgpu::{CommandEncoder, Device, Extent3d, SubmissionIndex, SurfaceTexture};
+use wgpu::{CommandEncoder, Device, Extent3d, SurfaceTexture};
 
 use crate::{
     camera_controller::CameraController,
@@ -7,9 +9,10 @@ use crate::{
     equirectangular_to_cubemap_renderer::EquirectangularToCubemapRenderer,
     forward_renderer::ForwardRenderer,
     gbuffer_geometry_renderer::GBufferGeometryRenderer,
+    input_actions::RenderingAction,
     light_controller::LightController,
     model::{InstancedRenderableMesh, InstancedTexturedRenderableMesh},
-    pipelines::{self, MainRP},
+    pipelines::{self, MainRP, ShaderCompilationSuccess},
     post_process_manager::PostProcessManager,
     renderer::Renderer,
     resource_loader::{PrimitiveShape, ResourceLoader},
@@ -31,14 +34,16 @@ impl MeshType {
 }
 
 pub struct WorldRenderer {
-    pub skybox: Skybox,
+    pub diffuse_irradiance_renderer: DiffuseIrradianceRenderer,
+
+    skybox: Skybox,
     main_rp: MainRP,
     post_process_manager: PostProcessManager,
     forward_renderer: ForwardRenderer,
     gbuffer_geometry_renderer: GBufferGeometryRenderer,
     equirec_to_cubemap_renderer: EquirectangularToCubemapRenderer,
-    diffuse_irradiance_renderer: DiffuseIrradianceRenderer,
     first_render: bool,
+    actions_to_process: VecDeque<RenderingAction>,
 }
 
 impl WorldRenderer {
@@ -99,24 +104,16 @@ impl WorldRenderer {
             equirec_to_cubemap_renderer,
             diffuse_irradiance_renderer,
             first_render: true,
+            actions_to_process: VecDeque::new(),
         }
     }
 
-    pub fn one_shot_render_save_to_file(&self, submission_index: SubmissionIndex, device: &Device) {
-        // self.diffuse_irradiance_renderer
-        //     .write_current_ibl_to_file(device, submission_index)
-    }
-
-    pub fn one_shot_render(&self, encoder: &mut CommandEncoder) {
-        self.equirec_to_cubemap_renderer.render(encoder);
-        // self.diffuse_irradiance_renderer.render(
-        //     encoder,
-        //     &self.equirec_to_cubemap_renderer.cube_map_to_sample,
-        // );
+    pub fn add_action(&mut self, action: RenderingAction) {
+        self.actions_to_process.push_back(action);
     }
 
     pub fn render(
-        &self,
+        &mut self,
         renderer: &Renderer,
         encoder: &mut CommandEncoder,
         final_fbo_image_texture: &SurfaceTexture,
@@ -124,6 +121,23 @@ impl WorldRenderer {
         light_controller: &LightController,
         camera_controller: &CameraController,
     ) -> Result<(), wgpu::SurfaceError> {
+        for action in self.actions_to_process.drain(..) {
+            match action {
+                RenderingAction::GenerateCubeMapFromEquirectangular => {
+                    self.equirec_to_cubemap_renderer.render(encoder)
+                }
+                RenderingAction::BakeDiffuseIrradianceMap => {
+                    self.diffuse_irradiance_renderer.render(
+                        encoder,
+                        &self.equirec_to_cubemap_renderer.cube_map_to_sample,
+                    )
+                }
+                RenderingAction::SaveDiffuseIrradianceMapToFile => self
+                    .diffuse_irradiance_renderer
+                    .write_current_ibl_to_file(&renderer.device, None),
+            }
+        }
+
         {
             light_controller.render_shadows(encoder, &renderables);
 
@@ -152,6 +166,7 @@ impl WorldRenderer {
                     &light_controller,
                     &self.gbuffer_geometry_renderer.bind_group,
                     &light_controller.shadow_bind_group,
+                    &self.diffuse_irradiance_renderer.diffuse_irradiance_cubemap,
                     &self.post_process_manager.compute_bind_group_1_to_0,
                     renderer.config.width,
                     renderer.config.height,
@@ -224,17 +239,24 @@ impl WorldRenderer {
         {
             block_on(self.main_rp.try_recompile_shader(device))?;
             block_on(self.gbuffer_geometry_renderer.try_recompile_shader(device))?;
-            block_on(
+            if block_on(
                 self.equirec_to_cubemap_renderer
                     .try_recompile_shader(device),
-            )?;
+            )? == ShaderCompilationSuccess::Recompiled
+            {
+                self.add_action(RenderingAction::GenerateCubeMapFromEquirectangular);
+            }
+
             block_on(self.post_process_manager.try_recompile_shader(device))?;
             block_on(self.skybox.try_recompile_shader(device))?;
             block_on(self.forward_renderer.try_recompile_shader(device))?;
-            block_on(
+            if block_on(
                 self.diffuse_irradiance_renderer
                     .try_recompile_shader(device),
-            )?;
+            )? == ShaderCompilationSuccess::Recompiled
+            {
+                self.add_action(RenderingAction::BakeDiffuseIrradianceMap);
+            }
         }
 
         // Force the single-shot renderers to render again

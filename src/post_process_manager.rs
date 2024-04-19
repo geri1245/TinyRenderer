@@ -2,7 +2,7 @@ use wgpu::{BindGroup, BindGroupDescriptor, ComputePass, Device, TextureFormat};
 
 use crate::{
     bind_group_layout_descriptors::{self, COMPUTE_FINAL_STAGE, COMPUTE_PING_PONG},
-    pipelines::SimpleCP,
+    pipelines::{ShaderCompilationSuccess, SimpleCP},
     texture::{SampledTexture, SampledTextureDescriptor},
 };
 
@@ -39,7 +39,10 @@ impl PostProcessManager {
         }
     }
 
-    pub async fn try_recompile_shader(&mut self, device: &wgpu::Device) -> anyhow::Result<()> {
+    pub async fn try_recompile_shader(
+        &mut self,
+        device: &wgpu::Device,
+    ) -> anyhow::Result<ShaderCompilationSuccess> {
         self.pipeline
             .try_recompile_shader(device, &bind_group_layout_descriptors::COMPUTE_FINAL_STAGE)
             .await

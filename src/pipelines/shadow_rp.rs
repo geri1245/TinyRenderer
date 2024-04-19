@@ -10,7 +10,10 @@ use crate::{
     world_renderer::MeshType,
 };
 
-use super::shader_compiler::{ShaderCompilationResult, ShaderCompiler};
+use super::{
+    shader_compiler::{ShaderCompilationResult, ShaderCompiler},
+    ShaderCompilationSuccess,
+};
 
 const SHADER_SOURCE: &'static str = "src/shaders/shadow.wgsl";
 // TODO: share this with the shadow code, don't define this again
@@ -37,18 +40,23 @@ impl ShadowRP {
         }
     }
 
-    pub async fn try_recompile_shader(&mut self, device: &Device) -> anyhow::Result<()> {
+    pub async fn try_recompile_shader(
+        &mut self,
+        device: &Device,
+    ) -> anyhow::Result<ShaderCompilationSuccess> {
         let result = self
             .shader_compiler
             .compile_shader_if_needed(device)
             .await?;
 
         match result {
-            ShaderCompilationResult::AlreadyUpToDate => Ok(()),
+            ShaderCompilationResult::AlreadyUpToDate => {
+                Ok(ShaderCompilationSuccess::AlreadyUpToDate)
+            }
             ShaderCompilationResult::Success(shader_module) => {
                 let pipeline = Self::create_pipeline(device, &shader_module);
                 self.pipeline = pipeline;
-                Ok(())
+                Ok(ShaderCompilationSuccess::Recompiled)
             }
         }
     }

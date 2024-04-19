@@ -174,13 +174,13 @@ pub const TEXTURE_2D_FRAGMENT_WITH_SAMPLER: wgpu::BindGroupLayoutDescriptor =
         ],
     };
 
-pub const TEXTURE_CUBE_FRAGMENT_WITH_SAMPLER: wgpu::BindGroupLayoutDescriptor =
+pub const TEXTURE_CUBE_FRAGMENT_COMPUTE_WITH_SAMPLER: wgpu::BindGroupLayoutDescriptor =
     wgpu::BindGroupLayoutDescriptor {
         label: Some("CUBEMAP_FRAGMENT layout descriptor"),
         entries: &[
             wgpu::BindGroupLayoutEntry {
                 binding: 0,
-                visibility: wgpu::ShaderStages::FRAGMENT,
+                visibility: wgpu::ShaderStages::all(),
                 ty: wgpu::BindingType::Texture {
                     sample_type: wgpu::TextureSampleType::Float { filterable: true },
                     multisampled: false,
@@ -190,7 +190,7 @@ pub const TEXTURE_CUBE_FRAGMENT_WITH_SAMPLER: wgpu::BindGroupLayoutDescriptor =
             },
             wgpu::BindGroupLayoutEntry {
                 binding: 1,
-                visibility: wgpu::ShaderStages::FRAGMENT,
+                visibility: wgpu::ShaderStages::all(),
                 ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                 count: None,
             },

@@ -2,7 +2,7 @@ use wgpu::{Device, RenderPass, TextureFormat};
 
 use crate::{
     camera_controller::CameraController,
-    pipelines::{self, SkyboxRP},
+    pipelines::{self, ShaderCompilationSuccess, SkyboxRP},
 };
 
 pub struct Skybox {
@@ -22,7 +22,10 @@ impl Skybox {
         }
     }
 
-    pub async fn try_recompile_shader(&mut self, device: &Device) -> anyhow::Result<()> {
+    pub async fn try_recompile_shader(
+        &mut self,
+        device: &Device,
+    ) -> anyhow::Result<ShaderCompilationSuccess> {
         self.skybox_rp
             .try_recompile_shader(device, self.texture_format)
             .await

@@ -13,6 +13,7 @@ pub use equirectangular_to_cubemap_rp::EquirectangularToCubemapRP;
 pub use forward_rp::ForwardRP;
 pub use gbuffer_geometry_rp::{GBufferGeometryRP, GBufferTextures};
 pub use main_rp::MainRP;
+pub use shader_compiler::ShaderCompilationSuccess;
 pub use shadow_rp::ShadowRP;
 pub use simple_compute_pipeline::SimpleCP;
 pub use skybox_rp::SkyboxRP;

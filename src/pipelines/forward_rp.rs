@@ -5,7 +5,10 @@ use crate::{
     model::InstancedRenderableMesh, texture, vertex,
 };
 
-use super::shader_compiler::{ShaderCompilationResult, ShaderCompiler};
+use super::{
+    shader_compiler::{ShaderCompilationResult, ShaderCompiler},
+    ShaderCompilationSuccess,
+};
 
 const SHADER_SOURCE: &'static str = "src/shaders/forward.wgsl";
 
@@ -37,18 +40,20 @@ impl ForwardRP {
         &mut self,
         device: &Device,
         texture_format: wgpu::TextureFormat,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<ShaderCompilationSuccess> {
         let result = self
             .shader_compiler
             .compile_shader_if_needed(device)
             .await?;
 
         match result {
-            ShaderCompilationResult::AlreadyUpToDate => Ok(()),
+            ShaderCompilationResult::AlreadyUpToDate => {
+                Ok(ShaderCompilationSuccess::AlreadyUpToDate)
+            }
             ShaderCompilationResult::Success(shader_module) => {
                 let pipeline = Self::create_pipeline(device, &shader_module, texture_format);
                 self.render_pipeline = pipeline;
-                Ok(())
+                Ok(ShaderCompilationSuccess::Recompiled)
             }
         }
     }

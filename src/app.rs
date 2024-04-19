@@ -1,5 +1,6 @@
 use crate::camera_controller::CameraController;
 use crate::gui::{Gui, GuiEvent};
+use crate::input_actions::RenderingAction;
 use crate::light_controller::LightController;
 use crate::resource_loader::ResourceLoader;
 use crate::world::World;
@@ -29,8 +30,6 @@ pub struct App {
     world: World,
     should_draw_gui: bool,
     gui_event_receiver: Receiver<GuiEvent>,
-
-    first_render: bool,
 }
 
 impl App {
@@ -42,8 +41,10 @@ impl App {
         let gui = Gui::new(&window, &renderer.device, &renderer.queue, gui_event_sender);
 
         let mut world = World::new(&renderer.device, &mut resource_loader).await;
-        let world_renderer: WorldRenderer =
+        let mut world_renderer: WorldRenderer =
             WorldRenderer::new(&renderer, &mut resource_loader).await;
+        // Initial environment cubemap generation from the equirectangular map
+        world_renderer.add_action(RenderingAction::GenerateCubeMapFromEquirectangular);
 
         let camera_controller = CameraController::new(
             &renderer.device,
@@ -64,7 +65,6 @@ impl App {
             camera_controller,
             light_controller,
             resource_loader,
-            first_render: true,
         }
     }
 
@@ -138,7 +138,9 @@ impl App {
             if let PhysicalKey::Code(key) = key_event.physical_key {
                 match key {
                     KeyCode::KeyF => self.toggle_should_draw_gui(),
-                    KeyCode::KeyI => self.first_render = true,
+                    KeyCode::KeyI => self
+                        .world_renderer
+                        .add_action(RenderingAction::SaveDiffuseIrradianceMapToFile),
                     _ => {}
                 }
             }
@@ -148,16 +150,6 @@ impl App {
     pub fn render(&mut self, window: &winit::window::Window) -> Result<(), wgpu::SurfaceError> {
         let delta = self.frame_timer.get_delta_and_reset_timer();
         self.update(delta);
-
-        let mut encoder = self.renderer.get_encoder();
-        if self.first_render {
-            self.world_renderer.one_shot_render(&mut encoder);
-            let submission_index = self.renderer.queue.submit(Some(encoder.finish()));
-            self.world_renderer
-                .one_shot_render_save_to_file(submission_index, &self.renderer.device);
-
-            self.first_render = false;
-        }
 
         let mut encoder = self.renderer.get_encoder();
         let current_frame_texture = self.renderer.get_current_frame_texture()?;
@@ -223,8 +215,6 @@ impl App {
         } else {
             self.gui.set_shader_compilation_result(&errors);
         }
-
-        self.first_render = true;
     }
 
     pub fn update(&mut self, delta: Duration) {

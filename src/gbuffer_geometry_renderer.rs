@@ -6,7 +6,7 @@ use wgpu::{
 use crate::{
     bind_group_layout_descriptors,
     model::InstancedTexturedRenderableMesh,
-    pipelines::{GBufferGeometryRP, GBufferTextures},
+    pipelines::{GBufferGeometryRP, GBufferTextures, ShaderCompilationSuccess},
     texture::{SampledTexture, SampledTextureDescriptor},
 };
 
@@ -41,7 +41,10 @@ impl GBufferGeometryRenderer {
         }
     }
 
-    pub async fn try_recompile_shader(&mut self, device: &Device) -> anyhow::Result<()> {
+    pub async fn try_recompile_shader(
+        &mut self,
+        device: &Device,
+    ) -> anyhow::Result<ShaderCompilationSuccess> {
         self.gbuffer_rp
             .try_recompile_shader(device, &self.textures)
             .await

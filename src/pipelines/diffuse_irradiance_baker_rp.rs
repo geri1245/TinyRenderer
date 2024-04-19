@@ -7,7 +7,10 @@ use crate::{
     bind_group_layout_descriptors, buffer_content::BufferContent, model::RenderableMesh, vertex,
 };
 
-use super::shader_compiler::{ShaderCompilationResult, ShaderCompiler};
+use super::{
+    shader_compiler::{ShaderCompilationResult, ShaderCompiler},
+    ShaderCompilationSuccess,
+};
 
 const SHADER_SOURCE: &'static str = "src/shaders/diffuse_irradiance_bake.wgsl";
 
@@ -44,7 +47,7 @@ impl DiffuseIrradianceBakerRP {
                     &bind_group_layout_descriptors::BUFFER_VISIBLE_EVERYWHERE,
                 ),
                 &device.create_bind_group_layout(
-                    &bind_group_layout_descriptors::TEXTURE_CUBE_FRAGMENT_WITH_SAMPLER,
+                    &bind_group_layout_descriptors::TEXTURE_CUBE_FRAGMENT_COMPUTE_WITH_SAMPLER,
                 ),
             ],
             push_constant_ranges: &[],
@@ -90,18 +93,20 @@ impl DiffuseIrradianceBakerRP {
         &mut self,
         device: &Device,
         color_format: wgpu::TextureFormat,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<ShaderCompilationSuccess> {
         let result = self
             .shader_compiler
             .compile_shader_if_needed(device)
             .await?;
 
         match result {
-            ShaderCompilationResult::AlreadyUpToDate => Ok(()),
+            ShaderCompilationResult::AlreadyUpToDate => {
+                Ok(ShaderCompilationSuccess::AlreadyUpToDate)
+            }
             ShaderCompilationResult::Success(shader_module) => {
                 let pipeline = Self::create_pipeline(device, &shader_module, color_format);
                 self.render_pipeline = pipeline;
-                Ok(())
+                Ok(ShaderCompilationSuccess::Recompiled)
             }
         }
     }

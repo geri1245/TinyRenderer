@@ -157,7 +157,7 @@ impl Renderer {
         depth_texture_view: &'a wgpu::TextureView,
     ) -> RenderPass<'a> {
         encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("main render pass"),
+            label: None,
             timestamp_writes: None,
             occlusion_query_set: None,
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {

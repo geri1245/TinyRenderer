@@ -2,7 +2,10 @@ use wgpu::{Device, RenderPipeline, ShaderModule};
 
 use crate::{bind_group_layout_descriptors, camera_controller::CameraController, texture};
 
-use super::shader_compiler::{ShaderCompilationResult, ShaderCompiler};
+use super::{
+    shader_compiler::{ShaderCompilationResult, ShaderCompiler},
+    ShaderCompilationSuccess,
+};
 
 const SHADER_SOURCE: &'static str = "src/shaders/skybox.wgsl";
 
@@ -34,18 +37,20 @@ impl SkyboxRP {
         &mut self,
         device: &Device,
         texture_format: wgpu::TextureFormat,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<ShaderCompilationSuccess> {
         let result = self
             .shader_compiler
             .compile_shader_if_needed(device)
             .await?;
 
         match result {
-            ShaderCompilationResult::AlreadyUpToDate => Ok(()),
+            ShaderCompilationResult::AlreadyUpToDate => {
+                Ok(ShaderCompilationSuccess::AlreadyUpToDate)
+            }
             ShaderCompilationResult::Success(shader_module) => {
                 let pipeline = Self::create_pipeline(device, &shader_module, texture_format);
                 self.pipeline = pipeline;
-                Ok(())
+                Ok(ShaderCompilationSuccess::Recompiled)
             }
         }
     }
@@ -59,7 +64,7 @@ impl SkyboxRP {
             label: Some("Skybox pipeline layout"),
             bind_group_layouts: &[
                 &device.create_bind_group_layout(
-                    &bind_group_layout_descriptors::TEXTURE_CUBE_FRAGMENT_WITH_SAMPLER,
+                    &bind_group_layout_descriptors::TEXTURE_CUBE_FRAGMENT_COMPUTE_WITH_SAMPLER,
                 ),
                 &device.create_bind_group_layout(
                     &bind_group_layout_descriptors::BUFFER_VISIBLE_EVERYWHERE,

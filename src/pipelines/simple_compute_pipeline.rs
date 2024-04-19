@@ -2,7 +2,10 @@ use wgpu::{
     BindGroup, BindGroupLayoutDescriptor, ComputePass, ComputePipeline, Device, ShaderModule,
 };
 
-use super::shader_compiler::{ShaderCompilationResult, ShaderCompiler};
+use super::{
+    shader_compiler::{ShaderCompilationResult, ShaderCompiler},
+    ShaderCompilationSuccess,
+};
 
 pub struct SimpleCP {
     pipeline: wgpu::ComputePipeline,
@@ -33,19 +36,21 @@ impl SimpleCP {
         &'a mut self,
         device: &'a Device,
         bind_group_layout_descriptor: &BindGroupLayoutDescriptor<'a>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<ShaderCompilationSuccess> {
         let result = self
             .shader_compiler
             .compile_shader_if_needed(device)
             .await?;
 
         match result {
-            ShaderCompilationResult::AlreadyUpToDate => Ok(()),
+            ShaderCompilationResult::AlreadyUpToDate => {
+                Ok(ShaderCompilationSuccess::AlreadyUpToDate)
+            }
             ShaderCompilationResult::Success(shader_module) => {
                 let pipeline =
                     Self::create_pipeline(device, &shader_module, bind_group_layout_descriptor);
                 self.pipeline = pipeline;
-                Ok(())
+                Ok(ShaderCompilationSuccess::Recompiled)
             }
         }
     }

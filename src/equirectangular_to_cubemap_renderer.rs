@@ -6,7 +6,7 @@ use crate::{
     bind_group_layout_descriptors,
     cubemap_helpers::{create_cubemap_face_rendering_parameters, RenderingIntoCubemapResources},
     model::RenderableMesh,
-    pipelines::EquirectangularToCubemapRP,
+    pipelines::{EquirectangularToCubemapRP, ShaderCompilationSuccess},
     texture::SampledTexture,
 };
 
@@ -73,7 +73,7 @@ impl EquirectangularToCubemapRenderer {
 
         let sampled_cubemap_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &device.create_bind_group_layout(
-                &bind_group_layout_descriptors::TEXTURE_CUBE_FRAGMENT_WITH_SAMPLER,
+                &bind_group_layout_descriptors::TEXTURE_CUBE_FRAGMENT_COMPUTE_WITH_SAMPLER,
             ),
             entries: &[
                 wgpu::BindGroupEntry {
@@ -111,7 +111,10 @@ impl EquirectangularToCubemapRenderer {
         })
     }
 
-    pub async fn try_recompile_shader(&mut self, device: &Device) -> anyhow::Result<()> {
+    pub async fn try_recompile_shader(
+        &mut self,
+        device: &Device,
+    ) -> anyhow::Result<ShaderCompilationSuccess> {
         self.pipeline
             .try_recompile_shader(device, self.color_format)
             .await

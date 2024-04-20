@@ -1,49 +1,63 @@
 use async_std::task::block_on;
 use glam::Vec3;
 use wgpu::{
-    util::align_to, BufferDescriptor, CommandEncoder, Device, Extent3d, TextureViewDimension,
+    util::align_to, BindGroup, BufferDescriptor, CommandEncoder, Device, Extent3d,
+    TextureViewDimension,
 };
 
 use crate::{
     bind_group_layout_descriptors,
     buffer::{create_bind_group_from_buffer_entire_binding, BufferBindGroupCreationOptions},
     instance::SceneComponentRaw,
-    lights::{DirectionalLight, LightRaw, LightRawSmall, PointLight},
-    model::InstancedTexturedRenderableMesh,
+    lights::{
+        DirectionalLight, DirectionalLightRenderData, Light, LightRaw, LightRawSmall, PointLight,
+        PointLightRenderData,
+    },
+    model::RenderableObject,
     pipelines::ShadowRP,
     texture::SampledTexture,
-    world::World,
-    world_renderer::MeshType,
 };
 
-// TODO: Wherever this is used, dinamically calculate the number of lights
-const NUM_OF_LIGHTS: u64 = 2;
-
 const SHADOW_SIZE: wgpu::Extent3d = wgpu::Extent3d {
-    width: 2048,
-    height: 2048,
+    width: 1024,
+    height: 1024,
     depth_or_array_layers: crate::renderer::MAX_LIGHTS as u32,
 };
 
-pub struct LightController {
-    pub point_light: PointLight,
-    pub directional_light: DirectionalLight,
+struct ShadowAssets {
+    point_lights: Vec<PointLightRenderData>,
+    directional_lights: Vec<DirectionalLightRenderData>,
+
     light_uniform_buffer: wgpu::Buffer,
     // This is used for creating the shadow maps. Here we are using dynamic offsets into the buffer,
     // so the data needs to be aligned properly. Thus we have 2 separate buffers
     light_viewproj_only_uniform_buffer: wgpu::Buffer,
     uniform_buffer_alignment: u64,
-    pub light_bind_group: wgpu::BindGroup,
-    pub light_bind_group_viewproj_only: wgpu::BindGroup,
-    pub shadow_rp: ShadowRP,
-    pub debug_light_meshes: Vec<InstancedTexturedRenderableMesh>,
+    light_bind_group: wgpu::BindGroup,
+    light_bind_group_viewproj_only: wgpu::BindGroup,
     /// Contains the depth maps for the current lights
-    pub shadow_bind_group: wgpu::BindGroup,
+    shadow_bind_group: wgpu::BindGroup,
+}
+
+pub struct LightController {
+    shadow_rp: ShadowRP,
+    shadow_assets: ShadowAssets,
 }
 
 impl LightController {
-    pub async fn new(device: &wgpu::Device, world: &mut World) -> LightController {
-        // Make the `uniform_alignment` >= `light_uniform_size` and aligned to `min_uniform_buffer_offset_alignment`, as that is a requirement if we want to use dynamic offsets
+    pub async fn new(device: &wgpu::Device) -> LightController {
+        let lights = vec![
+            Light::Point(PointLight::new(
+                Vec3::new(10.0, 20.0, 0.0),
+                Vec3::new(2.0, 5.0, 4.0),
+            )),
+            Light::Directional(DirectionalLight {
+                direction: Vec3::new(1.0, -1.0, 1.0).normalize(),
+                color: Vec3::new(1.0, 1.0, 1.0),
+            }),
+        ];
+
+        // Make the `uniform_alignment` >= sizeof`LightRawSmall` and aligned to `min_uniform_buffer_offset_alignment`, as that is a requirement if we want to use dynamic offsets
         let matrix_size4x4 = core::mem::size_of::<LightRawSmall>() as u64;
         let uniform_alignment = {
             let alignment =
@@ -51,12 +65,80 @@ impl LightController {
             align_to(matrix_size4x4, alignment)
         };
 
+        let shadow_rp = crate::pipelines::ShadowRP::new(&device).await.unwrap();
+
+        let shadow_assets = Self::create_shadow_assets(device, uniform_alignment, &lights);
+
+        Self {
+            shadow_rp,
+            shadow_assets,
+        }
+    }
+
+    pub fn get_shadow_bind_group(&self) -> &BindGroup {
+        &self.shadow_assets.shadow_bind_group
+    }
+
+    pub fn get_light_bind_group(&self) -> &BindGroup {
+        &self.shadow_assets.light_bind_group
+    }
+
+    fn create_shadow_assets(
+        device: &wgpu::Device,
+        uniform_alignment: u64,
+        lights: &Vec<Light>,
+    ) -> ShadowAssets {
+        let (light_uniform_buffer, light_bind_group) =
+            create_bind_group_from_buffer_entire_binding::<LightRaw>(
+                device,
+                &BufferBindGroupCreationOptions {
+                    bind_group_layout_descriptor: &bind_group_layout_descriptors::LIGHT,
+                    num_of_items: lights.len() as u64,
+                    usages: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                    label: "Light".into(),
+                },
+            );
+
+        let (point_lights, point_shadow_texture) =
+            Self::create_point_light_shadow_assets(device, lights);
+
+        let point_shadow_view =
+            point_shadow_texture
+                .texture
+                .create_view(&wgpu::TextureViewDescriptor {
+                    array_layer_count: Some(6 * point_lights.len() as u32),
+                    dimension: Some(TextureViewDimension::CubeArray),
+                    aspect: wgpu::TextureAspect::DepthOnly,
+                    ..Default::default()
+                });
+
+        let (directional_lights, directional_shadow_texture) =
+            Self::create_directional_light_shadow_assets(device, lights);
+
+        let directional_shadow_view =
+            directional_shadow_texture
+                .texture
+                .create_view(&wgpu::TextureViewDescriptor {
+                    array_layer_count: Some(directional_lights.len() as u32),
+                    dimension: Some(TextureViewDimension::D2Array),
+                    ..Default::default()
+                });
+
+        let shadow_bind_group = Self::create_bind_group(
+            device,
+            &directional_shadow_texture,
+            &point_shadow_texture,
+            directional_shadow_view,
+            point_shadow_view,
+        );
+
         let light_viewproj_only_uniform_buffer = device.create_buffer(&BufferDescriptor {
             label: Some("Light uniform buffer"),
-            size: uniform_alignment * 7 as u64,
+            size: uniform_alignment * (6 * point_lights.len() + directional_lights.len()) as u64,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
+
         let light_bind_group_viewproj_only = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &device.create_bind_group_layout(
                 &bind_group_layout_descriptors::LIGHT_WITH_DYNAMIC_OFFSET,
@@ -72,64 +154,15 @@ impl LightController {
             label: Some("Light projection matrix only bind group"),
         });
 
-        let (light_uniform_buffer, light_bind_group) =
-            create_bind_group_from_buffer_entire_binding::<LightRaw>(
-                device,
-                &BufferBindGroupCreationOptions {
-                    bind_group_layout_descriptor: &bind_group_layout_descriptors::LIGHT,
-                    num_of_items: NUM_OF_LIGHTS,
-                    usages: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-                    label: "Light".into(),
-                },
-            );
-
-        let shadow_rp = crate::pipelines::ShadowRP::new(&device).await.unwrap();
-
-        let (point_light, point_shadow_texture) = Self::create_point_light_shadow_assets(device);
-
-        let point_shadow_view =
-            point_shadow_texture
-                .texture
-                .create_view(&wgpu::TextureViewDescriptor {
-                    array_layer_count: Some(6),
-                    dimension: Some(TextureViewDimension::Cube),
-                    aspect: wgpu::TextureAspect::DepthOnly,
-                    ..Default::default()
-                });
-
-        let (directional_light, directional_shadow_texture) =
-            Self::create_directional_light_shadow_assets(device);
-
-        let directional_shadow_view =
-            directional_shadow_texture
-                .texture
-                .create_view(&wgpu::TextureViewDescriptor {
-                    array_layer_count: Some(NUM_OF_LIGHTS as u32),
-                    dimension: Some(TextureViewDimension::D2Array),
-                    ..Default::default()
-                });
-
-        let shadow_bind_group = Self::create_bind_group(
-            device,
-            &directional_shadow_texture,
-            &point_shadow_texture,
-            directional_shadow_view,
-            point_shadow_view,
-        );
-
-        world.add_debug_object(crate::world::PrimitiveMeshes::Cube, &point_light.transform);
-
-        Self {
-            point_light,
-            directional_light,
+        ShadowAssets {
             light_uniform_buffer,
             light_bind_group,
             light_viewproj_only_uniform_buffer,
             light_bind_group_viewproj_only,
-            shadow_rp,
             uniform_buffer_alignment: uniform_alignment,
-            debug_light_meshes: vec![],
             shadow_bind_group,
+            point_lights,
+            directional_lights,
         }
     }
 
@@ -167,116 +200,185 @@ impl LightController {
 
     fn create_directional_light_shadow_assets(
         device: &Device,
-    ) -> (DirectionalLight, SampledTexture) {
+        lights: &Vec<Light>,
+    ) -> (Vec<DirectionalLightRenderData>, SampledTexture) {
+        let directional_light_count = lights
+            .iter()
+            .filter(|light| {
+                if let Light::Directional(_) = light {
+                    true
+                } else {
+                    false
+                }
+            })
+            .count();
         let directional_shadow_texture = SampledTexture::create_depth_texture(
             device,
-            Extent3d { ..SHADOW_SIZE },
+            Extent3d {
+                depth_or_array_layers: directional_light_count as u32,
+                ..SHADOW_SIZE
+            },
             "Directional shadow texture",
         );
 
-        let directional_shadow_target_view =
-            directional_shadow_texture
-                .texture
-                .create_view(&wgpu::TextureViewDescriptor {
-                    label: Some("shadow depth texture"),
-                    format: Some(SampledTexture::DEPTH_FORMAT),
-                    dimension: Some(wgpu::TextureViewDimension::D2),
-                    aspect: wgpu::TextureAspect::All,
-                    base_mip_level: 0,
-                    mip_level_count: None,
-                    base_array_layer: 0,
-                    array_layer_count: Some(1),
-                });
+        let mut directional_light_render_datas = Vec::new();
 
-        let directional_light: DirectionalLight = DirectionalLight::new(
-            directional_shadow_target_view,
-            Vec3::new(1.0, -1.0, 0.0).normalize(),
-            Vec3::new(1.0, 1.0, 1.0),
-        );
-
-        (directional_light, directional_shadow_texture)
-    }
-
-    fn create_point_light_shadow_assets(device: &Device) -> (PointLight, SampledTexture) {
-        let point_light_texture = SampledTexture::create_depth_texture(
-            device,
-            Extent3d {
-                depth_or_array_layers: 6,
-                ..SHADOW_SIZE
-            },
-            "Point shadow texture",
-        );
-
-        let point_light_shadow_target_view = (0..6)
-            .map(|index| {
-                point_light_texture
+        for light in lights.iter() {
+            if let Light::Directional(directional_light) = light {
+                let directional_shadow_target_view = directional_shadow_texture
                     .texture
                     .create_view(&wgpu::TextureViewDescriptor {
-                        label: Some("shadow cubemap texture view single face"),
+                        label: Some("shadow depth texture"),
                         format: Some(SampledTexture::DEPTH_FORMAT),
                         dimension: Some(wgpu::TextureViewDimension::D2),
                         aspect: wgpu::TextureAspect::All,
                         base_mip_level: 0,
                         mip_level_count: None,
-                        base_array_layer: index,
+                        base_array_layer: directional_light_render_datas.len() as u32,
                         array_layer_count: Some(1),
-                    })
-            })
-            .collect::<Vec<_>>();
+                    });
 
-        let point_light = PointLight::new(
-            point_light_shadow_target_view,
-            Vec3::new(10.0, 20.0, 0.0),
-            Vec3::new(2.0, 5.0, 4.0),
-        );
+                let directional_light_render_data = DirectionalLightRenderData::new(
+                    &directional_light,
+                    directional_shadow_target_view,
+                );
 
-        (point_light, point_light_texture)
-    }
-
-    pub fn set_light_position(&mut self, new_position: Vec3) {
-        self.point_light.transform.position = new_position;
-    }
-
-    pub fn update(&mut self, _delta_time: std::time::Duration, render_queue: &wgpu::Queue) {
-        render_queue.write_buffer(
-            &self.light_uniform_buffer,
-            0,
-            bytemuck::cast_slice(&[self.point_light.to_raw(), self.directional_light.to_raw()]),
-        );
-
-        let raw_viewprojs = self.point_light.get_viewprojs_raw();
-        for i in 0..6 {
-            render_queue.write_buffer(
-                &self.light_viewproj_only_uniform_buffer,
-                i * self.uniform_buffer_alignment,
-                bytemuck::cast_slice(&[raw_viewprojs[i as usize]]),
-            );
+                directional_light_render_datas.push(directional_light_render_data);
+            }
         }
 
+        (directional_light_render_datas, directional_shadow_texture)
+    }
+
+    fn create_point_light_shadow_assets(
+        device: &Device,
+        lights: &Vec<Light>,
+    ) -> (Vec<PointLightRenderData>, SampledTexture) {
+        let point_light_count = lights
+            .iter()
+            .filter(|light| {
+                if let Light::Point(_) = light {
+                    true
+                } else {
+                    false
+                }
+            })
+            .count();
+        let point_light_texture = SampledTexture::create_depth_texture(
+            device,
+            Extent3d {
+                depth_or_array_layers: 6 * point_light_count as u32,
+                ..SHADOW_SIZE
+            },
+            "Point shadow texture",
+        );
+
+        let mut point_light_render_datas = Vec::new();
+
+        for light in lights.iter() {
+            if let Light::Point(point_light) = light {
+                let point_light_shadow_target_view = (0..6)
+                    .map(|face_index| {
+                        point_light_texture
+                            .texture
+                            .create_view(&wgpu::TextureViewDescriptor {
+                                label: Some("shadow cubemap texture view single face"),
+                                format: Some(SampledTexture::DEPTH_FORMAT),
+                                dimension: Some(wgpu::TextureViewDimension::D2),
+                                aspect: wgpu::TextureAspect::All,
+                                base_mip_level: 0,
+                                mip_level_count: None,
+                                base_array_layer: point_light_render_datas.len() as u32 * 6
+                                    + face_index,
+                                array_layer_count: Some(1),
+                            })
+                    })
+                    .collect::<Vec<_>>();
+
+                point_light_render_datas.push(PointLightRenderData::new(
+                    point_light.clone(),
+                    point_light_shadow_target_view,
+                ));
+            }
+        }
+
+        (point_light_render_datas, point_light_texture)
+    }
+
+    pub fn update(
+        &mut self,
+        _delta_time: std::time::Duration,
+        render_queue: &wgpu::Queue,
+        lights_if_any_was_dirty: Option<&Vec<Light>>,
+    ) {
         render_queue.write_buffer(
-            &self.light_viewproj_only_uniform_buffer,
-            6 * self.uniform_buffer_alignment,
-            bytemuck::cast_slice(&[self.directional_light.to_raw()]),
+            &self.shadow_assets.light_uniform_buffer,
+            0,
+            bytemuck::cast_slice(&[
+                self.shadow_assets.point_lights[0].to_raw(),
+                self.shadow_assets.directional_lights[0].to_raw(),
+            ]),
+        );
+
+        for (point_light_index, point_light) in self.shadow_assets.point_lights.iter().enumerate() {
+            let raw_viewprojs = point_light.get_viewprojs_raw();
+            for (face_index, raw_data) in raw_viewprojs.iter().enumerate() {
+                render_queue.write_buffer(
+                    &self.shadow_assets.light_viewproj_only_uniform_buffer,
+                    (point_light_index * 6 + face_index) as u64
+                        * self.shadow_assets.uniform_buffer_alignment,
+                    bytemuck::cast_slice(&[*raw_data]),
+                );
+            }
+        }
+
+        let base_offset_after_point_lights = 6
+            * self.shadow_assets.point_lights.len()
+            * self.shadow_assets.uniform_buffer_alignment as usize;
+
+        render_queue.write_buffer(
+            &self.shadow_assets.light_viewproj_only_uniform_buffer,
+            base_offset_after_point_lights as u64,
+            bytemuck::cast_slice(&[self.shadow_assets.directional_lights[0].to_raw_small()]),
         );
     }
 
-    pub fn render_shadows(&self, encoder: &mut CommandEncoder, meshes: &Vec<MeshType>) {
-        for i in 0..6 {
+    pub fn render_shadows(&self, encoder: &mut CommandEncoder, meshes: &Vec<RenderableObject>) {
+        encoder.push_debug_group("Shadow rendering");
+
+        {
+            encoder.push_debug_group("Point shadows");
+
+            for (light_index, light) in self.shadow_assets.point_lights.iter().enumerate() {
+                for (face_index, depth_target) in light.depth_textures.iter().enumerate() {
+                    self.shadow_rp.render(
+                        encoder,
+                        meshes,
+                        &self.shadow_assets.light_bind_group_viewproj_only,
+                        depth_target,
+                        ((6 * light_index + face_index)
+                            * self.shadow_assets.uniform_buffer_alignment as usize)
+                            as u32,
+                    );
+                }
+            }
+            encoder.pop_debug_group();
+        }
+        {
+            encoder.push_debug_group("Directional shadows");
+
             self.shadow_rp.render(
                 encoder,
                 meshes,
-                &self.light_bind_group_viewproj_only,
-                &self.point_light.depth_texture[i],
-                (i as u64 * self.uniform_buffer_alignment) as u32,
+                &self.shadow_assets.light_bind_group_viewproj_only,
+                &self.shadow_assets.directional_lights[0].depth_textures[0],
+                6 * self.shadow_assets.uniform_buffer_alignment as u32,
             );
+
+            encoder.pop_debug_group();
         }
-        self.shadow_rp.render(
-            encoder,
-            meshes,
-            &self.light_bind_group_viewproj_only,
-            &self.directional_light.depth_texture,
-            6 * self.uniform_buffer_alignment as u32,
-        );
+
+        encoder.pop_debug_group();
     }
 
     pub fn try_recompile_shaders(&mut self, device: &Device) -> anyhow::Result<()> {

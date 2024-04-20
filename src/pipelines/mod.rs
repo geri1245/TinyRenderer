@@ -11,7 +11,7 @@ mod skybox_rp;
 pub use diffuse_irradiance_baker_rp::DiffuseIrradianceBakerRP;
 pub use equirectangular_to_cubemap_rp::EquirectangularToCubemapRP;
 pub use forward_rp::ForwardRP;
-pub use gbuffer_geometry_rp::{GBufferGeometryRP, GBufferTextures};
+pub use gbuffer_geometry_rp::{GBufferGeometryRP, GBufferTextures, PbrParameterVariation};
 pub use main_rp::MainRP;
 pub use shader_compiler::ShaderCompilationSuccess;
 pub use shadow_rp::ShadowRP;

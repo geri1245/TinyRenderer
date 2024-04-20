@@ -2,6 +2,7 @@ use crate::camera_controller::CameraController;
 use crate::gui::{Gui, GuiEvent};
 use crate::input_actions::RenderingAction;
 use crate::light_controller::LightController;
+use crate::player_controller::PlayerController;
 use crate::resource_loader::ResourceLoader;
 use crate::world::World;
 use crate::world_renderer::WorldRenderer;
@@ -24,9 +25,11 @@ pub struct App {
     frame_timer: BasicTimer,
     gui: Gui,
     camera_controller: CameraController,
-    light_controller: LightController,
+    player_controller: PlayerController,
 
+    light_controller: LightController,
     world_renderer: WorldRenderer,
+
     world: World,
     should_draw_gui: bool,
     gui_event_receiver: Receiver<GuiEvent>,
@@ -40,7 +43,8 @@ impl App {
 
         let gui = Gui::new(&window, &renderer.device, &renderer.queue, gui_event_sender);
 
-        let mut world = World::new(&renderer.device, &mut resource_loader).await;
+        let world = World::new(&renderer.device, &mut resource_loader).await;
+        let player_controller = PlayerController::new();
         let mut world_renderer: WorldRenderer =
             WorldRenderer::new(&renderer, &mut resource_loader).await;
         // Initial environment cubemap generation from the equirectangular map
@@ -50,7 +54,7 @@ impl App {
             &renderer.device,
             renderer.config.width as f32 / renderer.config.height as f32,
         );
-        let light_controller = LightController::new(&renderer.device, &mut world).await;
+        let light_controller = LightController::new(&renderer.device).await;
 
         let frame_timer = BasicTimer::new();
 
@@ -65,6 +69,7 @@ impl App {
             camera_controller,
             light_controller,
             resource_loader,
+            player_controller,
         }
     }
 
@@ -161,7 +166,7 @@ impl App {
             &self.renderer,
             &mut encoder,
             &current_frame_texture,
-            &self.world.meshes,
+            self.world.get_meshes(),
             &self.light_controller,
             &self.camera_controller,
         )?;
@@ -187,9 +192,11 @@ impl App {
         while let Ok(event) = self.gui_event_receiver.try_recv() {
             match event {
                 GuiEvent::RecompileShaders => self.try_recompile_shaders(),
-                GuiEvent::LightPositionChanged { new_position } => self
-                    .light_controller
-                    .set_light_position(new_position.into()),
+                GuiEvent::LightPositionChanged { .. } => {
+                    _ = self
+                        .player_controller
+                        .handle_gui_events(&event, &mut self.world)
+                }
             }
         }
     }
@@ -227,7 +234,11 @@ impl App {
 
         self.camera_controller.update(delta, &self.renderer.queue);
 
-        self.light_controller.update(delta, &self.renderer.queue);
+        self.light_controller.update(
+            delta,
+            &self.renderer.queue,
+            self.world.get_lights_if_dirty(),
+        );
     }
 
     pub fn toggle_should_draw_gui(&mut self) {

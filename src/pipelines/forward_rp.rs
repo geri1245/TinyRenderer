@@ -2,7 +2,7 @@ use wgpu::{BindGroup, Device, RenderPass, RenderPipeline, ShaderModule};
 
 use crate::{
     bind_group_layout_descriptors, buffer_content::BufferContent, instance,
-    model::InstancedRenderableMesh, texture, vertex,
+    model::RenderableObject, texture, vertex,
 };
 
 use super::{
@@ -116,17 +116,14 @@ impl ForwardRP {
     pub fn render_model<'a>(
         &'a self,
         render_pass: &mut RenderPass<'a>,
-        mesh: &'a InstancedRenderableMesh,
+        mesh: &'a RenderableObject,
         camera_bind_group: &'a BindGroup,
         light_bind_group: &'a BindGroup,
     ) {
         render_pass.set_pipeline(&self.render_pipeline);
         render_pass.set_bind_group(0, &light_bind_group, &[]);
         render_pass.set_bind_group(1, &camera_bind_group, &[]);
-        render_pass.set_vertex_buffer(1, mesh.instance_buffer.slice(..));
 
-        render_pass.set_vertex_buffer(0, mesh.mesh.vertex_buffer.slice(..));
-        render_pass.set_index_buffer(mesh.mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-        render_pass.draw_indexed(0..mesh.mesh.index_count, 0, 0..mesh.instances.len() as u32);
+        mesh.render(render_pass, false);
     }
 }

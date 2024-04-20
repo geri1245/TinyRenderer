@@ -43,7 +43,7 @@ var t_shadow: texture_depth_2d_array;
 @group(3) @binding(1)
 var sampler_shadow: sampler_comparison;
 @group(3) @binding(2)
-var t_shadow_cube: texture_depth_cube;
+var t_shadow_cube: texture_depth_cube_array;
 @group(3) @binding(3)
 var sampler_cube: sampler_comparison;
 
@@ -78,7 +78,7 @@ fn fetch_shadow(light_id: u32, fragment_pos: vec4<f32>) -> f32 {
 
     if is_valid_tex_coord(tex_coord) {
         // Compare the shadow map sample against "the depth of the current fragment from the light's perspective"
-        return textureSampleCompareLevel(t_shadow, sampler_shadow, tex_coord, light_id, fragment_pos_ndc.z);
+        return textureSampleCompareLevel(t_shadow, sampler_shadow, tex_coord, 0, fragment_pos_ndc.z);
     } else {
         return 1.0;
     }
@@ -101,7 +101,7 @@ fn get_shadow_value(light_id: u32, fragment_pos: vec3<f32>) -> f32 {
     let far_distance = light.far_plane_distance;
 
     // Compare the shadow map sample against "the depth of the current fragment from the light's perspective"
-    return textureSampleCompareLevel(t_shadow_cube, sampler_cube, tex_coord, vector_to_depth_value(tex_coord));
+    return textureSampleCompareLevel(t_shadow_cube, sampler_cube, tex_coord, 0, vector_to_depth_value(tex_coord));
 }
 
 const c_ambient_strength: f32 = 0.0;

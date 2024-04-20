@@ -1,10 +1,9 @@
-struct CameraUniform {
-    view_proj: mat4x4<f32>,
-    view: mat4x4<f32>,
-    view_inv: mat4x4<f32>,
-    proj: mat4x4<f32>,
-    proj_inv: mat4x4<f32>,
-    position: vec3<f32>,
+struct VertexInput {
+    @location(0) position: vec3<f32>,
+    @location(1) tex_coord: vec2<f32>,
+    @location(2) normal: vec3<f32>,
+    @location(3) tangent: vec3<f32>,
+    @location(4) bitangent: vec3<f32>,
 };
 
 struct InstanceInput {
@@ -17,24 +16,26 @@ struct InstanceInput {
     @location(11) normal_matrix_2: vec3<f32>,
 };
 
-@group(1) @binding(0)
-var<uniform> camera: CameraUniform;
+struct CameraUniform {
+    view_proj: mat4x4<f32>,
+    view: mat4x4<f32>,
+    view_inv: mat4x4<f32>,
+    proj: mat4x4<f32>,
+    proj_inv: mat4x4<f32>,
+    position: vec3<f32>,
+};
 
 struct Light {
     view_proj: mat4x4<f32>,
     position: vec3<f32>,
     color: vec3<f32>,
 }
+
 @group(0) @binding(0)
 var<uniform> light: Light;
 
-struct VertexInput {
-    @location(0) position: vec3<f32>,
-    @location(1) tex_coord: vec2<f32>,
-    @location(2) normal: vec3<f32>,
-    @location(3) tangent: vec3<f32>,
-    @location(4) bitangent: vec3<f32>,
-};
+@group(1) @binding(0)
+var<uniform> camera: CameraUniform;
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,

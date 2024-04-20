@@ -4,10 +4,8 @@ use wgpu::{
 };
 
 use crate::{
-    bind_group_layout_descriptors::{self},
-    buffer_content::BufferContent,
-    instance, vertex,
-    world_renderer::MeshType,
+    bind_group_layout_descriptors, buffer_content::BufferContent, instance,
+    model::RenderableObject, vertex,
 };
 
 use super::{
@@ -112,13 +110,13 @@ impl ShadowRP {
     pub fn render(
         &self,
         encoder: &mut CommandEncoder,
-        meshes: &Vec<MeshType>,
+        meshes: &Vec<RenderableObject>,
         light_bind_group: &BindGroup,
         depth_target: &wgpu::TextureView,
         light_bind_group_offset: u32,
     ) {
         let mut shadow_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("Shadow pass"),
+            label: None,
             color_attachments: &[],
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                 view: depth_target,
@@ -133,25 +131,10 @@ impl ShadowRP {
         });
 
         shadow_pass.set_pipeline(&self.pipeline);
-
         shadow_pass.set_bind_group(0, &light_bind_group, &[light_bind_group_offset]);
 
         for mesh in meshes {
-            if let MeshType::TexturedMesh(renderable) = mesh {
-                let renderable = &renderable.mesh;
-                shadow_pass.set_vertex_buffer(1, renderable.instance_buffer.slice(..));
-
-                shadow_pass.set_vertex_buffer(0, renderable.mesh.vertex_buffer.slice(..));
-                shadow_pass.set_index_buffer(
-                    renderable.mesh.index_buffer.slice(..),
-                    wgpu::IndexFormat::Uint32,
-                );
-                shadow_pass.draw_indexed(
-                    0..renderable.mesh.index_count,
-                    0,
-                    0..renderable.instances.len() as u32,
-                );
-            }
+            mesh.render(&mut shadow_pass, false);
         }
     }
 }

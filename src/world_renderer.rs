@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use async_std::task::block_on;
-use wgpu::{CommandEncoder, Device, Extent3d, SurfaceTexture};
+use wgpu::{CommandEncoder, Device, Extent3d, RenderPassDepthStencilAttachment, SurfaceTexture};
 
 use crate::{
     camera_controller::CameraController,
@@ -11,27 +11,13 @@ use crate::{
     gbuffer_geometry_renderer::GBufferGeometryRenderer,
     input_actions::RenderingAction,
     light_controller::LightController,
-    model::{InstancedRenderableMesh, InstancedTexturedRenderableMesh},
+    model::RenderableObject,
     pipelines::{self, MainRP, ShaderCompilationSuccess},
     post_process_manager::PostProcessManager,
     renderer::Renderer,
     resource_loader::{PrimitiveShape, ResourceLoader},
     skybox::Skybox,
 };
-
-pub enum MeshType {
-    DebugMesh(InstancedRenderableMesh),
-    TexturedMesh(InstancedTexturedRenderableMesh),
-}
-
-impl MeshType {
-    pub fn _get_mesh(&self) -> &InstancedRenderableMesh {
-        match self {
-            MeshType::DebugMesh(mesh) => mesh,
-            MeshType::TexturedMesh(mesh) => &mesh.mesh,
-        }
-    }
-}
 
 pub struct WorldRenderer {
     pub diffuse_irradiance_renderer: DiffuseIrradianceRenderer,
@@ -117,7 +103,7 @@ impl WorldRenderer {
         renderer: &Renderer,
         encoder: &mut CommandEncoder,
         final_fbo_image_texture: &SurfaceTexture,
-        renderables: &Vec<MeshType>,
+        renderables: &Vec<RenderableObject>,
         light_controller: &LightController,
         camera_controller: &CameraController,
     ) -> Result<(), wgpu::SurfaceError> {
@@ -138,70 +124,80 @@ impl WorldRenderer {
             }
         }
 
+        light_controller.render_shadows(encoder, &renderables);
+
         {
-            light_controller.render_shadows(encoder, &renderables);
-
-            {
-                let mut render_pass = self.gbuffer_geometry_renderer.begin_render(encoder);
-                for renderable in renderables {
-                    if let MeshType::TexturedMesh(mesh) = renderable {
-                        self.gbuffer_geometry_renderer.render(
-                            &mut render_pass,
-                            mesh,
-                            &camera_controller.bind_group,
-                        );
-                    }
-                }
-            }
-
-            {
-                let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                    label: Some("Compute pass"),
-                    timestamp_writes: None,
-                });
-
-                self.main_rp.render(
-                    &mut compute_pass,
-                    &camera_controller,
-                    &light_controller,
-                    &self.gbuffer_geometry_renderer.bind_group,
-                    &light_controller.shadow_bind_group,
-                    &self.diffuse_irradiance_renderer.diffuse_irradiance_cubemap,
-                    &self.post_process_manager.compute_bind_group_1_to_0,
-                    renderer.config.width,
-                    renderer.config.height,
+            let mut render_pass = self.gbuffer_geometry_renderer.begin_render(encoder);
+            for renderable in renderables {
+                self.gbuffer_geometry_renderer.render(
+                    &mut render_pass,
+                    renderable,
+                    &camera_controller.bind_group,
                 );
             }
-            {
-                let mut render_pass = renderer.begin_render_pass(
-                    encoder,
-                    &self
+        }
+
+        {
+            let mut main_shading_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some("Main shading pass"),
+                timestamp_writes: None,
+            });
+
+            self.main_rp.render(
+                &mut main_shading_pass,
+                &camera_controller,
+                &light_controller,
+                &self.gbuffer_geometry_renderer.bind_group,
+                light_controller.get_shadow_bind_group(),
+                &self.diffuse_irradiance_renderer.diffuse_irradiance_cubemap,
+                &self.post_process_manager.compute_bind_group_1_to_0,
+                renderer.config.width,
+                renderer.config.height,
+            );
+        }
+
+        {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("After GBuffer pass"),
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &self
                         .post_process_manager
                         .full_screen_render_target_ping_pong_textures[0]
                         .view,
-                    &self.gbuffer_geometry_renderer.textures.depth_texture.view,
-                );
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                    view: &self.gbuffer_geometry_renderer.textures.depth_texture.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Store,
+                    }),
+                    stencil_ops: None,
+                }),
+            });
 
-                self.skybox.render(
-                    &mut render_pass,
-                    &camera_controller,
-                    &self.diffuse_irradiance_renderer.diffuse_irradiance_cubemap,
-                );
+            self.skybox.render(
+                &mut render_pass,
+                &camera_controller,
+                &self.diffuse_irradiance_renderer.diffuse_irradiance_cubemap,
+            );
 
-                {
-                    for renderable in renderables {
-                        if let MeshType::DebugMesh(mesh) = renderable {
-                            self.forward_renderer.render(
-                                &mut render_pass,
-                                mesh,
-                                &camera_controller.bind_group,
-                                &light_controller.light_bind_group,
-                            );
-                        }
-                    }
-                }
-            }
+            // for renderable in renderables {
+            //     self.forward_renderer.render(
+            //         &mut render_pass,
+            //         mesh,
+            //         &camera_controller.bind_group,
+            //         &light_controller.light_bind_group,
+            //     );
+            // }
         }
+
         {
             let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
                 label: Some("Postprocessing"),

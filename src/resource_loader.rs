@@ -13,7 +13,8 @@ use wgpu::{Device, Extent3d};
 
 use glam::{Vec2, Vec3};
 
-use crate::model::{Material, ModelDescriptorFile};
+use crate::material::Material;
+use crate::model::ModelDescriptorFile;
 use crate::texture::{self, SampledTexture, TextureUsage};
 use crate::{
     file_loader::FileLoader,

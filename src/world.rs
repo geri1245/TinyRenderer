@@ -4,10 +4,11 @@ use glam::{Quat, Vec3};
 
 use crate::{
     instance::SceneComponent,
-    model::{InstancedRenderableMesh, InstancedTexturedRenderableMesh, RenderableMesh},
+    lights::Light,
+    material::Material,
+    model::{InstancedRenderableMesh, PbrParameters, RenderableMesh, RenderableObject},
     primitive_shapes,
     resource_loader::ResourceLoader,
-    world_renderer::MeshType,
 };
 
 #[derive(Eq, PartialEq, Hash)]
@@ -15,10 +16,29 @@ pub enum PrimitiveMeshes {
     Cube,
 }
 
+pub struct ObjectHandle {
+    id: usize,
+}
+
+pub enum DirtyState {
+    /// No changes, nothing needs to be updated
+    NothingChanged,
+    /// In this case we might have to regenerate the buffers, as the number of items might have changed
+    ItemsChanged,
+    /// In this case it's enough to copy the new data to the existing buffers,
+    /// as the number/structure of items remains the same
+    ItemPropertiesChanged,
+}
+
 pub struct World {
-    pub meshes: Vec<MeshType>,
-    debug_objects: HashMap<PrimitiveMeshes, Rc<RenderableMesh>>,
-    pending_meshes: Vec<(PrimitiveMeshes, SceneComponent)>,
+    loaded_meshes: HashMap<String, Rc<RenderableMesh>>,
+    meshes: Vec<RenderableObject>,
+    are_meshes_dirty: bool,
+    lights: Vec<Light>,
+    are_lights_dirty: DirtyState,
+
+    debug_meshes: HashMap<PrimitiveMeshes, Rc<RenderableMesh>>,
+    pending_lights: Vec<Light>,
 }
 
 impl World {
@@ -50,6 +70,17 @@ impl World {
                 rotation: Quat::from_axis_angle(Vec3::ZERO, 0.0),
             },
         ];
+
+        let mut example_instances = Vec::with_capacity(100);
+        for i in 0..11 {
+            for j in 0..11 {
+                example_instances.push(SceneComponent {
+                    position: Vec3::new(i as f32 * 5.0 - 25.0, j as f32 * 5.0 - 25.0, 0.0),
+                    scale: Vec3::splat(1.0),
+                    rotation: Quat::from_axis_angle(Vec3::ZERO, 0.0),
+                });
+            }
+        }
 
         let square_instances = vec![
             // Bottom
@@ -125,22 +156,34 @@ impl World {
             .await
             .unwrap();
         let cube = Rc::new(cube_model);
-        let cube_instanced = InstancedRenderableMesh::new(cube_instances, device, cube.clone());
+        let cube_instanced = InstancedRenderableMesh::new(cube_instances, device, &cube);
+        let cube_instanced2 = InstancedRenderableMesh::new(example_instances, device, &cube);
+
+        let mut loaded_meshes = HashMap::new();
+        loaded_meshes.insert("cube".to_owned(), cube.clone());
 
         let square = Rc::new(primitive_shapes::square(device));
-        let square_instanced = InstancedRenderableMesh::new(square_instances, device, square);
+        let square_instanced = InstancedRenderableMesh::new(square_instances, device, &square);
 
         let meshes = vec![
-            MeshType::TexturedMesh(InstancedTexturedRenderableMesh {
+            RenderableObject {
                 material: resource_loader.get_default_material(),
                 mesh: square_instanced,
                 material_id: None,
-            }),
-            MeshType::TexturedMesh(InstancedTexturedRenderableMesh {
+            },
+            RenderableObject {
                 material: resource_loader.get_default_material(),
                 mesh: cube_instanced,
                 material_id: Some(material_loading_id),
-            }),
+            },
+            RenderableObject {
+                material: Rc::new(Material::from_flat_parameters(
+                    device,
+                    &PbrParameters::new([0.2, 0.6, 0.8], 0.7, 0.0),
+                )),
+                mesh: cube_instanced2,
+                material_id: None,
+            },
         ];
 
         let mut debug_objects = HashMap::new();
@@ -148,8 +191,31 @@ impl World {
 
         World {
             meshes,
-            debug_objects,
-            pending_meshes: vec![],
+            are_meshes_dirty: true,
+            lights: vec![],
+            are_lights_dirty: true,
+            debug_meshes: debug_objects,
+            loaded_meshes,
+            pending_lights: vec![],
+        }
+    }
+
+    pub fn add_light(&mut self, light: Light) -> usize {
+        self.lights.push(light);
+
+        if let Light::Point(_) = light {
+            self.pending_lights.push(light);
+        }
+
+        self.lights.len()
+    }
+
+    pub fn get_light(&mut self, handle: &ObjectHandle) -> Option<&mut Light> {
+        if handle.id < self.lights.len() {
+            self.are_lights_dirty = true;
+            Some(&mut self.lights[handle.id])
+        } else {
+            None
         }
     }
 
@@ -159,36 +225,53 @@ impl World {
         queue: &wgpu::Queue,
         resource_loader: &mut ResourceLoader,
     ) {
-        for (object_type, scene_component) in self.pending_meshes.drain(..) {
-            let renderable_mesh = self.debug_objects.get(&object_type).unwrap();
-            self.meshes
-                .push(MeshType::DebugMesh(InstancedRenderableMesh::new(
-                    vec![scene_component],
+        for light in self.pending_lights.drain(..) {
+            if let Light::Point(point_light) = light {
+                let renderable_mesh = InstancedRenderableMesh::new(
+                    vec![point_light.transform],
                     device,
-                    renderable_mesh.clone(),
-                )));
+                    self.debug_meshes.get(&PrimitiveMeshes::Cube).unwrap(),
+                );
+                self.meshes.push(RenderableObject {
+                    material: Rc::new(Material::from_flat_parameters(
+                        device,
+                        &PbrParameters::fully_rough(point_light.color.into()),
+                    )),
+                    mesh: renderable_mesh,
+                    material_id: None,
+                });
+            }
         }
+
         let materials_loaded = resource_loader.poll_loaded_textures(device, queue);
 
         for (id, material) in materials_loaded {
             for mesh in &mut self.meshes {
-                if let MeshType::TexturedMesh(mesh) = mesh {
-                    if let Some(pending_material_id) = mesh.material_id {
-                        if pending_material_id == id {
-                            mesh.material = material.clone();
-                        }
+                if let Some(pending_material_id) = mesh.material_id {
+                    if pending_material_id == id {
+                        mesh.material = material.clone();
                     }
                 }
             }
         }
     }
 
-    pub fn add_debug_object(
-        &mut self,
-        debug_mesh: PrimitiveMeshes,
-        scene_component: &SceneComponent,
-    ) {
-        self.pending_meshes
-            .push((debug_mesh, scene_component.clone()))
+    // This will be raypicing in the future
+    pub fn pick(&self) -> ObjectHandle {
+        return ObjectHandle { id: 0 };
     }
+
+    pub fn get_lights_dirty_state(&self) -> (DirtyState, Option<&Vec<Light>>) {
+        if self.are_lights_dirty {
+            Some(&self.lights)
+        } else {
+            None
+        }
+    }
+
+    pub fn get_meshes(&self) -> &Vec<RenderableObject> {
+        &self.meshes
+    }
+
+    pub fn save_current_state(file_path: String) {}
 }

@@ -1,6 +1,6 @@
 pub const BUFFER_VISIBLE_EVERYWHERE: wgpu::BindGroupLayoutDescriptor =
     wgpu::BindGroupLayoutDescriptor {
-        label: Some("Camera bind group layout"),
+        label: Some("Buffer visible everywhere"),
         entries: &[wgpu::BindGroupLayoutEntry {
             binding: 0,
             visibility: wgpu::ShaderStages::all(),
@@ -116,6 +116,7 @@ pub const PBR_TEXTURE: wgpu::BindGroupLayoutDescriptor = wgpu::BindGroupLayoutDe
 pub const SHADOW_DEPTH_TEXTURE: wgpu::BindGroupLayoutDescriptor = wgpu::BindGroupLayoutDescriptor {
     label: Some("Shadow texture and its sampler"),
     entries: &[
+        // Directional and spot shadows
         wgpu::BindGroupLayoutEntry {
             binding: 0,
             visibility: wgpu::ShaderStages::COMPUTE,
@@ -132,13 +133,14 @@ pub const SHADOW_DEPTH_TEXTURE: wgpu::BindGroupLayoutDescriptor = wgpu::BindGrou
             ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Comparison),
             count: None,
         },
+        // Point shadows
         wgpu::BindGroupLayoutEntry {
             binding: 2,
             visibility: wgpu::ShaderStages::COMPUTE,
             ty: wgpu::BindingType::Texture {
                 multisampled: false,
                 sample_type: wgpu::TextureSampleType::Depth,
-                view_dimension: wgpu::TextureViewDimension::Cube,
+                view_dimension: wgpu::TextureViewDimension::CubeArray,
             },
             count: None,
         },

@@ -5,6 +5,8 @@ use imgui::MouseCursor;
 use imgui_wgpu::{Renderer, RendererConfig};
 use imgui_winit_support::WinitPlatform;
 
+use crate::world::ObjectHandle;
+
 pub enum GuiEvent {
     RecompileShaders,
     LightPositionChanged { new_position: [f32; 3] },

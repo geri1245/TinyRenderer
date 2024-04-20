@@ -5,8 +5,10 @@ use wgpu::{
 
 use crate::{
     bind_group_layout_descriptors,
-    model::InstancedTexturedRenderableMesh,
-    pipelines::{GBufferGeometryRP, GBufferTextures, ShaderCompilationSuccess},
+    model::RenderableObject,
+    pipelines::{
+        GBufferGeometryRP, GBufferTextures, PbrParameterVariation, ShaderCompilationSuccess,
+    },
     texture::{SampledTexture, SampledTextureDescriptor},
 };
 
@@ -22,7 +24,8 @@ pub struct GBufferGeometryRenderer {
     pub bind_group: wgpu::BindGroup,
     width: u32,
     height: u32,
-    gbuffer_rp: GBufferGeometryRP,
+    textured_gbuffer_rp: GBufferGeometryRP,
+    flat_parameter_gbuffer_rp: GBufferGeometryRP,
 }
 
 impl GBufferGeometryRenderer {
@@ -30,14 +33,23 @@ impl GBufferGeometryRenderer {
         let textures = Self::create_textures(device, width, height);
         let bind_group = Self::create_bind_group(device, &textures);
 
-        let gbuffer_rp = GBufferGeometryRP::new(device, &textures).await.unwrap();
+        let textured_gbuffer_rp =
+            GBufferGeometryRP::new(device, &textures, PbrParameterVariation::Texture)
+                .await
+                .unwrap();
+
+        let flat_parameter_gbuffer_rp =
+            GBufferGeometryRP::new(device, &textures, PbrParameterVariation::Flat)
+                .await
+                .unwrap();
 
         Self {
             textures,
             bind_group,
             width,
             height,
-            gbuffer_rp,
+            textured_gbuffer_rp,
+            flat_parameter_gbuffer_rp,
         }
     }
 
@@ -45,8 +57,12 @@ impl GBufferGeometryRenderer {
         &mut self,
         device: &Device,
     ) -> anyhow::Result<ShaderCompilationSuccess> {
-        self.gbuffer_rp
-            .try_recompile_shader(device, &self.textures)
+        self.textured_gbuffer_rp
+            .try_recompile_shader(device, &self.textures, PbrParameterVariation::Texture)
+            .await?;
+
+        self.textured_gbuffer_rp
+            .try_recompile_shader(device, &self.textures, PbrParameterVariation::Flat)
             .await
     }
 
@@ -165,10 +181,18 @@ impl GBufferGeometryRenderer {
     pub fn render<'a>(
         &'a self,
         render_pass: &mut RenderPass<'a>,
-        mesh: &'a InstancedTexturedRenderableMesh,
+        mesh: &'a RenderableObject,
         camera_bind_group: &'a BindGroup,
     ) {
-        self.gbuffer_rp
-            .render_mesh(render_pass, mesh, camera_bind_group);
+        match mesh.material.variation {
+            PbrParameterVariation::Texture => {
+                self.textured_gbuffer_rp
+                    .render_mesh(render_pass, mesh, camera_bind_group)
+            }
+            PbrParameterVariation::Flat => {
+                self.flat_parameter_gbuffer_rp
+                    .render_mesh(render_pass, mesh, camera_bind_group)
+            }
+        }
     }
 }

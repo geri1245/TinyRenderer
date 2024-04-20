@@ -3,12 +3,10 @@ use std::{collections::HashMap, rc::Rc};
 use async_std::path::PathBuf;
 use glam::{Vec2, Vec3};
 use serde::Deserialize;
-use wgpu::{util::DeviceExt, Device};
+use wgpu::{util::DeviceExt, Device, RenderPass};
 
 use crate::{
-    bind_group_layout_descriptors,
-    instance::SceneComponent,
-    texture::{SampledTexture, TextureUsage},
+    instance::SceneComponent, material::Material, texture::TextureUsage,
     vertex::VertexRawWithTangents,
 };
 
@@ -19,61 +17,47 @@ pub struct ModelDescriptorFile {
     pub textures: HashMap<TextureUsage, String>,
 }
 
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct PbrParameters {
+    pub albedo: [f32; 3],
+    pub roughness: f32,
+    pub metalness: f32,
+    _padding: [u32; 3],
+}
+
+impl Default for PbrParameters {
+    fn default() -> Self {
+        Self {
+            albedo: [1.0, 0.0, 0.0],
+            roughness: 1.0,
+            metalness: 0.0,
+            ..Default::default()
+        }
+    }
+}
+
+impl PbrParameters {
+    pub fn fully_rough(albedo: [f32; 3]) -> Self {
+        Self {
+            albedo,
+            ..Default::default()
+        }
+    }
+
+    pub fn new(albedo: [f32; 3], roughness: f32, metalness: f32) -> Self {
+        Self {
+            albedo,
+            roughness,
+            metalness,
+            _padding: [0, 0, 0],
+        }
+    }
+}
+
 pub struct ModelLoadingData {
     pub path: PathBuf,
     pub textures: Vec<(TextureUsage, PathBuf)>,
-}
-
-pub struct Material {
-    pub bind_group: wgpu::BindGroup,
-}
-
-impl Material {
-    pub fn new(
-        device: &wgpu::Device,
-        textures: &HashMap<TextureUsage, Rc<SampledTexture>>,
-    ) -> Self {
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &device.create_bind_group_layout(&bind_group_layout_descriptors::PBR_TEXTURE),
-            entries: &[
-                textures
-                    .get(&TextureUsage::Albedo)
-                    .unwrap()
-                    .get_texture_bind_group_entry(0),
-                textures
-                    .get(&TextureUsage::Albedo)
-                    .unwrap()
-                    .get_sampler_bind_group_entry(1),
-                textures
-                    .get(&TextureUsage::Normal)
-                    .unwrap()
-                    .get_texture_bind_group_entry(2),
-                textures
-                    .get(&TextureUsage::Normal)
-                    .unwrap()
-                    .get_sampler_bind_group_entry(3),
-                textures
-                    .get(&TextureUsage::Roughness)
-                    .unwrap()
-                    .get_texture_bind_group_entry(4),
-                textures
-                    .get(&TextureUsage::Roughness)
-                    .unwrap()
-                    .get_sampler_bind_group_entry(5),
-                textures
-                    .get(&TextureUsage::Metalness)
-                    .unwrap()
-                    .get_texture_bind_group_entry(6),
-                textures
-                    .get(&TextureUsage::Metalness)
-                    .unwrap()
-                    .get_sampler_bind_group_entry(7),
-            ],
-            label: None,
-        });
-
-        Material { bind_group }
-    }
 }
 
 pub struct RenderableMesh {
@@ -83,20 +67,44 @@ pub struct RenderableMesh {
     pub index_count: u32,
 }
 
-pub struct InstancedRenderableMesh {
-    pub mesh: Rc<RenderableMesh>,
+pub struct InstanceData {
     pub instances: Vec<SceneComponent>,
     pub instance_buffer: wgpu::Buffer,
 }
 
-pub struct InstancedTexturedRenderableMesh {
+pub struct InstancedRenderableMesh {
+    pub mesh: Rc<RenderableMesh>,
+    pub instance_data: InstanceData,
+}
+
+pub struct RenderableObject {
     pub mesh: InstancedRenderableMesh,
     pub material: Rc<Material>,
     pub material_id: Option<u32>,
 }
 
+impl RenderableObject {
+    pub fn render<'a>(&'a self, render_pass: &mut RenderPass<'a>, use_material: bool) {
+        if use_material {
+            render_pass.set_bind_group(0, &self.material.bind_group, &[]);
+        }
+
+        render_pass.set_vertex_buffer(0, self.mesh.mesh.vertex_buffer.slice(..));
+        render_pass.set_vertex_buffer(1, self.mesh.instance_data.instance_buffer.slice(..));
+        render_pass.set_index_buffer(
+            self.mesh.mesh.index_buffer.slice(..),
+            wgpu::IndexFormat::Uint32,
+        );
+        render_pass.draw_indexed(
+            0..self.mesh.mesh.index_count,
+            0,
+            0..self.mesh.instance_data.instances.len() as u32,
+        );
+    }
+}
+
 impl InstancedRenderableMesh {
-    pub fn new(instances: Vec<SceneComponent>, device: &Device, mesh: Rc<RenderableMesh>) -> Self {
+    pub fn new(instances: Vec<SceneComponent>, device: &Device, mesh: &Rc<RenderableMesh>) -> Self {
         let raw_instances = instances
             .iter()
             .map(|instance| instance.to_raw())
@@ -108,9 +116,11 @@ impl InstancedRenderableMesh {
         });
 
         Self {
-            instance_buffer,
-            instances,
-            mesh,
+            instance_data: InstanceData {
+                instance_buffer,
+                instances,
+            },
+            mesh: mesh.clone(),
         }
     }
 }

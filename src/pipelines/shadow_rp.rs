@@ -63,7 +63,7 @@ impl ShadowRP {
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("shadow pipeline layout"),
             bind_group_layouts: &[&device.create_bind_group_layout(
-                &(bind_group_layout_descriptors::LIGHT_WITH_DYNAMIC_OFFSET),
+                &(bind_group_layout_descriptors::BUFFER_WITH_DYNAMIC_OFFSET),
             )],
             push_constant_ranges: &[],
         });

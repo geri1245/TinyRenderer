@@ -27,7 +27,7 @@ pub const LIGHT: wgpu::BindGroupLayoutDescriptor = wgpu::BindGroupLayoutDescript
     }],
 };
 
-pub const LIGHT_WITH_DYNAMIC_OFFSET: wgpu::BindGroupLayoutDescriptor =
+pub const BUFFER_WITH_DYNAMIC_OFFSET: wgpu::BindGroupLayoutDescriptor =
     wgpu::BindGroupLayoutDescriptor {
         label: Some("Light bind group layout descriptor with dynamic offset"),
         entries: &[wgpu::BindGroupLayoutEntry {
@@ -41,6 +41,45 @@ pub const LIGHT_WITH_DYNAMIC_OFFSET: wgpu::BindGroupLayoutDescriptor =
             count: None,
         }],
     };
+
+pub const LIGHTS_BUFFER: wgpu::BindGroupLayoutDescriptor = wgpu::BindGroupLayoutDescriptor {
+    label: Some("Light bind group layout descriptor with dynamic offset"),
+    entries: &[
+        // Light params
+        wgpu::BindGroupLayoutEntry {
+            binding: 0,
+            visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // Point lights
+        wgpu::BindGroupLayoutEntry {
+            binding: 1,
+            visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+        // Directional lights
+        wgpu::BindGroupLayoutEntry {
+            binding: 2,
+            visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: None,
+            },
+            count: None,
+        },
+    ],
+};
 
 // TODO: compress the metalness/roughness/ao into a single multichannel texture
 pub const PBR_TEXTURE: wgpu::BindGroupLayoutDescriptor = wgpu::BindGroupLayoutDescriptor {

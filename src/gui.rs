@@ -5,8 +5,6 @@ use imgui::MouseCursor;
 use imgui_wgpu::{Renderer, RendererConfig};
 use imgui_winit_support::WinitPlatform;
 
-use crate::world::ObjectHandle;
-
 pub enum GuiEvent {
     RecompileShaders,
     LightPositionChanged { new_position: [f32; 3] },
@@ -175,8 +173,9 @@ impl Gui {
                 occlusion_query_set: None,
             });
 
+            let draw_data = self.context.render();
             self.renderer
-                .render(self.context.render(), &queue, &device, &mut rpass)
+                .render(draw_data, &queue, &device, &mut rpass)
                 .expect("Rendering failed");
         }
 

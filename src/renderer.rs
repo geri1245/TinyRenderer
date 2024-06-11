@@ -1,6 +1,6 @@
 use wgpu::{
-    CommandEncoder, CommandEncoderDescriptor, Device, Extent3d, InstanceDescriptor, RenderPass,
-    RenderPassDepthStencilAttachment, SurfaceTexture, TextureFormat,
+    CommandEncoder, CommandEncoderDescriptor, Device, Extent3d, InstanceDescriptor, SurfaceTexture,
+    TextureFormat,
 };
 
 use crate::texture::{self, SampledTexture};

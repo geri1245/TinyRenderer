@@ -1,6 +1,8 @@
+use std::num::NonZeroU64;
+
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
-    BindGroup, Buffer, BufferDescriptor,
+    BindGroup, BindingResource, Buffer, BufferDescriptor,
 };
 
 pub struct BufferBindGroupCreationOptions<'a> {
@@ -8,6 +10,8 @@ pub struct BufferBindGroupCreationOptions<'a> {
     pub num_of_items: u64,
     pub usages: wgpu::BufferUsages,
     pub label: &'a str,
+    /// If None, then uses the entire buffer, else the given size
+    pub binding_size: Option<u64>,
 }
 
 pub struct BufferInitBindGroupCreationOptions<'a> {
@@ -16,16 +20,16 @@ pub struct BufferInitBindGroupCreationOptions<'a> {
     pub label: &'a str,
 }
 
-pub fn create_bind_group_from_buffer_entire_binding<Type>(
+pub fn create_bind_group_from_buffer_entire_binding_fixed_size(
     device: &wgpu::Device,
     options: &BufferBindGroupCreationOptions,
+    size: u64,
 ) -> (Buffer, BindGroup) {
-    let type_size = core::mem::size_of::<Type>() as wgpu::BufferAddress;
     let buffer_label = options.label.to_string() + " buffer";
 
     let buffer = device.create_buffer(&BufferDescriptor {
         label: Some(&buffer_label),
-        size: type_size * options.num_of_items,
+        size: size * options.num_of_items,
         usage: options.usages,
         mapped_at_creation: false,
     });
@@ -35,9 +39,19 @@ pub fn create_bind_group_from_buffer_entire_binding<Type>(
         &buffer,
         &options.label,
         &options.bind_group_layout_descriptor,
+        options.binding_size,
     );
 
     (buffer, bind_group)
+}
+
+pub fn create_bind_group_from_buffer_entire_binding<Type>(
+    device: &wgpu::Device,
+    options: &BufferBindGroupCreationOptions,
+) -> (Buffer, BindGroup) {
+    let type_size = core::mem::size_of::<Type>() as wgpu::BufferAddress;
+
+    create_bind_group_from_buffer_entire_binding_fixed_size(device, options, type_size)
 }
 
 pub fn create_bind_group_from_buffer_entire_binding_init(
@@ -58,6 +72,7 @@ pub fn create_bind_group_from_buffer_entire_binding_init(
         &buffer,
         options.label,
         options.bind_group_layout_descriptor,
+        None,
     );
 
     (buffer, bind_group)
@@ -68,6 +83,7 @@ fn create_bind_group(
     buffer: &Buffer,
     label: &str,
     bind_group_layout_descriptor: &wgpu::BindGroupLayoutDescriptor,
+    binding_size: Option<u64>,
 ) -> BindGroup {
     let bind_group_label = label.to_string() + " bind group";
 
@@ -75,7 +91,15 @@ fn create_bind_group(
         layout: &device.create_bind_group_layout(bind_group_layout_descriptor),
         entries: &[wgpu::BindGroupEntry {
             binding: 0,
-            resource: buffer.as_entire_binding(),
+            resource: if binding_size.is_some() {
+                BindingResource::Buffer(wgpu::BufferBinding {
+                    buffer,
+                    offset: 0,
+                    size: NonZeroU64::new(binding_size.unwrap()),
+                })
+            } else {
+                buffer.as_entire_binding()
+            },
         }],
         label: Some(&bind_group_label),
     })

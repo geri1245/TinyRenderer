@@ -2,12 +2,14 @@ use crate::camera_controller::CameraController;
 use crate::gui::{Gui, GuiEvent};
 use crate::input_actions::RenderingAction;
 use crate::light_controller::LightController;
+use crate::lights::{DirectionalLight, Light, PointLight};
 use crate::player_controller::PlayerController;
 use crate::resource_loader::ResourceLoader;
 use crate::world::World;
 use crate::world_renderer::WorldRenderer;
 use crate::{frame_timer::BasicTimer, renderer::Renderer};
 use crossbeam_channel::{unbounded, Receiver};
+use glam::Vec3;
 use std::time::Duration;
 use wgpu::TextureViewDescriptor;
 use winit::event::{DeviceEvent, ElementState, KeyEvent, MouseButton, WindowEvent};
@@ -43,7 +45,16 @@ impl App {
 
         let gui = Gui::new(&window, &renderer.device, &renderer.queue, gui_event_sender);
 
-        let world = World::new(&renderer.device, &mut resource_loader).await;
+        let mut world = World::new(&renderer.device, &mut resource_loader).await;
+        world.add_light(Light::Point(PointLight::new(
+            Vec3::new(10.0, 20.0, 0.0),
+            Vec3::new(2.0, 5.0, 4.0),
+        )));
+        world.add_light(Light::Directional(DirectionalLight {
+            direction: Vec3::new(0.0, -1.0, 0.0).normalize(),
+            color: Vec3::new(1.0, 1.0, 1.0),
+        }));
+
         let player_controller = PlayerController::new();
         let mut world_renderer: WorldRenderer =
             WorldRenderer::new(&renderer, &mut resource_loader).await;
@@ -63,7 +74,7 @@ impl App {
             frame_timer,
             world_renderer,
             gui,
-            should_draw_gui: true,
+            should_draw_gui: false,
             gui_event_receiver,
             world,
             camera_controller,
@@ -234,11 +245,15 @@ impl App {
 
         self.camera_controller.update(delta, &self.renderer.queue);
 
-        self.light_controller.update(
-            delta,
-            &self.renderer.queue,
-            self.world.get_lights_if_dirty(),
-        );
+        {
+            self.light_controller.update(
+                delta,
+                &self.renderer.queue,
+                &self.renderer.device,
+                &self.world,
+            );
+            self.world.set_lights_udpated();
+        }
     }
 
     pub fn toggle_should_draw_gui(&mut self) {

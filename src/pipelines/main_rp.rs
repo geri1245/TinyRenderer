@@ -52,6 +52,9 @@ impl MainRP {
                     &device.create_bind_group_layout(
                         &bind_group_layout_descriptors::TEXTURE_CUBE_FRAGMENT_COMPUTE_WITH_SAMPLER,
                     ),
+                    &device.create_bind_group_layout(
+                        &bind_group_layout_descriptors::BUFFER_VISIBLE_EVERYWHERE,
+                    ),
                 ],
                 push_constant_ranges: &[],
             });
@@ -99,12 +102,13 @@ impl MainRP {
     ) {
         render_pass.set_pipeline(&self.compute_pipeline);
 
-        render_pass.set_bind_group(1, &camera_controller.bind_group, &[]);
         render_pass.set_bind_group(0, &light_controller.get_light_bind_group(), &[]);
+        render_pass.set_bind_group(1, &camera_controller.bind_group, &[]);
         render_pass.set_bind_group(2, gbuffer_bind_group, &[]);
         render_pass.set_bind_group(3, shadow_bind_group, &[]);
         render_pass.set_bind_group(4, copmute_pass_textures_bind_group, &[]);
         render_pass.set_bind_group(5, diffuse_irradiance_map_bind_group, &[]);
+        render_pass.set_bind_group(6, light_controller.get_light_parameters_bind_group(), &[]);
 
         render_pass.dispatch_workgroups(width, height, 1);
     }

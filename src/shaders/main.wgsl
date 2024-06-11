@@ -15,6 +15,11 @@ struct CameraUniform {
     position: vec3<f32>,
 };
 
+struct LightParams {
+    point_light_count: u32,
+    directional_light_count: u32,
+};
+
 @group(0) @binding(0)
 var<uniform> lights: array<Light, 2>;
 
@@ -61,11 +66,16 @@ var diffuse_irradiance_map: texture_cube<f32>;
 @group(5) @binding(1)
 var diffuse_irradiance_sampler: sampler;
 
+@group(6) @binding(0)
+var<uniform> light_params: LightParams;
+
 fn is_valid_tex_coord(tex_coord: vec2<f32>) -> bool {
     return tex_coord.x >= 0.0 && tex_coord.x <= 1.0 && tex_coord.y >= 0.0 && tex_coord.y <= 1.0;
 }
 
-fn fetch_shadow(light_id: u32, fragment_pos: vec4<f32>) -> f32 {
+fn fetch_shadow(light_id: u32, fragment_pos2: vec4<f32>) -> f32 {
+    var fragment_pos = fragment_pos2;
+    fragment_pos.x *= -1.0;
     if fragment_pos.w <= 0.0 {
         return 1.0;
     }
@@ -209,29 +219,31 @@ fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     var irradiance = vec3<f32>(0, 0, 0);
 
-    for (var i = 0u; i < 2; i += 1u) {
+    // Point lights
+    for (var i = 0u; i < light_params.point_light_count; i += 1u) {
         let light = lights[i];
 
-        if light.light_type == 1 {
-            // Point lights
-            let shadow = get_shadow_value(i, position.xyz);
-            if shadow > 0.0 {
-                let pixel_to_light = light.position_or_direction - position.xyz;
-                let pixel_to_light_distance = length(pixel_to_light);
-                let attenuation = 1.0 / (pixel_to_light_distance * pixel_to_light_distance);
+        let shadow = get_shadow_value(i, position.xyz);
+        if shadow > 0.0 {
+            let pixel_to_light = light.position_or_direction - position.xyz;
+            let pixel_to_light_distance = length(pixel_to_light);
+            let attenuation = 1.0 / (pixel_to_light_distance * pixel_to_light_distance);
 
-                irradiance += calculate_light_contribution(
-                    normalize(pixel_to_light), light.color, attenuation, pixel_to_camera, position.xyz, normal, albedo, metalness, roughness
-                );
-            }
-        } else if light.light_type == 2 {
-            // Directional lights
-            let shadow = fetch_shadow(i, light.view_proj * position);
-            if shadow > 0.0 {
-                irradiance += calculate_light_contribution(
-                    -light.position_or_direction, light.color, 0.6, pixel_to_camera, position.xyz, normal, albedo, metalness, roughness
-                );
-            }
+            irradiance += calculate_light_contribution(
+                normalize(pixel_to_light), light.color, attenuation, pixel_to_camera, position.xyz, normal, albedo, metalness, roughness
+            );
+        }
+    }
+
+    // Directional lights
+    for (var i = 0u; i < light_params.directional_light_count; i += 1u) {
+        let light = lights[i + light_params.point_light_count];
+
+        let shadow = fetch_shadow(i, light.view_proj * position);
+        if shadow > 0.0 {
+            irradiance += calculate_light_contribution(
+                -light.position_or_direction, light.color, 0.6, pixel_to_camera, position.xyz, normal, albedo, metalness, roughness
+            );
         }
     }
 

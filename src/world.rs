@@ -20,6 +20,7 @@ pub struct ObjectHandle {
     id: usize,
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum DirtyState {
     /// No changes, nothing needs to be updated
     NothingChanged,
@@ -35,7 +36,7 @@ pub struct World {
     meshes: Vec<RenderableObject>,
     are_meshes_dirty: bool,
     lights: Vec<Light>,
-    are_lights_dirty: DirtyState,
+    lights_dirty_state: DirtyState,
 
     debug_meshes: HashMap<PrimitiveMeshes, Rc<RenderableMesh>>,
     pending_lights: Vec<Light>,
@@ -193,7 +194,7 @@ impl World {
             meshes,
             are_meshes_dirty: true,
             lights: vec![],
-            are_lights_dirty: true,
+            lights_dirty_state: DirtyState::ItemsChanged,
             debug_meshes: debug_objects,
             loaded_meshes,
             pending_lights: vec![],
@@ -212,7 +213,7 @@ impl World {
 
     pub fn get_light(&mut self, handle: &ObjectHandle) -> Option<&mut Light> {
         if handle.id < self.lights.len() {
-            self.are_lights_dirty = true;
+            self.lights_dirty_state = DirtyState::ItemPropertiesChanged;
             Some(&mut self.lights[handle.id])
         } else {
             None
@@ -261,12 +262,16 @@ impl World {
         return ObjectHandle { id: 0 };
     }
 
-    pub fn get_lights_dirty_state(&self) -> (DirtyState, Option<&Vec<Light>>) {
-        if self.are_lights_dirty {
-            Some(&self.lights)
-        } else {
-            None
-        }
+    pub fn get_lights_dirty_state(&self) -> DirtyState {
+        self.lights_dirty_state
+    }
+
+    pub fn set_lights_udpated(&mut self) {
+        self.lights_dirty_state = DirtyState::NothingChanged;
+    }
+
+    pub fn get_lights(&self) -> &Vec<Light> {
+        &self.lights
     }
 
     pub fn get_meshes(&self) -> &Vec<RenderableObject> {

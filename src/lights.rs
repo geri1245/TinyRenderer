@@ -7,8 +7,9 @@ use crate::instance::SceneComponent;
 const POINT_LIGHT_FAR_PLANE: f32 = 100.0;
 const DIRECTIONAL_LIGHT_FAR_PLANE: f32 = 250.0;
 const NEAR_PLANE: f32 = 0.1;
-const DIRECTIONAL_LIGHT_PROJECTION_CUBE_SIZE: f32 = 40.0;
-const DIRECTIONAL_LIGHT_PROJECTION_CUBE_OFFSET: f32 = -20.0;
+const DIRECTIONAL_LIGHT_PROJECTION_CUBE_SCALE: f32 = 40.0;
+const DIRECTIONAL_LIGHT_PROJECTION_CUBE_OFFSET: f32 =
+    -DIRECTIONAL_LIGHT_PROJECTION_CUBE_SCALE / 2.0;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Light {
@@ -30,7 +31,7 @@ pub struct PointLight {
 
 pub struct PointLightRenderData {
     pub light: PointLight,
-    pub depth_textures: Vec<wgpu::TextureView>,
+    pub depth_texture_index: usize,
     light_params: CommonLightParams,
 }
 
@@ -43,7 +44,7 @@ pub struct DirectionalLight {
 
 pub struct DirectionalLightRenderData {
     pub light: DirectionalLight,
-    pub depth_textures: Vec<wgpu::TextureView>,
+    pub depth_texture: wgpu::TextureView,
     light_params: CommonLightParams,
 }
 
@@ -81,10 +82,10 @@ impl PointLight {
 }
 
 impl PointLightRenderData {
-    pub fn new(point_light: PointLight, depth_texture: Vec<wgpu::TextureView>) -> Self {
+    pub fn new(point_light: PointLight, depth_texture_index: usize) -> Self {
         PointLightRenderData {
             light: point_light,
-            depth_textures: depth_texture,
+            depth_texture_index,
             light_params: CommonLightParams {
                 far_plane: POINT_LIGHT_FAR_PLANE,
                 near_plane: NEAR_PLANE,
@@ -156,7 +157,7 @@ impl PointLightRenderData {
 impl DirectionalLightRenderData {
     pub fn new(light: &DirectionalLight, depth_texture: wgpu::TextureView) -> Self {
         Self {
-            depth_textures: vec![depth_texture],
+            depth_texture: depth_texture,
             light: light.clone(),
             light_params: CommonLightParams {
                 far_plane: DIRECTIONAL_LIGHT_FAR_PLANE,
@@ -167,7 +168,7 @@ impl DirectionalLightRenderData {
 
     pub fn to_raw(&self) -> LightRaw {
         let direction_vec = Vec3::from(self.light.direction);
-        let right = direction_vec.cross(Vec3::new(0.0, 1.0, 0.0));
+        let right = direction_vec.cross(Vec3::new(1.0, 0.0, 0.0));
         // In case of directional lights, the eye is set to a number, so that when we are rendering shadows
         // with this viewproj matrix, then everything is hopefully inside of it
         let view = Mat4::look_at_rh(
@@ -177,9 +178,9 @@ impl DirectionalLightRenderData {
         );
         let proj: Mat4 = Mat4::orthographic_rh(
             DIRECTIONAL_LIGHT_PROJECTION_CUBE_OFFSET,
-            DIRECTIONAL_LIGHT_PROJECTION_CUBE_SIZE,
+            DIRECTIONAL_LIGHT_PROJECTION_CUBE_SCALE,
             DIRECTIONAL_LIGHT_PROJECTION_CUBE_OFFSET,
-            DIRECTIONAL_LIGHT_PROJECTION_CUBE_SIZE,
+            DIRECTIONAL_LIGHT_PROJECTION_CUBE_SCALE,
             NEAR_PLANE,
             self.light_params.far_plane,
         );
@@ -195,19 +196,19 @@ impl DirectionalLightRenderData {
 
     pub fn to_raw_small(&self) -> LightRawSmall {
         let direction_vec = Vec3::from(self.light.direction);
-        let right = direction_vec.cross(Vec3::new(0.0, 1.0, 0.0));
+        let right = direction_vec.cross(Vec3::new(1.0, 0.0, 0.0));
         // In case of directional lights, the eye is set to a number, so that when we are rendering shadows
         // with this viewproj matrix, then everything is hopefully inside of it
         let view = Mat4::look_at_rh(
-            50.0 * -direction_vec,
+            30.0 * -direction_vec,
             Vec3::ZERO,
             right.cross(direction_vec),
         );
         let proj: Mat4 = Mat4::orthographic_rh(
             DIRECTIONAL_LIGHT_PROJECTION_CUBE_OFFSET,
-            DIRECTIONAL_LIGHT_PROJECTION_CUBE_SIZE,
+            DIRECTIONAL_LIGHT_PROJECTION_CUBE_SCALE,
             DIRECTIONAL_LIGHT_PROJECTION_CUBE_OFFSET,
-            DIRECTIONAL_LIGHT_PROJECTION_CUBE_SIZE,
+            DIRECTIONAL_LIGHT_PROJECTION_CUBE_SCALE,
             NEAR_PLANE,
             self.light_params.far_plane,
         );

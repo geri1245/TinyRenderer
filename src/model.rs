@@ -32,7 +32,7 @@ impl Default for PbrParameters {
             albedo: [1.0, 0.0, 0.0],
             roughness: 1.0,
             metalness: 0.0,
-            ..Default::default()
+            _padding: [0, 0, 0],
         }
     }
 }

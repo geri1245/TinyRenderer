@@ -11,6 +11,7 @@ use super::{
 };
 
 const SHADER_SOURCE: &'static str = "src/shaders/main.wgsl";
+const WORKGROUP_SIZE_PER_DIMENSION: u32 = 8;
 
 pub struct MainRP {
     compute_pipeline: ComputePipeline,
@@ -97,8 +98,8 @@ impl MainRP {
         shadow_bind_group: &'a wgpu::BindGroup,
         diffuse_irradiance_map_bind_group: &'a wgpu::BindGroup,
         copmute_pass_textures_bind_group: &'a wgpu::BindGroup,
-        width: u32,
-        height: u32,
+        render_target_width: u32,
+        render_target_height: u32,
     ) {
         render_pass.set_pipeline(&self.compute_pipeline);
 
@@ -110,6 +111,9 @@ impl MainRP {
         render_pass.set_bind_group(5, diffuse_irradiance_map_bind_group, &[]);
         render_pass.set_bind_group(6, light_controller.get_light_parameters_bind_group(), &[]);
 
-        render_pass.dispatch_workgroups(width, height, 1);
+        let num_dispatches_x = render_target_width.div_ceil(WORKGROUP_SIZE_PER_DIMENSION);
+        let num_dispatches_y = render_target_height.div_ceil(WORKGROUP_SIZE_PER_DIMENSION);
+
+        render_pass.dispatch_workgroups(num_dispatches_x, render_target_height, 1);
     }
 }

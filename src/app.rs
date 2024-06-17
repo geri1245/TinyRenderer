@@ -43,7 +43,7 @@ impl App {
         let (gui_event_sender, gui_event_receiver) = unbounded::<GuiEvent>();
         let mut resource_loader = ResourceLoader::new(&renderer.device, &renderer.queue).await;
 
-        let gui = Gui::new(&window, &renderer.device, &renderer.queue, gui_event_sender);
+        let gui = Gui::new(&window, &renderer.device, gui_event_sender);
 
         let mut world = World::new(&renderer.device, &mut resource_loader).await;
         world.add_light(Light::Point(PointLight::new(
@@ -74,7 +74,7 @@ impl App {
             frame_timer,
             world_renderer,
             gui,
-            should_draw_gui: false,
+            should_draw_gui: true,
             gui_event_receiver,
             world,
             camera_controller,
@@ -102,27 +102,16 @@ impl App {
             .handle_size_changed(&self.renderer, new_size.width, new_size.height);
     }
 
-    pub fn handle_event<'a, T>(
+    pub fn handle_event(
         &mut self,
         window: &winit::window::Window,
-        event: &winit::event::Event<T>,
+        event: &winit::event::WindowEvent,
     ) {
         self.gui.handle_event(window, event);
     }
 
-    pub fn handle_device_event(
-        &mut self,
-        window: &Window,
-        device_id: winit::event::DeviceId,
-        event: DeviceEvent,
-    ) {
-        self.gui.handle_event(
-            window,
-            &winit::event::Event::DeviceEvent::<()> {
-                device_id,
-                event: event.clone(),
-            },
-        );
+    pub fn handle_device_event(&mut self, window: &Window, event: &DeviceEvent) {
+        self.gui.handle_device_event(window, event);
 
         self.camera_controller.process_device_events(event);
     }
@@ -189,7 +178,7 @@ impl App {
                 &window,
                 &self.renderer.device,
                 &self.renderer.queue,
-                delta,
+                &self.renderer.config,
                 &current_frame_texture_view,
             );
         }

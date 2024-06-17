@@ -61,7 +61,7 @@ impl GBufferGeometryRenderer {
             .try_recompile_shader(device, &self.textures, PbrParameterVariation::Texture)
             .await?;
 
-        self.textured_gbuffer_rp
+        self.flat_parameter_gbuffer_rp
             .try_recompile_shader(device, &self.textures, PbrParameterVariation::Flat)
             .await
     }
@@ -184,6 +184,7 @@ impl GBufferGeometryRenderer {
         mesh: &'a RenderableObject,
         camera_bind_group: &'a BindGroup,
     ) {
+        // TODO: filter out the textured version and the flat version and
         match mesh.material.variation {
             PbrParameterVariation::Texture => {
                 self.textured_gbuffer_rp

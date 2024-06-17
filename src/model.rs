@@ -86,6 +86,8 @@ pub struct RenderableObject {
 impl RenderableObject {
     pub fn render<'a>(&'a self, render_pass: &mut RenderPass<'a>, use_material: bool) {
         if use_material {
+            // This bind group will either will be one that contains all the paramters as textures
+            // or a single struct that contains the parameters as plain old floats.
             render_pass.set_bind_group(0, &self.material.bind_group, &[]);
         }
 

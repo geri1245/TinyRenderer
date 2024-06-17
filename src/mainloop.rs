@@ -19,10 +19,9 @@ pub async fn run_main_loop() {
 
     event_loop
         .run(move |event, control_flow| {
-            app.handle_event(&window, &event);
-
             match event {
                 Event::WindowEvent { event, window_id } if window_id == window.id() => {
+                    app.handle_event(&window, &event);
                     match event {
                         WindowEvent::Resized(new_size) => app.resize(new_size),
                         WindowEvent::CloseRequested => control_flow.exit(),
@@ -62,7 +61,7 @@ pub async fn run_main_loop() {
                         }
                     }
 
-                    app.handle_device_event(&window, device_id, event);
+                    app.handle_device_event(&window, &event);
                 }
                 _ => {}
             }

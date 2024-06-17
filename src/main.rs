@@ -14,6 +14,7 @@ mod forward_renderer;
 mod frame_timer;
 mod gbuffer_geometry_renderer;
 mod gui;
+mod gui_helpers;
 mod input_actions;
 mod instance;
 mod light_controller;

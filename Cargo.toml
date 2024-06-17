@@ -20,11 +20,11 @@ half = "2.4"
 bytemuck = { version = "1.14", features = [ "derive" ] }
 
 wgpu = "0.19"
-imgui = "0.11"
 radiant = "0.3"
+egui = "0.26"
+egui-wgpu = { version = "0.26.0",features = ["winit"] }
+egui-winit = "0.26.0"
 
-imgui_wgpu = { path = "crates/imgui_wgpu" }
-imgui-winit-support = { path = "crates/imgui_winit_support" }
 shader_processor = { path = "crates/shader_processor" }
 
 tobj = { version = "4.0", features = ["async"]}

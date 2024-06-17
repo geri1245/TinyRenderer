@@ -64,7 +64,7 @@ impl CameraController {
         }
     }
 
-    pub fn process_device_events(&mut self, event: DeviceEvent) {
+    pub fn process_device_events(&mut self, event: &DeviceEvent) {
         if self.is_movement_enabled {
             self.camera.process_device_events(event);
         }

@@ -116,7 +116,7 @@ impl Camera {
         self.current_speed_positive = Vec3::ZERO;
     }
 
-    pub fn process_device_events(&mut self, event: DeviceEvent) {
+    pub fn process_device_events(&mut self, event: &DeviceEvent) {
         match event {
             DeviceEvent::MouseMotion { delta } => {
                 self.rotate((delta.0 as f32, delta.1 as f32));

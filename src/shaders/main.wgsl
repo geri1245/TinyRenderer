@@ -198,7 +198,7 @@ fn get_diffuse_irradiance(normal: vec3<f32>, view: vec3<f32>, roughness: f32, al
 }
 
 @compute
-@workgroup_size(1)
+@workgroup_size(8, 8, 1)
 fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
     let destination_texture_size = vec2(textureDimensions(destination_texture).x, textureDimensions(destination_texture).y);
     

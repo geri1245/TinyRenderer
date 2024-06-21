@@ -62,6 +62,7 @@ pub struct ModelLoadingData {
 
 pub struct RenderableMesh {
     pub name: String,
+    pub path: Option<String>,
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
     pub index_count: u32,
@@ -72,41 +73,33 @@ pub struct InstanceData {
     pub instance_buffer: wgpu::Buffer,
 }
 
-pub struct InstancedRenderableMesh {
-    pub mesh: Rc<RenderableMesh>,
-    pub instance_data: InstanceData,
-}
-
+#[derive()]
 pub struct RenderableObject {
-    pub mesh: InstancedRenderableMesh,
+    pub mesh: Rc<RenderableMesh>,
     pub material: Rc<Material>,
     pub material_id: Option<u32>,
+    pub instance_data: InstanceData,
 }
 
 impl RenderableObject {
     pub fn render<'a>(&'a self, render_pass: &mut RenderPass<'a>, use_material: bool) {
         if use_material {
-            // This bind group will either will be one that contains all the paramters as textures
-            // or a single struct that contains the parameters as plain old floats.
-            render_pass.set_bind_group(0, &self.material.bind_group, &[]);
+            self.material.bind_render_pass(render_pass, 0);
         }
 
-        render_pass.set_vertex_buffer(0, self.mesh.mesh.vertex_buffer.slice(..));
-        render_pass.set_vertex_buffer(1, self.mesh.instance_data.instance_buffer.slice(..));
-        render_pass.set_index_buffer(
-            self.mesh.mesh.index_buffer.slice(..),
-            wgpu::IndexFormat::Uint32,
-        );
+        render_pass.set_vertex_buffer(0, self.mesh.vertex_buffer.slice(..));
+        render_pass.set_vertex_buffer(1, self.instance_data.instance_buffer.slice(..));
+        render_pass.set_index_buffer(self.mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
         render_pass.draw_indexed(
-            0..self.mesh.mesh.index_count,
+            0..self.mesh.index_count,
             0,
-            0..self.mesh.instance_data.instances.len() as u32,
+            0..self.instance_data.instances.len() as u32,
         );
     }
 }
 
-impl InstancedRenderableMesh {
-    pub fn new(instances: Vec<SceneComponent>, device: &Device, mesh: &Rc<RenderableMesh>) -> Self {
+impl InstanceData {
+    pub fn new(instances: Vec<SceneComponent>, device: &Device) -> Self {
         let raw_instances = instances
             .iter()
             .map(|instance| instance.to_raw())
@@ -118,11 +111,8 @@ impl InstancedRenderableMesh {
         });
 
         Self {
-            instance_data: InstanceData {
-                instance_buffer,
-                instances,
-            },
-            mesh: mesh.clone(),
+            instance_buffer,
+            instances,
         }
     }
 }
@@ -184,6 +174,7 @@ impl RenderableMesh {
     pub fn new(
         device: &Device,
         name: String,
+        path: Option<String>,
         positions: Vec<Vec3>,
         normals: Vec<Vec3>,
         tex_coords: Vec<Vec2>,
@@ -276,7 +267,8 @@ impl RenderableMesh {
         });
 
         RenderableMesh {
-            name: name,
+            name,
+            path,
             vertex_buffer,
             index_buffer,
             index_count: indices.len() as u32,

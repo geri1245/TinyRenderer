@@ -6,7 +6,7 @@ use crate::{
     instance::SceneComponent,
     lights::Light,
     material::Material,
-    model::{InstancedRenderableMesh, PbrParameters, RenderableMesh, RenderableObject},
+    model::{InstanceData, PbrParameters, RenderableMesh, RenderableObject},
     primitive_shapes,
     resource_loader::ResourceLoader,
 };
@@ -32,9 +32,7 @@ pub enum DirtyState {
 }
 
 pub struct World {
-    loaded_meshes: HashMap<String, Rc<RenderableMesh>>,
     meshes: Vec<RenderableObject>,
-    are_meshes_dirty: bool,
     lights: Vec<Light>,
     lights_dirty_state: DirtyState,
 
@@ -157,33 +155,33 @@ impl World {
             .await
             .unwrap();
         let cube = Rc::new(cube_model);
-        let cube_instanced = InstancedRenderableMesh::new(cube_instances, device, &cube);
-        let cube_instanced2 = InstancedRenderableMesh::new(example_instances, device, &cube);
-
-        let mut loaded_meshes = HashMap::new();
-        loaded_meshes.insert("cube".to_owned(), cube.clone());
+        let cube_instances = InstanceData::new(cube_instances, device);
+        let cube_instances2 = InstanceData::new(example_instances, device);
 
         let square = Rc::new(primitive_shapes::square(device));
-        let square_instanced = InstancedRenderableMesh::new(square_instances, device, &square);
+        let square_instances = InstanceData::new(square_instances, device);
 
         let meshes = vec![
             RenderableObject {
                 material: resource_loader.get_default_material(),
-                mesh: square_instanced,
+                mesh: square,
                 material_id: None,
+                instance_data: square_instances,
             },
             RenderableObject {
                 material: resource_loader.get_default_material(),
-                mesh: cube_instanced,
+                instance_data: cube_instances,
                 material_id: Some(material_loading_id),
+                mesh: cube.clone(),
             },
             RenderableObject {
                 material: Rc::new(Material::from_flat_parameters(
                     device,
                     &PbrParameters::new([0.2, 0.6, 0.8], 0.7, 0.0),
                 )),
-                mesh: cube_instanced2,
+                instance_data: cube_instances2,
                 material_id: None,
+                mesh: cube.clone(),
             },
         ];
 
@@ -192,11 +190,9 @@ impl World {
 
         World {
             meshes,
-            are_meshes_dirty: true,
             lights: vec![],
             lights_dirty_state: DirtyState::ItemsChanged,
             debug_meshes: debug_objects,
-            loaded_meshes,
             pending_lights: vec![],
         }
     }
@@ -228,18 +224,19 @@ impl World {
     ) {
         for light in self.pending_lights.drain(..) {
             if let Light::Point(point_light) = light {
-                let renderable_mesh = InstancedRenderableMesh::new(
-                    vec![point_light.transform],
-                    device,
-                    self.debug_meshes.get(&PrimitiveMeshes::Cube).unwrap(),
-                );
+                let instance_data = InstanceData::new(vec![point_light.transform], device);
                 self.meshes.push(RenderableObject {
                     material: Rc::new(Material::from_flat_parameters(
                         device,
                         &PbrParameters::fully_rough(point_light.color.into()),
                     )),
-                    mesh: renderable_mesh,
+                    mesh: self
+                        .debug_meshes
+                        .get(&PrimitiveMeshes::Cube)
+                        .unwrap()
+                        .clone(),
                     material_id: None,
+                    instance_data,
                 });
             }
         }
@@ -277,6 +274,4 @@ impl World {
     pub fn get_meshes(&self) -> &Vec<RenderableObject> {
         &self.meshes
     }
-
-    pub fn save_current_state(file_path: String) {}
 }

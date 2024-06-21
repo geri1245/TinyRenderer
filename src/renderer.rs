@@ -145,8 +145,4 @@ impl Renderer {
     pub fn get_current_frame_texture(&self) -> Result<SurfaceTexture, wgpu::SurfaceError> {
         self.surface.get_current_texture()
     }
-
-    pub fn end_frame(&self, output_frame_content: SurfaceTexture) {
-        output_frame_content.present();
-    }
 }

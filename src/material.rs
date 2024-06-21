@@ -1,5 +1,7 @@
 use std::{collections::HashMap, rc::Rc};
 
+use wgpu::RenderPass;
+
 use crate::{
     bind_group_layout_descriptors,
     buffer::{
@@ -81,5 +83,14 @@ impl Material {
             bind_group,
             variation: PbrParameterVariation::Flat,
         }
+    }
+
+    // TODO: once it's possible to bind values by name, then do it that way
+    pub fn bind_render_pass<'a>(
+        &'a self,
+        render_pass: &mut RenderPass<'a>,
+        material_bind_group_index: u32,
+    ) {
+        render_pass.set_bind_group(material_bind_group_index, &self.bind_group, &[]);
     }
 }

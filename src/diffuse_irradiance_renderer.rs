@@ -21,7 +21,7 @@ const IBL_MAP_EXTENT: wgpu::Extent3d = wgpu::Extent3d {
     depth_or_array_layers: 6,
 };
 
-const DEFAULT_IBL: &[u8] = include_bytes!("../assets/defaults/irradiance_map.data");
+const DEFAULT_IBL: &[u8] = include_bytes!("../assets/textures/defaults/irradiance_map.data");
 
 pub struct DiffuseIrradianceRenderer {
     pipeline: DiffuseIrradianceBakerRP,

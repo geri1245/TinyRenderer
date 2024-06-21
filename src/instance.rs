@@ -2,14 +2,34 @@ use core::mem;
 
 use glam::{Mat3, Mat4, Quat, Vec3};
 
-use crate::buffer_content::BufferContent;
+use crate::{
+    buffer_content::BufferContent,
+    serde_helpers::{serialize_quat, SerdeVec3Proxy},
+};
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, serde::Serialize)]
 pub struct SceneComponent {
+    #[serde(with = "SerdeVec3Proxy")]
     pub position: Vec3,
+    #[serde(with = "SerdeVec3Proxy")]
     pub scale: Vec3,
+    #[serde(serialize_with = "serialize_quat")]
     pub rotation: Quat,
 }
+
+// impl serde::Serialize for SceneComponent {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: serde::Serializer,
+//     {
+//         let serializable_self = self.to_serializable();
+//         let mut struct_serializer = serializer.serialize_struct("SerializableSceneComponent", 3)?;
+//         struct_serializer.serialize_field("position", &serializable_self.position)?;
+//         struct_serializer.serialize_field("rotation", &serializable_self.rotation)?;
+//         struct_serializer.serialize_field("scale", &serializable_self.scale)?;
+//         struct_serializer.end()
+//     }
+// }
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -32,6 +52,22 @@ impl SceneComponent {
             rotation_only_matrix: Mat3::from_quat(self.rotation).to_cols_array_2d(),
         }
     }
+
+    // pub fn to_serializable(&self) -> SerializableSceneComponent {
+    //     SerializableSceneComponent {
+    //         position: SerdeVec3Proxy::from_vec3(&self.position),
+    //         scale: SerdeVec3Proxy::from_vec3(&self.scale),
+    //         rotation: self.rotation.to_array(),
+    //     }
+    // }
+
+    // pub fn from_serializable(&self) -> SerializableSceneComponent {
+    //     SerializableSceneComponent {
+    //         position: SerdeVec3Proxy::from_vec3(&self.position),
+    //         scale: SerdeVec3Proxy::from_vec3(&self.scale),
+    //         rotation: self.rotation.to_array(),
+    //     }
+    // }
 }
 
 impl BufferContent for SceneComponentRaw {

@@ -1,7 +1,0 @@
-{
-  "model": "cube.obj",
-  "textures": {
-    "Albedo": "albedo.jpg",
-    "Normal": "normal.png"
-  }
-}

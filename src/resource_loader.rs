@@ -119,9 +119,9 @@ impl ResourceLoader {
     async fn load_primitive_shapes(
         device: &Device,
     ) -> anyhow::Result<HashMap<PrimitiveShape, Rc<RenderableMesh>>> {
-        let bytes: Vec<u8> = include_bytes!("../assets/cube/cube.obj").into();
+        let bytes: Vec<u8> = include_bytes!("../assets/models/cube/cube.obj").into();
         let mut reader = BufReader::new(&bytes[..]);
-        let mesh = Rc::new(load_obj(&mut reader, device, &"cube".into()).await?);
+        let mesh = Rc::new(load_obj(&mut reader, device, &"cube".into(), None).await?);
 
         let mut primitive_shapes = HashMap::new();
         primitive_shapes.insert(PrimitiveShape::Cube, mesh);
@@ -135,22 +135,22 @@ impl ResourceLoader {
     ) -> (Rc<Material>, HashMap<TextureUsage, Rc<SampledTexture>>) {
         const TEXTURES: [(&[u8], &'static str, texture::TextureUsage); 4] = [
             (
-                include_bytes!("../assets/defaults/albedo.png"),
+                include_bytes!("../assets/textures/defaults/albedo.png"),
                 "default albedo texture",
                 texture::TextureUsage::Albedo,
             ),
             (
-                include_bytes!("../assets/defaults/normal.png"),
+                include_bytes!("../assets/textures/defaults/normal.png"),
                 "default normal texture",
                 texture::TextureUsage::Normal,
             ),
             (
-                include_bytes!("../assets/defaults/metalness.png"),
+                include_bytes!("../assets/textures/defaults/metalness.png"),
                 "default metalness texture",
                 texture::TextureUsage::Metalness,
             ),
             (
-                include_bytes!("../assets/defaults/roughness.png"),
+                include_bytes!("../assets/textures/defaults/roughness.png"),
                 "default roughness texture",
                 texture::TextureUsage::Roughness,
             ),
@@ -271,7 +271,13 @@ impl ResourceLoader {
         let asset_data = process_asset_file(asset_name)?;
 
         let mut file_buf_reader = open_file_for_reading(&asset_data.path)?;
-        let model = load_obj(&mut file_buf_reader, &device, &asset_name.into()).await?;
+        let model = load_obj(
+            &mut file_buf_reader,
+            &device,
+            &asset_name.into(),
+            Some(asset_data.path.to_str().unwrap().to_owned()),
+        )
+        .await?;
         let pending_textures = asset_data
             .textures
             .into_iter()
@@ -337,6 +343,7 @@ pub async fn load_obj<Reader>(
     reader: &mut Reader,
     device: &wgpu::Device,
     asset_name: &String,
+    asset_path: Option<String>,
 ) -> anyhow::Result<RenderableMesh>
 where
     Reader: BufRead,
@@ -353,6 +360,7 @@ where
     Ok(model::RenderableMesh::new(
         device,
         asset_name.to_string(),
+        asset_path,
         vec_to_vec3s(model.mesh.positions),
         vec_to_vec3s(model.mesh.normals),
         vec_to_vec2s(model.mesh.texcoords),

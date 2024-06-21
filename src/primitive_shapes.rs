@@ -49,6 +49,7 @@ pub fn square(render_device: &wgpu::Device) -> RenderableMesh {
 
     RenderableMesh {
         name: "Primitive_Square".into(),
+        path: None,
         index_buffer,
         index_count: SQUARE_INDICES.len() as u32,
         vertex_buffer,

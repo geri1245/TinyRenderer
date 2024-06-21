@@ -183,7 +183,7 @@ impl App {
             );
         }
 
-        self.renderer.end_frame(current_frame_texture);
+        current_frame_texture.present();
 
         Ok(())
     }
@@ -192,7 +192,7 @@ impl App {
         while let Ok(event) = self.gui_event_receiver.try_recv() {
             match event {
                 GuiEvent::RecompileShaders => self.try_recompile_shaders(),
-                GuiEvent::LightPositionChanged { .. } => {
+                _ => {
                     _ = self
                         .player_controller
                         .handle_gui_events(&event, &mut self.world)

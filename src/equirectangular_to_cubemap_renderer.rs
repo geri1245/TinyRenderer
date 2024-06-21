@@ -29,7 +29,7 @@ impl EquirectangularToCubemapRenderer {
         basic_mesh: Rc<RenderableMesh>,
     ) -> anyhow::Result<Self> {
         let pipeline = EquirectangularToCubemapRP::new(device, color_format).await?;
-        let hdr_texture_path = "assets/skybox/hdr/golf_course.hdr";
+        let hdr_texture_path = "assets/textures/skybox/golf_course.hdr";
         let hdr_texture = SampledTexture::from_hdr_image(
             device,
             queue,

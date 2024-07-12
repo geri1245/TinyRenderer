@@ -97,14 +97,8 @@ struct GBufferOutput {
 fn fs_main(in: VertexOutput) -> GBufferOutput {
     var output: GBufferOutput;
     output.position = in.world_position;
-    let tbn_mat = mat3x3(
-        normalize(in.tangent),
-        normalize(in.bitangent),
-        normalize(in.world_normal),
-    );
 
-    let tangent_space_normal = 2.0 * in.world_normal - 1.0;
-    output.normal = vec4(normalize(tbn_mat * tangent_space_normal), 1.0);
+    output.normal = vec4(in.world_normal, 1.0);
     output.albedo = vec4(pbr_parameters.albedo, 1.0);
     output.rough_metal_ao = vec4(
         pbr_parameters.roughness,

@@ -539,12 +539,4 @@ impl LightController {
 
         Ok(())
     }
-
-    pub fn get_raw_instances(light: &PointLight) -> Vec<SceneComponentRaw> {
-        let light_instances = vec![light.transform];
-        light_instances
-            .iter()
-            .map(|instance| instance.to_raw())
-            .collect::<Vec<_>>()
-    }
 }

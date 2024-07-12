@@ -4,7 +4,7 @@ use anyhow::*;
 use serde::Deserialize;
 use wgpu::{Extent3d, TextureFormat, TextureUsages};
 
-const IMAGE_SIZE: u32 = 512;
+const SKYBOX_TEXTURE_SIZE: u32 = 512;
 
 pub struct SampledTexture {
     pub texture: wgpu::Texture,
@@ -227,8 +227,8 @@ impl SampledTexture {
         ];
 
         let size = wgpu::Extent3d {
-            width: IMAGE_SIZE,
-            height: IMAGE_SIZE,
+            width: SKYBOX_TEXTURE_SIZE,
+            height: SKYBOX_TEXTURE_SIZE,
             depth_or_array_layers: 6,
         };
 
@@ -258,8 +258,8 @@ impl SampledTexture {
             &bytes,
             wgpu::ImageDataLayout {
                 offset: 0,
-                bytes_per_row: Some(4 * IMAGE_SIZE),
-                rows_per_image: Some(IMAGE_SIZE),
+                bytes_per_row: Some(4 * SKYBOX_TEXTURE_SIZE),
+                rows_per_image: Some(SKYBOX_TEXTURE_SIZE),
             },
             size,
         );

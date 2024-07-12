@@ -1,4 +1,5 @@
 use crossbeam_channel::Sender;
+use egui::Vec2;
 use egui_wgpu::ScreenDescriptor;
 use wgpu::TextureFormat;
 
@@ -20,7 +21,6 @@ pub struct GuiParams {
 
 pub struct Gui {
     renderer: EguiRenderer,
-    close_requested: bool,
     sender: Sender<GuiEvent>,
     gui_params: GuiParams,
     shader_error: String,
@@ -43,7 +43,6 @@ impl Gui {
         };
 
         Gui {
-            close_requested: false,
             sender,
             gui_params,
             renderer: egui_renderer,
@@ -87,25 +86,34 @@ impl Gui {
                         if ui.button("Recompile shaders").clicked() {
                             let _ = self.sender.try_send(GuiEvent::RecompileShaders);
                         }
-
-                        ui.add(egui::Slider::new(
-                            &mut self.gui_params.point_light_position[0],
-                            -30.0..=30.0,
-                        ));
-                        ui.add(egui::Slider::new(
-                            &mut self.gui_params.point_light_position[1],
-                            -30.0..=30.0,
-                        ));
-                        ui.add(egui::Slider::new(
-                            &mut self.gui_params.point_light_position[2],
-                            -30.0..=30.0,
-                        ));
+                        ui.style_mut().spacing.slider_width = 300.0;
+                        ui.add(
+                            egui::Slider::new(
+                                &mut self.gui_params.point_light_position[0],
+                                -30.0..=30.0,
+                            )
+                            .smart_aim(false),
+                        );
+                        ui.add(
+                            egui::Slider::new(
+                                &mut self.gui_params.point_light_position[1],
+                                -30_f32..=30.0,
+                            )
+                            .smart_aim(false),
+                        );
+                        ui.add(
+                            egui::Slider::new(
+                                &mut self.gui_params.point_light_position[2],
+                                -30.0..=30.0,
+                            )
+                            .smart_aim(false),
+                        );
 
                         ui.separator();
                         ui.label("Gui size");
                         ui.add(egui::Slider::new(
                             &mut self.gui_params.gui_size[0],
-                            0.0..=2000.0,
+                            0_f32..=2000.0,
                         ));
                         ui.add(egui::Slider::new(
                             &mut self.gui_params.gui_size[1],

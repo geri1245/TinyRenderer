@@ -114,6 +114,6 @@ impl MainRP {
         let num_dispatches_x = render_target_width.div_ceil(WORKGROUP_SIZE_PER_DIMENSION);
         let num_dispatches_y = render_target_height.div_ceil(WORKGROUP_SIZE_PER_DIMENSION);
 
-        render_pass.dispatch_workgroups(num_dispatches_x, render_target_height, 1);
+        render_pass.dispatch_workgroups(num_dispatches_x, num_dispatches_y, 1);
     }
 }

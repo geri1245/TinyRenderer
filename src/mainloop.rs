@@ -51,9 +51,7 @@ pub async fn run_main_loop() {
                 Event::AboutToWait => {
                     window.request_redraw();
                 }
-                Event::DeviceEvent {
-                    event, device_id, ..
-                } => {
+                Event::DeviceEvent { event, .. } => {
                     if let DeviceEvent::Key(ref input) = event {
                         if input.physical_key == PhysicalKey::Code(KeyCode::Escape) {
                             control_flow.exit();

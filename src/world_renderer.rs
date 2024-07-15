@@ -185,7 +185,7 @@ impl WorldRenderer {
             self.skybox.render(
                 &mut render_pass,
                 &camera_controller,
-                &self.diffuse_irradiance_renderer.diffuse_irradiance_cubemap,
+                &self.equirec_to_cubemap_renderer.cube_map_to_sample,
             );
 
             // for renderable in renderables {

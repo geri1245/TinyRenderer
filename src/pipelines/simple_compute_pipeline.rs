@@ -68,7 +68,6 @@ impl SimpleCP {
         });
 
         device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            cache: None,
             compilation_options: PipelineCompilationOptions::default(),
             label: Some("Compute pipeline for posteffects"),
             module: shader,

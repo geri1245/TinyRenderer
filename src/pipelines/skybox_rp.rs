@@ -74,7 +74,6 @@ impl SkyboxRP {
         });
 
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            cache: None,
             label: Some("Skybox pipeline"),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {

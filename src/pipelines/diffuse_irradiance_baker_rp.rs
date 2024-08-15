@@ -56,7 +56,6 @@ impl DiffuseIrradianceBakerRP {
 
         // Create the render pipeline
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            cache: None,
             label: Some("diffuse irradiance baking render pipeline"),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {

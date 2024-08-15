@@ -61,7 +61,6 @@ impl MainRP {
             });
 
         device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            cache: None,
             compilation_options: PipelineCompilationOptions::default(),
             label: Some("Compute pipeline that does the lighting from the gbuffer"),
             layout: Some(&render_pipeline_layout),

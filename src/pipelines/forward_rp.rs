@@ -77,7 +77,6 @@ impl ForwardRP {
         });
 
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            cache: None,
             label: Some("Forward render pipeline"),
             layout: Some(&layout),
             vertex: wgpu::VertexState {

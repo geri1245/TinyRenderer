@@ -56,7 +56,6 @@ impl EquirectangularToCubemapRP {
 
         // Create the render pipeline
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            cache: None,
             label: Some("equirec to cubemap render pipeline"),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {

@@ -80,7 +80,6 @@ impl GBufferGeometryRP {
         };
 
         let gbuffer_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            cache: None,
             label: Some("gbuffer pipeline"),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {

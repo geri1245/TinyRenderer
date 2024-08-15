@@ -27,7 +27,6 @@ egui-wgpu = { version = "0.28.1",features = ["winit"] }
 egui-winit = "0.28.1"
 
 shader_processor = { path = "crates/shader_processor" }
-serde_serializable_derive = { path = "crates/serde_serializable_derive" }
 
 tobj = { version = "4.0", features = ["async"]}
 serde = {version = "1.0.196", features = ["derive"]}

@@ -1,4 +1,4 @@
-use wgpu::{BindGroup, BindGroupDescriptor, ComputePass, Device, TextureFormat};
+use wgpu::{BindGroup, BindGroupDescriptor, ComputePass, Device, Extent3d, TextureFormat};
 
 use crate::{
     bind_group_layout_descriptors::{self, COMPUTE_FINAL_STAGE, COMPUTE_PING_PONG},
@@ -79,11 +79,15 @@ impl PostProcessManager {
 
                 let texture = SampledTexture::new(
                     &device,
-                    &SampledTextureDescriptor {
-                        width,
-                        height,
+                    SampledTextureDescriptor {
+                        extents: Extent3d {
+                            width,
+                            height,
+                            depth_or_array_layers: 1,
+                        },
                         usages,
                         format: texture_format,
+                        path: None,
                     },
                     "PingPong texture for postprocessing",
                 );

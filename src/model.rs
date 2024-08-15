@@ -1,8 +1,8 @@
 use std::{collections::HashMap, rc::Rc};
 
-use async_std::path::PathBuf;
 use glam::{Vec2, Vec3};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use wgpu::{util::DeviceExt, Device, RenderPass};
 
 use crate::{
@@ -10,7 +10,7 @@ use crate::{
     vertex::VertexRawWithTangents,
 };
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct ModelDescriptorFile {
     pub model: String,
     #[serde(default)]
@@ -60,9 +60,13 @@ pub struct ModelLoadingData {
     pub textures: Vec<(TextureUsage, PathBuf)>,
 }
 
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct MeshPath {
+    pub path: String,
+}
+
 pub struct RenderableMesh {
-    pub name: String,
-    pub path: Option<String>,
+    pub path: Option<MeshPath>,
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
     pub index_count: u32,
@@ -267,13 +271,10 @@ impl RenderableMesh {
         });
 
         RenderableMesh {
-            name,
-            path,
+            path: path.map(|path| MeshPath { path }),
             vertex_buffer,
             index_buffer,
             index_count: indices.len() as u32,
         }
     }
-
-    // pub fn from_vertex_raw(raw_vertices: &[VertexRaw]) -> Self {}
 }

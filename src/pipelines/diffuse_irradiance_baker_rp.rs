@@ -1,6 +1,7 @@
 use wgpu::{
     ColorTargetState, CommandEncoder, Device, Face, FragmentState, Operations,
-    RenderPassColorAttachment, RenderPipeline, ShaderModule, TextureFormat,
+    PipelineCompilationOptions, RenderPassColorAttachment, RenderPipeline, ShaderModule,
+    TextureFormat,
 };
 
 use crate::{
@@ -55,14 +56,17 @@ impl DiffuseIrradianceBakerRP {
 
         // Create the render pipeline
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            cache: None,
             label: Some("diffuse irradiance baking render pipeline"),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
+                compilation_options: PipelineCompilationOptions::default(),
                 module: shader,
                 entry_point: "vs_main",
                 buffers: &[vertex::VertexRawWithTangents::buffer_layout()],
             },
             fragment: Some(FragmentState {
+                compilation_options: PipelineCompilationOptions::default(),
                 module: shader,
                 entry_point: "fs_main",
                 targets: &[Some(ColorTargetState {

@@ -1,4 +1,4 @@
-use wgpu::{ComputePipeline, Device, ShaderModule};
+use wgpu::{ComputePipeline, Device, PipelineCompilationOptions, ShaderModule};
 
 use crate::{
     bind_group_layout_descriptors, camera_controller::CameraController,
@@ -61,6 +61,8 @@ impl MainRP {
             });
 
         device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            cache: None,
+            compilation_options: PipelineCompilationOptions::default(),
             label: Some("Compute pipeline that does the lighting from the gbuffer"),
             layout: Some(&render_pipeline_layout),
             entry_point: "cs_main",

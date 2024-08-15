@@ -24,7 +24,7 @@ impl PlayerController {
                     }
                 }
             }
-            GuiEvent::RecompileShaders => {}
+            _ => {}
         }
 
         return false;

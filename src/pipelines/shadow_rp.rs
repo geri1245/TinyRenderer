@@ -1,6 +1,6 @@
 use wgpu::{
-    BindGroup, CommandEncoder, Device, RenderPassDepthStencilAttachment, RenderPipeline,
-    ShaderModule, TextureFormat,
+    BindGroup, CommandEncoder, Device, PipelineCompilationOptions,
+    RenderPassDepthStencilAttachment, RenderPipeline, ShaderModule, TextureFormat,
 };
 
 use crate::{
@@ -69,9 +69,11 @@ impl ShadowRP {
         });
 
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            cache: None,
             label: Some("shadow render pipeline"),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
+                compilation_options: PipelineCompilationOptions::default(),
                 module: shader,
                 entry_point: "vs_main",
                 buffers: &[

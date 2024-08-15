@@ -1,4 +1,4 @@
-use wgpu::{Device, RenderPipeline, ShaderModule};
+use wgpu::{Device, PipelineCompilationOptions, RenderPipeline, ShaderModule};
 
 use crate::{bind_group_layout_descriptors, camera_controller::CameraController, texture};
 
@@ -74,14 +74,17 @@ impl SkyboxRP {
         });
 
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            cache: None,
             label: Some("Skybox pipeline"),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
+                compilation_options: PipelineCompilationOptions::default(),
                 module: &shader,
                 entry_point: "vs_sky",
                 buffers: &[],
             },
             fragment: Some(wgpu::FragmentState {
+                compilation_options: PipelineCompilationOptions::default(),
                 module: &shader,
                 entry_point: "fs_sky",
                 targets: &[Some(wgpu::ColorTargetState {

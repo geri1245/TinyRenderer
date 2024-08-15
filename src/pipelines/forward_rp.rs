@@ -1,4 +1,6 @@
-use wgpu::{BindGroup, Device, RenderPass, RenderPipeline, ShaderModule};
+use wgpu::{
+    BindGroup, Device, PipelineCompilationOptions, RenderPass, RenderPipeline, ShaderModule,
+};
 
 use crate::{
     bind_group_layout_descriptors, buffer_content::BufferContent, instance,
@@ -75,9 +77,11 @@ impl ForwardRP {
         });
 
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            cache: None,
             label: Some("Forward render pipeline"),
             layout: Some(&layout),
             vertex: wgpu::VertexState {
+                compilation_options: PipelineCompilationOptions::default(),
                 module: shader,
                 entry_point: "vs_main",
                 buffers: &[
@@ -86,6 +90,7 @@ impl ForwardRP {
                 ],
             },
             fragment: Some(wgpu::FragmentState {
+                compilation_options: PipelineCompilationOptions::default(),
                 module: shader,
                 entry_point: "fs_main",
                 targets: &[Some(wgpu::ColorTargetState {

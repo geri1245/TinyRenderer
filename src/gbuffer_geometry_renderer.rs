@@ -1,5 +1,5 @@
 use wgpu::{
-    BindGroup, CommandEncoder, Device, RenderPass, RenderPassColorAttachment,
+    BindGroup, CommandEncoder, Device, Extent3d, RenderPass, RenderPassColorAttachment,
     RenderPassDepthStencilAttachment, TextureFormat, TextureUsages,
 };
 
@@ -75,20 +75,29 @@ impl GBufferGeometryRenderer {
 
     fn create_textures(device: &wgpu::Device, width: u32, height: u32) -> GBufferTextures {
         let descriptor = SampledTextureDescriptor {
-            width,
-            height,
+            extents: Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
             format: GBUFFER_TEXTURE_FORMAT,
             usages: TextureUsages::RENDER_ATTACHMENT
                 | TextureUsages::TEXTURE_BINDING
                 | wgpu::TextureUsages::STORAGE_BINDING,
+            path: None,
         };
 
-        let position_texture = SampledTexture::new(device, &descriptor, "GBuffer position texture");
-        let normal_texture = SampledTexture::new(device, &descriptor, "GBuffer normal texture");
-        let albedo_and_specular_texture =
-            SampledTexture::new(device, &descriptor, "GBuffer albedo and specular texture");
+        let position_texture =
+            SampledTexture::new(device, descriptor.clone(), "GBuffer position texture");
+        let normal_texture =
+            SampledTexture::new(device, descriptor.clone(), "GBuffer normal texture");
+        let albedo_and_specular_texture = SampledTexture::new(
+            device,
+            descriptor.clone(),
+            "GBuffer albedo and specular texture",
+        );
         let metal_rough_ao =
-            SampledTexture::new(device, &descriptor, "GBuffer metal+rough+ao texture");
+            SampledTexture::new(device, descriptor, "GBuffer metal+rough+ao texture");
 
         let depth_texture_extents = wgpu::Extent3d {
             width,
@@ -184,7 +193,7 @@ impl GBufferGeometryRenderer {
         mesh: &'a RenderableObject,
         camera_bind_group: &'a BindGroup,
     ) {
-        // TODO: filter out the textured version and the flat version and
+        // TODO: filter out the textured version and the flat version and render them separately, so no need to change pipeline state
         match mesh.material.variation {
             PbrParameterVariation::Texture => {
                 self.textured_gbuffer_rp

@@ -2,12 +2,9 @@ use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::rc::Rc;
 
-use async_std::{
-    fs,
-    path::{Path, PathBuf},
-    task::block_on,
-};
+use async_std::{fs, task::block_on};
 use std::io::{BufRead, BufReader};
+use std::path::{Path, PathBuf};
 use tobj::MTLLoadResult;
 use wgpu::{Device, Extent3d};
 
@@ -136,32 +133,39 @@ impl ResourceLoader {
         const TEXTURES: [(&[u8], &'static str, texture::TextureUsage); 4] = [
             (
                 include_bytes!("../assets/textures/defaults/albedo.png"),
-                "default albedo texture",
+                "assets/textures/defaults/albedo.png",
                 texture::TextureUsage::Albedo,
             ),
             (
                 include_bytes!("../assets/textures/defaults/normal.png"),
-                "default normal texture",
+                "assets/textures/defaults/normal.png",
                 texture::TextureUsage::Normal,
             ),
             (
                 include_bytes!("../assets/textures/defaults/metalness.png"),
-                "default metalness texture",
+                "assets/textures/defaults/metalness.png",
                 texture::TextureUsage::Metalness,
             ),
             (
                 include_bytes!("../assets/textures/defaults/roughness.png"),
-                "default roughness texture",
+                "assets/textures/defaults/roughness.png",
                 texture::TextureUsage::Roughness,
             ),
         ];
 
         let mut default_material_textures = HashMap::new();
 
-        for (data, name, usage) in TEXTURES {
+        for (data, path, usage) in TEXTURES {
             let texture = Rc::new(
-                texture::SampledTexture::from_image_bytes(device, queue, data, usage, Some(name))
-                    .unwrap(),
+                texture::SampledTexture::from_image_bytes(
+                    device,
+                    queue,
+                    data,
+                    usage,
+                    Some(path),
+                    std::path::PathBuf::from(path),
+                )
+                .unwrap(),
             );
             default_material_textures.insert(usage, texture);
         }
@@ -175,7 +179,9 @@ impl ResourceLoader {
     fn queue_texture_for_loading(&mut self, texture_to_load: PendingTextureData) -> u32 {
         let loading_id = self
             .asset_loader
-            .start_loading_bytes(&texture_to_load.file_name);
+            .start_loading_bytes(async_std::path::PathBuf::from(
+                texture_to_load.file_name.as_path(),
+            ));
         self.loading_id_to_asset_data
             .insert(loading_id, texture_to_load);
         loading_id
@@ -240,6 +246,7 @@ impl ResourceLoader {
                     texture_size,
                     pending_texture_data.usage,
                     Some(file_name),
+                    pending_texture_data.file_name.clone(),
                 )
                 .unwrap(),
             );

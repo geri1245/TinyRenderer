@@ -1,13 +1,18 @@
 use crossbeam_channel::Sender;
-use egui::Vec2;
+use egui::{Button, Separator, Vec2, Widget};
 use egui_wgpu::ScreenDescriptor;
 use wgpu::TextureFormat;
 
 use crate::gui_helpers::EguiRenderer;
 
+pub enum GuiButton {
+    SaveLevel,
+}
+
 pub enum GuiEvent {
     RecompileShaders,
     LightPositionChanged { new_position: [f32; 3] },
+    ButtonClicked(GuiButton),
 }
 
 #[derive(Default)]
@@ -119,6 +124,21 @@ impl Gui {
                             &mut self.gui_params.gui_size[1],
                             0.0..=2000.0,
                         ));
+
+                        ui.add(Separator::default().horizontal());
+
+                        if Button::new("Save current level").ui(ui).clicked() {
+                            let _ = self
+                                .sender
+                                .try_send(GuiEvent::ButtonClicked(GuiButton::SaveLevel));
+                            let mut file_dialog = egui_file::FileDialog::open_file(None);
+                            if file_dialog.show(ctx).selected() {
+                                if let Some(file) = file_dialog.path() {
+                                    Some(file.to_path_buf());
+                                }
+                            }
+                        }
+
                         // ui.horizontal(|ui| {
                         //     ui.label(format!("Pixels per point: {}", ctx.pixels_per_point()));
                         //     if ui.button("-").clicked() {

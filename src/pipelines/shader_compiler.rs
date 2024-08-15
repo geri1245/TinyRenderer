@@ -50,8 +50,9 @@ impl ShaderCompiler {
         let shader = device.create_shader_module(shader_desc);
         if let Some(error) = device.pop_error_scope().await {
             match error {
-                wgpu::Error::OutOfMemory { .. } => todo!(),
+                wgpu::Error::OutOfMemory { .. } => Err(anyhow!("Out of memory")),
                 wgpu::Error::Validation { description, .. } => Err(anyhow!(description)),
+                wgpu::Error::Internal { description, .. } => Err(anyhow!(description)),
             }
         } else {
             let last_write_time = match fs::metadata(&self.shader_source).await {

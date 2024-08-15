@@ -29,7 +29,6 @@ mod primitive_shapes;
 mod render_pipeline_layout;
 mod renderer;
 mod resource_loader;
-mod serde_helpers;
 mod shader_manager;
 mod skybox;
 mod texture;

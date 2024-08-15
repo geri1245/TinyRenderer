@@ -2,7 +2,7 @@ use std::f32::consts;
 
 use glam::{Mat4, Quat, Vec3, Vec3Swizzles};
 
-use crate::{instance::SceneComponent, serde_helpers::SerdeVec3Proxy};
+use crate::instance::SceneComponent;
 
 const POINT_LIGHT_FAR_PLANE: f32 = 100.0;
 const DIRECTIONAL_LIGHT_FAR_PLANE: f32 = 250.0;
@@ -11,7 +11,7 @@ const DIRECTIONAL_LIGHT_PROJECTION_CUBE_SCALE: f32 = 40.0;
 const DIRECTIONAL_LIGHT_PROJECTION_CUBE_OFFSET: f32 =
     -DIRECTIONAL_LIGHT_PROJECTION_CUBE_SCALE / 2.0;
 
-#[derive(Debug, Clone, Copy, serde::Serialize)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy)]
 pub enum Light {
     Point(PointLight),
     Directional(DirectionalLight),
@@ -23,10 +23,9 @@ pub struct CommonLightParams {
     near_plane: f32,
 }
 
-#[derive(Debug, Copy, Clone, serde::Serialize)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Copy, Clone)]
 pub struct PointLight {
     pub transform: SceneComponent,
-    #[serde(with = "SerdeVec3Proxy")]
     pub color: Vec3,
 }
 
@@ -37,11 +36,9 @@ pub struct PointLightRenderData {
 }
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone, serde::Serialize)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Copy, Clone)]
 pub struct DirectionalLight {
-    #[serde(with = "SerdeVec3Proxy")]
     pub direction: Vec3,
-    #[serde(with = "SerdeVec3Proxy")]
     pub color: Vec3,
 }
 

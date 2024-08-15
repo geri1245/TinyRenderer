@@ -39,7 +39,7 @@ impl FileLoader {
         Ok(img.to_rgba8())
     }
 
-    pub fn start_loading_bytes(&mut self, path: &PathBuf) -> u32 {
+    pub fn start_loading_bytes(&mut self, path: PathBuf) -> u32 {
         let resource_id = self.next_resource_id;
         self.next_resource_id += 1;
         let path = path.clone();

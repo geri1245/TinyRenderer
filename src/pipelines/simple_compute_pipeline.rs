@@ -1,5 +1,6 @@
 use wgpu::{
-    BindGroup, BindGroupLayoutDescriptor, ComputePass, ComputePipeline, Device, ShaderModule,
+    BindGroup, BindGroupLayoutDescriptor, ComputePass, ComputePipeline, Device,
+    PipelineCompilationOptions, ShaderModule,
 };
 
 use super::{
@@ -67,6 +68,8 @@ impl SimpleCP {
         });
 
         device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            cache: None,
+            compilation_options: PipelineCompilationOptions::default(),
             label: Some("Compute pipeline for posteffects"),
             module: shader,
             entry_point: "cs_main",

@@ -1,4 +1,6 @@
-use wgpu::{BindGroup, Device, RenderPass, RenderPipeline, ShaderModule};
+use wgpu::{
+    BindGroup, Device, PipelineCompilationOptions, RenderPass, RenderPipeline, ShaderModule,
+};
 
 use crate::{
     bind_group_layout_descriptors,
@@ -78,9 +80,11 @@ impl GBufferGeometryRP {
         };
 
         let gbuffer_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            cache: None,
             label: Some("gbuffer pipeline"),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
+                compilation_options: PipelineCompilationOptions::default(),
                 module: shader,
                 entry_point: "vs_main",
                 buffers: &[
@@ -89,6 +93,7 @@ impl GBufferGeometryRP {
                 ],
             },
             fragment: Some(wgpu::FragmentState {
+                compilation_options: PipelineCompilationOptions::default(),
                 module: &shader,
                 entry_point: "fs_main",
                 targets: &[

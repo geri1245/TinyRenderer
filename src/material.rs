@@ -74,7 +74,7 @@ impl Material {
                 bind_group_layout_descriptor:
                     &bind_group_layout_descriptors::BUFFER_VISIBLE_EVERYWHERE,
                 usages: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-                label: "Equirectangular projection viewprojs".into(),
+                label: "Flat PBR parameter buffer".into(),
             },
             bytemuck::cast_slice(&[*pbr_parameters]),
         );

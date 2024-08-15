@@ -1,11 +1,12 @@
 use crate::camera_controller::CameraController;
-use crate::gui::{Gui, GuiEvent};
+use crate::gui::{Gui, GuiButton, GuiEvent};
 use crate::input_actions::RenderingAction;
 use crate::light_controller::LightController;
 use crate::lights::{DirectionalLight, Light, PointLight};
 use crate::player_controller::PlayerController;
 use crate::resource_loader::ResourceLoader;
 use crate::world::World;
+use crate::world_loader::WorldLoader;
 use crate::world_renderer::WorldRenderer;
 use crate::{frame_timer::BasicTimer, renderer::Renderer};
 use crossbeam_channel::{unbounded, Receiver};
@@ -188,10 +189,18 @@ impl App {
         Ok(())
     }
 
-    pub fn handle_events_received_from_gui(&mut self) {
+    fn handle_gui_button_pressed(&self, button: GuiButton) {
+        match button {
+            GuiButton::SaveLevel => WorldLoader::save_level(&self.world, "test.lvl"),
+        }
+        .unwrap();
+    }
+
+    fn handle_events_received_from_gui(&mut self) {
         while let Ok(event) = self.gui_event_receiver.try_recv() {
             match event {
                 GuiEvent::RecompileShaders => self.try_recompile_shaders(),
+                GuiEvent::ButtonClicked(button) => self.handle_gui_button_pressed(button),
                 _ => {
                     _ = self
                         .player_controller

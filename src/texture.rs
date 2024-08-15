@@ -1,7 +1,7 @@
-use std::{fs::File, io::BufReader};
+use std::{fs::File, io::BufReader, path::PathBuf};
 
 use anyhow::*;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use wgpu::{Extent3d, TextureFormat, TextureUsages};
 
 const SKYBOX_TEXTURE_SIZE: u32 = 512;
@@ -10,16 +10,18 @@ pub struct SampledTexture {
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
     pub sampler: wgpu::Sampler,
+    pub descriptor: SampledTextureDescriptor,
 }
 
+#[derive(Debug, Clone)]
 pub struct SampledTextureDescriptor {
     pub format: TextureFormat,
-    pub width: u32,
-    pub height: u32,
+    pub extents: Extent3d,
     pub usages: TextureUsages,
+    pub path: Option<PathBuf>,
 }
 
-#[derive(Deserialize, PartialEq, Eq, Hash, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Debug, Clone, Copy)]
 pub enum TextureUsage {
     Albedo,
     Normal,
@@ -57,6 +59,7 @@ impl SampledTexture {
         bytes: &[u8],
         usage: TextureUsage,
         label: Option<&str>,
+        path: PathBuf,
     ) -> Result<Self> {
         let img = image::load_from_memory(bytes)?;
         let rgba = img.to_rgba8();
@@ -80,12 +83,13 @@ impl SampledTexture {
                     size,
                     usage,
                     label,
+                    path,
                 )
             }
             TextureUsage::HdrAlbedo => panic!("Hdr not supported in this function"),
             TextureUsage::Albedo | TextureUsage::Normal => {
                 let data = &rgba.into_vec();
-                Self::from_image(device, queue, data, size, usage, label)
+                Self::from_image(device, queue, data, size, usage, label, path)
             }
         }
     }
@@ -120,6 +124,7 @@ impl SampledTexture {
             texture_size,
             TextureUsage::HdrAlbedo,
             label,
+            PathBuf::from(path),
         )
     }
 
@@ -130,6 +135,7 @@ impl SampledTexture {
         size: Extent3d,
         usage: TextureUsage,
         label: Option<&str>,
+        path: PathBuf,
     ) -> Result<Self> {
         let format = match usage {
             TextureUsage::Albedo => wgpu::TextureFormat::Rgba8Unorm,
@@ -145,6 +151,8 @@ impl SampledTexture {
             _ => 4,
         };
 
+        let gpu_usage = wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST;
+
         let texture = device.create_texture(&wgpu::TextureDescriptor {
             label,
             size,
@@ -152,7 +160,7 @@ impl SampledTexture {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            usage: gpu_usage,
             view_formats: &[],
         });
 
@@ -180,6 +188,12 @@ impl SampledTexture {
             texture,
             view,
             sampler,
+            descriptor: SampledTextureDescriptor {
+                format,
+                extents: size,
+                usages: gpu_usage,
+                path: Some(path),
+            },
         })
     }
 
@@ -188,6 +202,8 @@ impl SampledTexture {
         extent: wgpu::Extent3d,
         label: &str,
     ) -> Self {
+        let gpu_usage =
+            wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING;
         let desc = wgpu::TextureDescriptor {
             label: Some(label),
             size: extent,
@@ -195,7 +211,7 @@ impl SampledTexture {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: Self::DEPTH_FORMAT,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            usage: gpu_usage,
             view_formats: &[],
         };
         let texture = device.create_texture(&desc);
@@ -212,6 +228,12 @@ impl SampledTexture {
             texture,
             view,
             sampler,
+            descriptor: SampledTextureDescriptor {
+                format: Self::DEPTH_FORMAT,
+                extents: extent,
+                usages: gpu_usage,
+                path: None,
+            },
         }
     }
 
@@ -232,13 +254,16 @@ impl SampledTexture {
             depth_or_array_layers: 6,
         };
 
+        let format = wgpu::TextureFormat::Rgba8UnormSrgb;
+        let gpu_usage = wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST;
+
         let texture_descriptor = wgpu::TextureDescriptor {
             size,
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            format,
+            usage: gpu_usage,
             label: None,
             view_formats: &[],
         };
@@ -282,18 +307,19 @@ impl SampledTexture {
             texture,
             view,
             sampler,
+            descriptor: SampledTextureDescriptor {
+                format,
+                extents: size,
+                usages: gpu_usage,
+                path: None,
+            },
         }
     }
 
-    pub fn new(device: &wgpu::Device, descriptor: &SampledTextureDescriptor, label: &str) -> Self {
-        let size = wgpu::Extent3d {
-            width: descriptor.width,
-            height: descriptor.height,
-            depth_or_array_layers: 1,
-        };
+    pub fn new(device: &wgpu::Device, descriptor: SampledTextureDescriptor, label: &str) -> Self {
         let desc = wgpu::TextureDescriptor {
             label: Some(label),
-            size,
+            size: descriptor.extents,
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
@@ -314,6 +340,7 @@ impl SampledTexture {
             texture,
             view,
             sampler,
+            descriptor,
         }
     }
 }

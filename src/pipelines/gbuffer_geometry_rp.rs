@@ -6,7 +6,7 @@ use crate::{
     bind_group_layout_descriptors,
     buffer_content::BufferContent,
     instance,
-    model::RenderableObject,
+    model::Renderable,
     texture::{self, SampledTexture},
     vertex,
 };
@@ -20,7 +20,7 @@ const SHADER_SOURCE_TEXTURED: &'static str = "src/shaders/gbuffer_geometry.wgsl"
 const SHADER_SOURCE_FLAT_PARAMETER: &'static str =
     "src/shaders/gbuffer_geometry_flat_parameter.wgsl";
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum PbrParameterVariation {
     Texture, // All the parameters are given as textures
     Flat,    // The parameters are given as plain old numbers
@@ -177,12 +177,12 @@ impl GBufferGeometryRP {
     pub fn render_mesh<'a>(
         &'a self,
         render_pass: &mut RenderPass<'a>,
-        mesh: &'a RenderableObject,
+        renderable: &'a Renderable,
         camera_bind_group: &'a BindGroup,
     ) {
         render_pass.set_pipeline(&self.render_pipeline);
         render_pass.set_bind_group(1, &camera_bind_group, &[]);
 
-        mesh.render(render_pass, true);
+        renderable.render(render_pass, true);
     }
 }

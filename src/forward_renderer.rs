@@ -1,7 +1,7 @@
 use wgpu::{BindGroup, Device, RenderPass};
 
 use crate::{
-    model::RenderableObject,
+    model::Renderable,
     pipelines::{ForwardRP, ShaderCompilationSuccess},
 };
 
@@ -32,11 +32,11 @@ impl ForwardRenderer {
     pub fn render<'a>(
         &'a self,
         render_pass: &mut RenderPass<'a>,
-        mesh: &'a RenderableObject,
+        renderable: &'a Renderable,
         camera_bind_group: &'a BindGroup,
         light_bind_group: &'a BindGroup,
     ) {
         self.forward_rp
-            .render_model(render_pass, mesh, camera_bind_group, light_bind_group);
+            .render_model(render_pass, renderable, camera_bind_group, light_bind_group);
     }
 }

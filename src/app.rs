@@ -1,16 +1,20 @@
 use crate::camera_controller::CameraController;
 use crate::gui::{Gui, GuiButton, GuiEvent};
 use crate::input_actions::RenderingAction;
+use crate::instance::SceneComponent;
 use crate::light_controller::LightController;
 use crate::lights::{DirectionalLight, Light, PointLight};
+use crate::material::PbrMaterialDescriptor;
+use crate::model::{MeshSource, ObjectWithMaterial};
 use crate::player_controller::PlayerController;
 use crate::resource_loader::ResourceLoader;
+use crate::texture::{MaterialSource, TextureSourceDescriptor, TextureUsage};
 use crate::world::World;
 use crate::world_loader::WorldLoader;
 use crate::world_renderer::WorldRenderer;
 use crate::{frame_timer::BasicTimer, renderer::Renderer};
 use crossbeam_channel::{unbounded, Receiver};
-use glam::Vec3;
+use glam::{Quat, Vec3};
 use std::time::Duration;
 use wgpu::TextureViewDescriptor;
 use winit::event::{DeviceEvent, ElementState, KeyEvent, MouseButton, WindowEvent};
@@ -46,7 +50,7 @@ impl App {
 
         let gui = Gui::new(&window, &renderer.device, gui_event_sender);
 
-        let mut world = World::new(&renderer.device, &mut resource_loader).await;
+        let mut world = World::new();
         world.add_light(Light::Point(PointLight::new(
             Vec3::new(10.0, 20.0, 0.0),
             Vec3::new(2.0, 5.0, 4.0),
@@ -55,6 +59,8 @@ impl App {
             direction: Vec3::new(0.0, -1.0, 0.0).normalize(),
             color: Vec3::new(1.0, 1.0, 1.0),
         }));
+
+        Self::init_world_objects(&renderer.device, &mut resource_loader).await;
 
         let player_controller = PlayerController::new();
         let mut world_renderer: WorldRenderer =
@@ -83,6 +89,179 @@ impl App {
             resource_loader,
             player_controller,
         }
+    }
+
+    async fn init_world_objects(device: &wgpu::Device, resource_loader: &mut ResourceLoader) {
+        let cube_instances = vec![
+            SceneComponent {
+                position: Vec3::new(10.0, 10.0, 0.0),
+                scale: Vec3::splat(3.0),
+                rotation: Quat::from_axis_angle(Vec3::ZERO, 0.0),
+            },
+            SceneComponent {
+                position: Vec3::new(-20.0, 10.0, 0.0),
+                scale: Vec3::splat(2.0),
+                rotation: Quat::from_axis_angle(Vec3::ZERO, 0.0),
+            },
+            SceneComponent {
+                position: Vec3::new(0.0, 10.0, 30.0),
+                scale: Vec3::splat(2.0),
+                rotation: Quat::from_axis_angle(Vec3::ZERO, 0.0),
+            },
+            SceneComponent {
+                position: Vec3::new(30.0, 20.0, 10.0),
+                scale: Vec3::splat(2.0),
+                rotation: Quat::from_axis_angle(Vec3::ZERO, 0.0),
+            },
+            SceneComponent {
+                position: Vec3::new(25.0, 10.0, 20.0),
+                scale: Vec3::splat(1.5),
+                rotation: Quat::from_axis_angle(Vec3::ZERO, 0.0),
+            },
+        ];
+
+        // let mut example_instances = Vec::with_capacity(100);
+        // for i in 0..11 {
+        //     for j in 0..11 {
+        //         example_instances.push(SceneComponent {
+        //             position: Vec3::new(i as f32 * 5.0 - 25.0, j as f32 * 5.0 - 25.0, 0.0),
+        //             scale: Vec3::splat(1.0),
+        //             rotation: Quat::from_axis_angle(Vec3::ZERO, 0.0),
+        //         });
+        //     }
+        // }
+
+        // let square_instances = vec![
+        //     // Bottom
+        //     SceneComponent {
+        //         position: Vec3::new(0.0, -10.0, 0.0),
+        //         rotation: Quat::IDENTITY,
+        //         scale: 100.0_f32
+        //             * Vec3 {
+        //                 x: 1.0_f32,
+        //                 y: 1.0,
+        //                 z: 1.0,
+        //             },
+        //     },
+        //     // Top
+        //     // SceneComponent {
+        //     //     position: Vec3::new(0.0, 40.0, 0.0),
+        //     //     rotation: Quat::from_axis_angle(Vec3::X, PI),
+        //     //     scale: 100.0_f32
+        //     //         * Vec3 {
+        //     //             x: 1.0_f32,
+        //     //             y: 1.0,
+        //     //             z: 1.0,
+        //     //         },
+        //     // },
+        //     // +X
+        //     // SceneComponent {
+        //     //     position: Vec3::new(-40.0, 0.0, 0.0),
+        //     //     rotation: Quat::from_axis_angle(Vec3::Z, -FRAC_PI_2),
+        //     //     scale: 100.0_f32
+        //     //         * Vec3 {
+        //     //             x: 1.0_f32,
+        //     //             y: 1.0,
+        //     //             z: 1.0,
+        //     //         },
+        //     // },
+        //     // -X
+        //     // SceneComponent {
+        //     //     position: Vec3::new(40.0, 0.0, 0.0),
+        //     //     rotation: Quat::from_axis_angle(Vec3::Z, FRAC_PI_2),
+        //     //     scale: 100.0_f32
+        //     //         * Vec3 {
+        //     //             x: 1.0_f32,
+        //     //             y: 1.0,
+        //     //             z: 1.0,
+        //     //         },
+        //     // },
+        //     // -Z
+        //     SceneComponent {
+        //         position: Vec3::new(0.0, 0.0, -40.0),
+        //         rotation: Quat::from_axis_angle(Vec3::X, FRAC_PI_2),
+        //         scale: 100.0_f32
+        //             * Vec3 {
+        //                 x: 1.0_f32,
+        //                 y: 1.0,
+        //                 z: 1.0,
+        //             },
+        //     },
+        //     // // Z
+        //     // SceneComponent {
+        //     //     position: Vec3::new(0.0, 0.0, 40.0),
+        //     //     rotation: Quat::from_axis_angle(Vec3::X, -FRAC_PI_2),
+        //     //     scale: 100.0_f32
+        //     //         * Vec3 {
+        //     //             x: 1.0_f32,
+        //     //             y: 1.0,
+        //     //             z: 1.0,
+        //     //         },
+        //     // },
+        // ];
+
+        resource_loader
+            .load_model(
+                ObjectWithMaterial {
+                    mesh_source: MeshSource::FromFile("assets/models/cube/cube.obj".into()),
+                    material_descriptor: PbrMaterialDescriptor::Texture(vec![
+                        TextureSourceDescriptor {
+                            source: MaterialSource::FromFile(
+                                "assets/textures/brick_wall/albedo.jpg".into(),
+                            ),
+                            usage: TextureUsage::Albedo,
+                        },
+                        TextureSourceDescriptor {
+                            source: MaterialSource::FromFile(
+                                "assets/textures/brick_wall/normal.jpg".into(),
+                            ),
+                            usage: TextureUsage::Normal,
+                        },
+                    ]),
+                },
+                &cube_instances,
+                device,
+            )
+            .await
+            .unwrap();
+
+        // let (cube_model, material_loading_id) = resource_loader
+        //     .load_asset_file("cube", device)
+        //     .await
+        //     .unwrap();
+        // let cube = Rc::new(cube_model);
+        // let cube_instances = create_instance_buffer(cube_instances, device);
+        // let cube_instances2 = create_instance_buffer(example_instances, device);
+
+        // let square = Rc::new(primitive_shapes::square(device));
+        // let square_instances = create_instance_buffer(square_instances, device);
+
+        // let meshes = vec![
+        //     Renderable {
+        //         material: resource_loader.get_default_material(),
+        //         mesh: square,
+        //         material_id: None,
+        //         instance_data: square_instances,
+        //     },
+        //     RenderableObject {
+        //         material: resource_loader.get_default_material(),
+        //         instance_data: cube_instances,
+        //         material_id: Some(material_loading_id),
+        //         mesh: cube.clone(),
+        //     },
+        //     RenderableObject {
+        //         material: Rc::new(MaterialRenderData::from_flat_parameters(
+        //             device,
+        //             &PbrParameters::new([0.2, 0.6, 0.8], 0.7, 0.0),
+        //         )),
+        //         instance_data: cube_instances2,
+        //         material_id: None,
+        //         mesh: cube.clone(),
+        //     },
+        // ];
+
+        // let mut debug_objects = HashMap::new();
+        // debug_objects.insert(PrimitiveMeshes::Cube, cube);
     }
 
     pub fn reconfigure(&mut self) {
@@ -235,11 +414,13 @@ impl App {
 
     pub fn update(&mut self, delta: Duration) {
         self.handle_events_received_from_gui();
-        self.world.update(
-            &self.renderer.device,
-            &self.renderer.queue,
-            &mut self.resource_loader,
-        );
+
+        let loaded_objects = self
+            .resource_loader
+            .poll_loaded_textures(&self.renderer.device, &self.renderer.queue);
+        for loaded_object in loaded_objects {
+            self.world.add_object(loaded_object);
+        }
 
         self.camera_controller.update(delta, &self.renderer.queue);
 

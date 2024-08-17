@@ -1,5 +1,5 @@
 use crossbeam_channel::Sender;
-use egui::{Button, Separator, Vec2, Widget};
+use egui::{Button, Separator, Widget};
 use egui_wgpu::ScreenDescriptor;
 use wgpu::TextureFormat;
 

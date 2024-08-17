@@ -1,14 +1,13 @@
 use std::{
-    borrow::BorrowMut,
     env,
-    fs::File,
+    fs::{self, File},
     io::Write,
-    path::{Path, PathBuf},
+    path::Path,
 };
 
-use serde_json::to_string;
+use serde_json::{json, to_value};
 
-use crate::world::World;
+use crate::{instance::SceneComponent, lights::Light, world::World};
 
 pub enum SaveResult {
     Ok,
@@ -17,10 +16,21 @@ pub enum SaveResult {
     FailedToSerializeData,
 }
 
+struct LoadedObjects {
+    instances: Vec<SceneComponent>,
+}
+
+struct LevelFileContent {
+    objects: Vec<LoadedObjects>,
+    lights: Vec<Light>,
+}
+
 pub struct WorldLoader {}
 
 impl WorldLoader {
-    pub fn load_level(&self, world: &mut World) {}
+    pub fn load_level(&self, world: &mut World, level_file_path: &Path) {
+        let file_contents = fs::read_to_string(level_file_path);
+    }
 
     pub fn save_level(world: &World, level_file_name: &str) -> anyhow::Result<bool> {
         let lights = world.get_lights();
@@ -32,16 +42,23 @@ impl WorldLoader {
             std::fs::create_dir(target_folder)?;
         }
 
-        log::warn!("Trying to save into {:?}", target_file);
+        log::info!("Saving into {:?}", target_file);
 
-        let serialized_world = to_string(lights)?;
-        let does_file_exist = target_file.try_exists()?;
-        if !does_file_exist {
-            let mut file = File::create_new(target_file)?;
-            file.write(serialized_world.as_bytes())?;
+        let serialized_lights = to_value(lights)?;
+        let serialized_objects = to_value(meshes)?;
+        // let does_file_exist = target_file.try_exists()?;
+
+        // if !does_file_exist
+        {
+            // let mut file = File::create_new(target_file)?;
+            let mut file = File::options()
+                .create(true)
+                .write(true)
+                .truncate(true)
+                .open(target_file)?;
+            let json = json!({"objects": serialized_objects, "lights": serialized_lights});
+            file.write(json.to_string().as_bytes())?;
         }
         Ok(true)
     }
-
-    pub fn update(&mut self) {}
 }

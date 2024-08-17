@@ -10,7 +10,7 @@ use crate::{
     bind_group_layout_descriptors,
     buffer_capture::OutputBuffer,
     cubemap_helpers::{create_cubemap_face_rendering_parameters, RenderingIntoCubemapResources},
-    model::RenderableMesh,
+    model::Primitive,
     pipelines::{DiffuseIrradianceBakerRP, ShaderCompilationSuccess},
 };
 
@@ -25,7 +25,7 @@ const DEFAULT_IBL: &[u8] = include_bytes!("../assets/textures/defaults/irradianc
 
 pub struct DiffuseIrradianceRenderer {
     pipeline: DiffuseIrradianceBakerRP,
-    mesh: Rc<RenderableMesh>,
+    mesh: Rc<Primitive>,
     cube_face_rendering_params: Vec<RenderingIntoCubemapResources>,
     pub diffuse_irradiance_cubemap: Rc<wgpu::BindGroup>,
     color_format: wgpu::TextureFormat,
@@ -38,7 +38,7 @@ impl DiffuseIrradianceRenderer {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         color_format: TextureFormat,
-        basic_mesh: Rc<RenderableMesh>,
+        basic_mesh: Rc<Primitive>,
     ) -> anyhow::Result<Self> {
         let pipeline = DiffuseIrradianceBakerRP::new(device, color_format).await?;
 

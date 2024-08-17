@@ -10,26 +10,26 @@ winit = "0.29"
 log = "0.4"
 async-std = "1.12"
 anyhow = "1.0"
-glam = { version = "0.25", features = [ "serde" ]}
+glam = { version = "0.25", features = ["serde"] }
 futures-intrusive = "0.5"
 png = "0.17"
 simple_logger = "4.3.3"
 crossbeam-channel = "0.5"
 rayon = "1.8"
 half = "2.4"
-bytemuck = { version = "1.14", features = [ "derive" ] }
+bytemuck = { version = "1.14", features = ["derive"] }
 
-wgpu = "0.20.0"
+wgpu = { version = "0.20.0", features = ["serde"] }
 radiant = "0.3"
 egui = "0.28.1"
 egui_file = "0.18"
-egui-wgpu = { version = "0.28.1",features = ["winit"] }
+egui-wgpu = { version = "0.28.1", features = ["winit"] }
 egui-winit = "0.28.1"
 
 shader_processor = { path = "crates/shader_processor" }
 
-tobj = { version = "4.0", features = ["async"]}
-serde = {version = "1.0.196", features = ["derive"]}
+tobj = { version = "4.0", features = ["async"] }
+serde = { version = "1.0.196", features = ["derive", "rc"] }
 serde_json = "1.0"
 
 [build-dependencies]

@@ -1,4 +1,4 @@
-use crate::model::RenderableMesh;
+use crate::model::{BufferWithLength, Primitive};
 use crate::vertex::VertexRawWithTangents;
 use wgpu::util::DeviceExt;
 
@@ -35,7 +35,7 @@ const SQUARE_VERTICES: &'static [VertexRawWithTangents] = &[
 
 const SQUARE_INDICES: &'static [u32] = &[3, 2, 1, 2, 0, 1];
 
-pub fn square(render_device: &wgpu::Device) -> RenderableMesh {
+pub fn square(render_device: &wgpu::Device) -> Primitive {
     let vertex_buffer = render_device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("Square Vertex Buffer"),
         contents: bytemuck::cast_slice(&SQUARE_VERTICES),
@@ -47,10 +47,11 @@ pub fn square(render_device: &wgpu::Device) -> RenderableMesh {
         usage: wgpu::BufferUsages::INDEX,
     });
 
-    RenderableMesh {
-        path: None,
-        index_buffer,
-        index_count: SQUARE_INDICES.len() as u32,
+    Primitive {
+        index_data: BufferWithLength {
+            buffer: index_buffer,
+            count: SQUARE_INDICES.len() as u32,
+        },
         vertex_buffer,
     }
 }

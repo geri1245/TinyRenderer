@@ -11,7 +11,7 @@ use crate::{
     gbuffer_geometry_renderer::GBufferGeometryRenderer,
     input_actions::RenderingAction,
     light_controller::LightController,
-    model::RenderableObject,
+    model::Renderable,
     pipelines::{self, MainRP, ShaderCompilationSuccess},
     post_process_manager::PostProcessManager,
     renderer::Renderer,
@@ -103,7 +103,7 @@ impl WorldRenderer {
         renderer: &Renderer,
         encoder: &mut CommandEncoder,
         final_fbo_image_texture: &SurfaceTexture,
-        renderables: &Vec<RenderableObject>,
+        renderables: &Vec<Renderable>,
         light_controller: &LightController,
         camera_controller: &CameraController,
     ) -> Result<(), wgpu::SurfaceError> {

@@ -12,12 +12,11 @@ use crate::{
         create_bind_group_from_buffer_entire_binding_init, BufferBindGroupCreationOptions,
         BufferInitBindGroupCreationOptions,
     },
-    instance::SceneComponentRaw,
     lights::{
         DirectionalLight, DirectionalLightRenderData, Light, LightRaw, LightRawSmall, PointLight,
         PointLightRenderData,
     },
-    model::RenderableObject,
+    model::Renderable,
     pipelines::ShadowRP,
     texture::SampledTexture,
     world::World,
@@ -475,7 +474,7 @@ impl LightController {
         }
     }
 
-    pub fn render_shadows(&self, encoder: &mut CommandEncoder, meshes: &Vec<RenderableObject>) {
+    pub fn render_shadows(&self, encoder: &mut CommandEncoder, renderables: &Vec<Renderable>) {
         encoder.push_debug_group("Shadow rendering");
 
         {
@@ -491,7 +490,7 @@ impl LightController {
                 {
                     self.shadow_rp.render(
                         encoder,
-                        meshes,
+                        renderables,
                         &self.shadow_assets.light_bind_group_viewproj_only,
                         depth_target,
                         ((6 * light_index + face_index)
@@ -519,7 +518,7 @@ impl LightController {
             {
                 self.shadow_rp.render(
                     encoder,
-                    meshes,
+                    renderables,
                     &self.shadow_assets.light_bind_group_viewproj_only,
                     &light.depth_texture,
                     (base_offset_after_point_lights

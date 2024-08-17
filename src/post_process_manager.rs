@@ -80,14 +80,13 @@ impl PostProcessManager {
                 let texture = SampledTexture::new(
                     &device,
                     SampledTextureDescriptor {
+                        usages,
+                        format: texture_format,
                         extents: Extent3d {
                             width,
                             height,
                             depth_or_array_layers: 1,
                         },
-                        usages,
-                        format: texture_format,
-                        path: None,
                     },
                     "PingPong texture for postprocessing",
                 );

@@ -5,7 +5,7 @@ use wgpu::{CommandEncoder, Device, TextureFormat};
 use crate::{
     bind_group_layout_descriptors,
     cubemap_helpers::{create_cubemap_face_rendering_parameters, RenderingIntoCubemapResources},
-    model::RenderableMesh,
+    model::Primitive,
     pipelines::{EquirectangularToCubemapRP, ShaderCompilationSuccess},
     texture::SampledTexture,
 };
@@ -14,7 +14,7 @@ const CUBEMAP_RESOLUTION: u32 = 1024;
 
 pub struct EquirectangularToCubemapRenderer {
     pipeline: EquirectangularToCubemapRP,
-    mesh: Rc<RenderableMesh>,
+    mesh: Rc<Primitive>,
     hdr_map_bind_group: wgpu::BindGroup,
     render_params: Vec<RenderingIntoCubemapResources>,
     pub cube_map_to_sample: Rc<wgpu::BindGroup>,
@@ -26,7 +26,7 @@ impl EquirectangularToCubemapRenderer {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         color_format: TextureFormat,
-        basic_mesh: Rc<RenderableMesh>,
+        basic_mesh: Rc<Primitive>,
     ) -> anyhow::Result<Self> {
         let pipeline = EquirectangularToCubemapRP::new(device, color_format).await?;
         let hdr_texture_path = "assets/textures/skybox/golf_course.hdr";

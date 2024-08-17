@@ -1,4 +1,4 @@
-use std::{fs::File, io::BufReader, path::PathBuf};
+use std::{fs::File, io::BufReader};
 
 use anyhow::*;
 use serde::{Deserialize, Serialize};
@@ -6,19 +6,32 @@ use wgpu::{Extent3d, TextureFormat, TextureUsages};
 
 const SKYBOX_TEXTURE_SIZE: u32 = 512;
 
+#[derive(Debug)]
 pub struct SampledTexture {
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
     pub sampler: wgpu::Sampler,
+
     pub descriptor: SampledTextureDescriptor,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub enum MaterialSource {
+    FromFile(String),
+    Defaults(TextureUsage),
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct TextureSourceDescriptor {
+    pub source: MaterialSource,
+    pub usage: TextureUsage,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct SampledTextureDescriptor {
     pub format: TextureFormat,
-    pub extents: Extent3d,
     pub usages: TextureUsages,
-    pub path: Option<PathBuf>,
+    pub extents: Extent3d,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Debug, Clone, Copy)]
@@ -59,7 +72,6 @@ impl SampledTexture {
         bytes: &[u8],
         usage: TextureUsage,
         label: Option<&str>,
-        path: PathBuf,
     ) -> Result<Self> {
         let img = image::load_from_memory(bytes)?;
         let rgba = img.to_rgba8();
@@ -83,13 +95,12 @@ impl SampledTexture {
                     size,
                     usage,
                     label,
-                    path,
                 )
             }
             TextureUsage::HdrAlbedo => panic!("Hdr not supported in this function"),
             TextureUsage::Albedo | TextureUsage::Normal => {
                 let data = &rgba.into_vec();
-                Self::from_image(device, queue, data, size, usage, label, path)
+                Self::from_image(device, queue, data, size, usage, label)
             }
         }
     }
@@ -124,7 +135,6 @@ impl SampledTexture {
             texture_size,
             TextureUsage::HdrAlbedo,
             label,
-            PathBuf::from(path),
         )
     }
 
@@ -135,7 +145,6 @@ impl SampledTexture {
         size: Extent3d,
         usage: TextureUsage,
         label: Option<&str>,
-        path: PathBuf,
     ) -> Result<Self> {
         let format = match usage {
             TextureUsage::Albedo => wgpu::TextureFormat::Rgba8Unorm,
@@ -192,7 +201,6 @@ impl SampledTexture {
                 format,
                 extents: size,
                 usages: gpu_usage,
-                path: Some(path),
             },
         })
     }
@@ -229,10 +237,9 @@ impl SampledTexture {
             view,
             sampler,
             descriptor: SampledTextureDescriptor {
-                format: Self::DEPTH_FORMAT,
                 extents: extent,
+                format: Self::DEPTH_FORMAT,
                 usages: gpu_usage,
-                path: None,
             },
         }
     }
@@ -308,10 +315,9 @@ impl SampledTexture {
             view,
             sampler,
             descriptor: SampledTextureDescriptor {
-                format,
                 extents: size,
+                format,
                 usages: gpu_usage,
-                path: None,
             },
         }
     }

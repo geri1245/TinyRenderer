@@ -5,7 +5,8 @@ use wgpu::{
 
 use crate::{
     bind_group_layout_descriptors,
-    model::RenderableObject,
+    material::PbrMaterialDescriptor,
+    model::Renderable,
     pipelines::{
         GBufferGeometryRP, GBufferTextures, PbrParameterVariation, ShaderCompilationSuccess,
     },
@@ -74,17 +75,17 @@ impl GBufferGeometryRenderer {
     }
 
     fn create_textures(device: &wgpu::Device, width: u32, height: u32) -> GBufferTextures {
+        let texture_extents = Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        };
         let descriptor = SampledTextureDescriptor {
-            extents: Extent3d {
-                width,
-                height,
-                depth_or_array_layers: 1,
-            },
             format: GBUFFER_TEXTURE_FORMAT,
             usages: TextureUsages::RENDER_ATTACHMENT
                 | TextureUsages::TEXTURE_BINDING
                 | wgpu::TextureUsages::STORAGE_BINDING,
-            path: None,
+            extents: texture_extents,
         };
 
         let position_texture =
@@ -97,19 +98,10 @@ impl GBufferGeometryRenderer {
             "GBuffer albedo and specular texture",
         );
         let metal_rough_ao =
-            SampledTexture::new(device, descriptor, "GBuffer metal+rough+ao texture");
+            SampledTexture::new(device, descriptor.clone(), "GBuffer metal+rough+ao texture");
 
-        let depth_texture_extents = wgpu::Extent3d {
-            width,
-            height,
-            depth_or_array_layers: 1,
-        };
-
-        let depth_texture = SampledTexture::create_depth_texture(
-            device,
-            depth_texture_extents,
-            "GBuffer depth texture",
-        );
+        let depth_texture =
+            SampledTexture::create_depth_texture(device, texture_extents, "GBuffer depth texture");
 
         GBufferTextures {
             position: position_texture,
@@ -190,19 +182,20 @@ impl GBufferGeometryRenderer {
     pub fn render<'a>(
         &'a self,
         render_pass: &mut RenderPass<'a>,
-        mesh: &'a RenderableObject,
+        renderable: &'a Renderable,
         camera_bind_group: &'a BindGroup,
     ) {
         // TODO: filter out the textured version and the flat version and render them separately, so no need to change pipeline state
-        match mesh.material.variation {
-            PbrParameterVariation::Texture => {
+        match renderable.mesh_descriptor.material_descriptor {
+            PbrMaterialDescriptor::Texture(..) => {
                 self.textured_gbuffer_rp
-                    .render_mesh(render_pass, mesh, camera_bind_group)
+                    .render_mesh(render_pass, renderable, camera_bind_group)
             }
-            PbrParameterVariation::Flat => {
-                self.flat_parameter_gbuffer_rp
-                    .render_mesh(render_pass, mesh, camera_bind_group)
-            }
+            PbrMaterialDescriptor::Flat(..) => self.flat_parameter_gbuffer_rp.render_mesh(
+                render_pass,
+                renderable,
+                camera_bind_group,
+            ),
         }
     }
 }

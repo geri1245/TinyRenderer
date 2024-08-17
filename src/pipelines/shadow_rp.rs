@@ -4,8 +4,8 @@ use wgpu::{
 };
 
 use crate::{
-    bind_group_layout_descriptors, buffer_content::BufferContent, instance,
-    model::RenderableObject, vertex,
+    bind_group_layout_descriptors, buffer_content::BufferContent, instance, model::Renderable,
+    vertex,
 };
 
 use super::{
@@ -111,7 +111,7 @@ impl ShadowRP {
     pub fn render(
         &self,
         encoder: &mut CommandEncoder,
-        meshes: &Vec<RenderableObject>,
+        renderables: &Vec<Renderable>,
         light_bind_group: &BindGroup,
         depth_target: &wgpu::TextureView,
         light_bind_group_offset: u32,
@@ -134,8 +134,8 @@ impl ShadowRP {
         shadow_pass.set_pipeline(&self.pipeline);
         shadow_pass.set_bind_group(0, &light_bind_group, &[light_bind_group_offset]);
 
-        for mesh in meshes {
-            mesh.render(&mut shadow_pass, false);
+        for renderable in renderables {
+            renderable.render(&mut shadow_pass, false);
         }
     }
 }

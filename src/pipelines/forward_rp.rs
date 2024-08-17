@@ -3,8 +3,8 @@ use wgpu::{
 };
 
 use crate::{
-    bind_group_layout_descriptors, buffer_content::BufferContent, instance,
-    model::RenderableObject, texture, vertex,
+    bind_group_layout_descriptors, buffer_content::BufferContent, instance, model::Renderable,
+    texture, vertex,
 };
 
 use super::{
@@ -120,7 +120,7 @@ impl ForwardRP {
     pub fn render_model<'a>(
         &'a self,
         render_pass: &mut RenderPass<'a>,
-        mesh: &'a RenderableObject,
+        renderable: &'a Renderable,
         camera_bind_group: &'a BindGroup,
         light_bind_group: &'a BindGroup,
     ) {
@@ -128,6 +128,6 @@ impl ForwardRP {
         render_pass.set_bind_group(0, &light_bind_group, &[]);
         render_pass.set_bind_group(1, &camera_bind_group, &[]);
 
-        mesh.render(render_pass, false);
+        renderable.render(render_pass, false);
     }
 }

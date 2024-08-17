@@ -6,7 +6,10 @@ use std::path::PathBuf;
 use wgpu::{util::DeviceExt, Device, RenderPass};
 
 use crate::{
-    instance::SceneComponent, material::Material, texture::TextureUsage,
+    instance::SceneComponent,
+    material::{MaterialRenderData, PbrMaterialDescriptor},
+    resource_loader::PrimitiveShape,
+    texture::TextureUsage,
     vertex::VertexRawWithTangents,
 };
 
@@ -18,7 +21,9 @@ pub struct ModelDescriptorFile {
 }
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(
+    Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable, serde::Serialize, serde::Deserialize,
+)]
 pub struct PbrParameters {
     pub albedo: [f32; 3],
     pub roughness: f32,
@@ -60,68 +65,107 @@ pub struct ModelLoadingData {
     pub textures: Vec<(TextureUsage, PathBuf)>,
 }
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct MeshPath {
-    pub path: String,
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ObjectWithMaterial {
+    pub mesh_source: MeshSource,
+    pub material_descriptor: PbrMaterialDescriptor,
 }
 
-pub struct RenderableMesh {
-    pub path: Option<MeshPath>,
+#[derive(Debug, serde::Serialize)]
+pub struct Renderable {
+    pub mesh_descriptor: ObjectWithMaterial,
+    pub instances: Vec<SceneComponent>,
+
+    #[serde(skip)]
+    pub instance_render_data: BufferWithLength,
+    #[serde(skip)]
+    pub vertex_render_data: Rc<Primitive>,
+    #[serde(skip)]
+    pub material_render_data: MaterialRenderData,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub enum MeshSource {
+    PrimitiveInCode(PrimitiveShape),
+    FromFile(String),
+}
+
+#[derive(Debug)]
+pub struct BufferWithLength {
+    pub buffer: wgpu::Buffer,
+    pub count: u32,
+}
+
+#[derive(Debug)]
+pub struct Primitive {
     pub vertex_buffer: wgpu::Buffer,
-    pub index_buffer: wgpu::Buffer,
-    pub index_count: u32,
+    pub index_data: BufferWithLength,
 }
 
+#[derive(Debug, serde::Serialize)]
 pub struct InstanceData {
     pub instances: Vec<SceneComponent>,
-    pub instance_buffer: wgpu::Buffer,
 }
 
-#[derive()]
-pub struct RenderableObject {
-    pub mesh: Rc<RenderableMesh>,
-    pub material: Rc<Material>,
-    pub material_id: Option<u32>,
-    pub instance_data: InstanceData,
-}
+impl Renderable {
+    pub fn new(
+        mesh_descriptor: ObjectWithMaterial,
+        instances: Vec<SceneComponent>,
+        primitive: Rc<Primitive>,
+        material_render_data: MaterialRenderData,
+        device: &wgpu::Device,
+    ) -> Self {
+        let instance_data = create_instance_buffer(&instances, device);
 
-impl RenderableObject {
+        Self {
+            mesh_descriptor,
+            instances,
+            vertex_render_data: primitive,
+            instance_render_data: instance_data,
+            material_render_data,
+        }
+    }
+
     pub fn render<'a>(&'a self, render_pass: &mut RenderPass<'a>, use_material: bool) {
         if use_material {
-            self.material.bind_render_pass(render_pass, 0);
+            self.material_render_data.bind_render_pass(render_pass, 0);
         }
 
-        render_pass.set_vertex_buffer(0, self.mesh.vertex_buffer.slice(..));
-        render_pass.set_vertex_buffer(1, self.instance_data.instance_buffer.slice(..));
-        render_pass.set_index_buffer(self.mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+        render_pass.set_vertex_buffer(0, self.vertex_render_data.vertex_buffer.slice(..));
+        render_pass.set_vertex_buffer(1, self.instance_render_data.buffer.slice(..));
+        render_pass.set_index_buffer(
+            self.vertex_render_data.index_data.buffer.slice(..),
+            wgpu::IndexFormat::Uint32,
+        );
         render_pass.draw_indexed(
-            0..self.mesh.index_count,
+            0..self.vertex_render_data.index_data.count,
             0,
-            0..self.instance_data.instances.len() as u32,
+            0..self.instance_render_data.count,
         );
     }
 }
 
-impl InstanceData {
-    pub fn new(instances: Vec<SceneComponent>, device: &Device) -> Self {
-        let raw_instances = instances
-            .iter()
-            .map(|instance| instance.to_raw())
-            .collect::<Vec<_>>();
-        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Square Instance Buffer"),
-            contents: bytemuck::cast_slice(&raw_instances),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
+pub fn create_instance_buffer(
+    instances: &Vec<SceneComponent>,
+    device: &Device,
+) -> BufferWithLength {
+    let raw_instances = instances
+        .iter()
+        .map(|instance| instance.to_raw())
+        .collect::<Vec<_>>();
+    let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        label: Some("Square Instance Buffer"),
+        contents: bytemuck::cast_slice(&raw_instances),
+        usage: wgpu::BufferUsages::VERTEX,
+    });
 
-        Self {
-            instance_buffer,
-            instances,
-        }
+    BufferWithLength {
+        buffer: instance_buffer,
+        count: instances.len() as u32,
     }
 }
 
-impl RenderableMesh {
+impl Primitive {
     // fn calculate_tangetns_bitangents(indices: Vec3,) -> (Vec3, Vec3) {
     //     for c in indices.chunks(3) {
     //         let v0 = &vertices[c[0] as usize];
@@ -177,8 +221,7 @@ impl RenderableMesh {
 
     pub fn new(
         device: &Device,
-        name: String,
-        path: Option<String>,
+        path: String,
         positions: Vec<Vec3>,
         normals: Vec<Vec3>,
         tex_coords: Vec<Vec2>,
@@ -260,21 +303,22 @@ impl RenderableMesh {
         }
 
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some(&format!("{:?} Vertex Buffer", name)),
+            label: Some(&format!("{:?} Vertex Buffer", path)),
             contents: bytemuck::cast_slice(&vertices),
             usage: wgpu::BufferUsages::VERTEX,
         });
         let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some(&format!("{:?} Index Buffer", name)),
+            label: Some(&format!("{:?} Index Buffer", path)),
             contents: bytemuck::cast_slice(&indices),
             usage: wgpu::BufferUsages::INDEX,
         });
 
-        RenderableMesh {
-            path: path.map(|path| MeshPath { path }),
+        Self {
+            index_data: BufferWithLength {
+                buffer: index_buffer,
+                count: indices.len() as u32,
+            },
             vertex_buffer,
-            index_buffer,
-            index_count: indices.len() as u32,
         }
     }
 }

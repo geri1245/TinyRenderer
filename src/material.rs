@@ -8,16 +8,21 @@ use crate::{
         create_bind_group_from_buffer_entire_binding_init, BufferInitBindGroupCreationOptions,
     },
     model::PbrParameters,
-    pipelines::PbrParameterVariation,
-    texture::{SampledTexture, TextureUsage},
+    texture::{SampledTexture, TextureSourceDescriptor, TextureUsage},
 };
 
-pub struct Material {
-    pub bind_group: wgpu::BindGroup,
-    pub variation: PbrParameterVariation,
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub enum PbrMaterialDescriptor {
+    Texture(Vec<TextureSourceDescriptor>), // All the parameters are given as textures
+    Flat(PbrParameters),                   // The parameters are given as plain old numbers
 }
 
-impl Material {
+#[derive(Debug)]
+pub struct MaterialRenderData {
+    pub bind_group: wgpu::BindGroup,
+}
+
+impl MaterialRenderData {
     pub fn new(
         device: &wgpu::Device,
         textures: &HashMap<TextureUsage, Rc<SampledTexture>>,
@@ -61,10 +66,7 @@ impl Material {
             label: None,
         });
 
-        Material {
-            bind_group,
-            variation: PbrParameterVariation::Texture,
-        }
+        MaterialRenderData { bind_group }
     }
 
     pub fn from_flat_parameters(device: &wgpu::Device, pbr_parameters: &PbrParameters) -> Self {
@@ -79,10 +81,7 @@ impl Material {
             bytemuck::cast_slice(&[*pbr_parameters]),
         );
 
-        Self {
-            bind_group,
-            variation: PbrParameterVariation::Flat,
-        }
+        Self { bind_group }
     }
 
     // TODO: once it's possible to bind values by name, then do it that way

@@ -1,4 +1,4 @@
-use crate::{lights::Light, model::Renderable, resource_loader::ResourceLoader};
+use crate::{lights::Light, model::Renderable};
 
 pub struct ObjectHandle {
     id: usize,

@@ -10,8 +10,7 @@ use wgpu::{Device, Extent3d, Queue};
 
 use glam::{Vec2, Vec3};
 
-use crate::instance::SceneComponent;
-use crate::model::{ObjectWithMaterial, Renderable};
+use crate::model::{LoadedModelWithMaterial, ObjectWithMaterial};
 use crate::primitive_shapes::square;
 use crate::texture::TextureSourceDescriptor;
 use crate::{
@@ -41,7 +40,7 @@ pub struct ResourceLoader {
 impl ResourceLoader {
     pub async fn new(device: &Device, queue: &Queue) -> Self {
         let (default_mat, default_textures) = Self::load_default_textures(device, queue);
-        let primitive_shapes = Self::load_primitive_shapes(device).await.unwrap();
+        let primitive_shapes = Self::load_primitive_shapes(device).unwrap();
 
         let loader = ResourceLoader {
             default_mat,
@@ -60,12 +59,12 @@ impl ResourceLoader {
         self.primitive_shapes.get(&shape).unwrap().clone()
     }
 
-    async fn load_primitive_shapes(
+    fn load_primitive_shapes(
         device: &Device,
     ) -> anyhow::Result<HashMap<PrimitiveShape, Rc<Primitive>>> {
         let bytes: Vec<u8> = include_bytes!("../assets/models/cube/cube.obj").into();
         let mut reader = BufReader::new(&bytes[..]);
-        let mesh = Rc::new(load_obj(&mut reader, device, "cube/cube.obj".into()).await?);
+        let mesh = Rc::new(load_obj(&mut reader, device, "cube/cube.obj".into())?);
 
         let mut primitive_shapes = HashMap::new();
         primitive_shapes.insert(PrimitiveShape::Cube, mesh);
@@ -120,7 +119,7 @@ impl ResourceLoader {
     }
 
     fn load_texture(
-        &mut self,
+        &self,
         descriptor: &TextureSourceDescriptor,
         device: &Device,
         queue: &Queue,
@@ -153,22 +152,21 @@ impl ResourceLoader {
         }
     }
 
-    pub async fn load_model(
-        &mut self,
-        mesh_descriptor: ObjectWithMaterial,
-        instances: &Vec<SceneComponent>,
+    pub fn load_model(
+        &self,
+        mesh_descriptor: &ObjectWithMaterial,
         device: &Device,
         queue: &Queue,
-    ) -> anyhow::Result<Renderable> {
-        let model = match &mesh_descriptor.mesh_source {
+    ) -> anyhow::Result<LoadedModelWithMaterial> {
+        let primitive = match &mesh_descriptor.mesh_source {
             MeshSource::PrimitiveInCode(shape) => self.primitive_shapes.get(shape).unwrap().clone(),
             MeshSource::FromFile(path) => {
                 let mut file_buf_reader = open_file_for_reading(Path::new(path))?;
-                Rc::new(load_obj(&mut file_buf_reader, &device, path.clone()).await?)
+                Rc::new(load_obj(&mut file_buf_reader, &device, path.clone())?)
             }
         };
 
-        let material_render_data = match &mesh_descriptor.material_descriptor {
+        let material = match &mesh_descriptor.material_descriptor {
             PbrMaterialDescriptor::Texture(textures) => {
                 let mut loaded_textures = HashMap::with_capacity(textures.len());
                 for texture_descriptor in textures {
@@ -187,13 +185,10 @@ impl ResourceLoader {
             }
         };
 
-        Ok(Renderable::new(
-            mesh_descriptor,
-            instances.clone(),
-            model,
-            material_render_data,
-            device,
-        ))
+        Ok(LoadedModelWithMaterial {
+            primitive,
+            material,
+        })
     }
 }
 
@@ -216,7 +211,7 @@ fn vec_to_vec2s(values: Vec<f32>) -> Vec<Vec2> {
         .collect()
 }
 
-pub async fn load_obj<Reader>(
+pub fn load_obj<Reader>(
     reader: &mut Reader,
     device: &wgpu::Device,
     asset_path: String,
@@ -224,12 +219,10 @@ pub async fn load_obj<Reader>(
 where
     Reader: BufRead,
 {
-    let (mut models, _obj_materials) =
-        tobj::load_obj_buf_async(reader, &tobj::GPU_LOAD_OPTIONS, |_| async {
-            // We don't care about the mtl file, so this is just a dummy loader implementation
-            MTLLoadResult::Ok((Default::default(), Default::default()))
-        })
-        .await?;
+    let (mut models, _obj_materials) = tobj::load_obj_buf(reader, &tobj::GPU_LOAD_OPTIONS, |_| {
+        // We don't care about the mtl file, so this is just a dummy loader implementation
+        MTLLoadResult::Ok((Default::default(), Default::default()))
+    })?;
 
     let model = models.remove(0);
 

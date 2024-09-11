@@ -16,10 +16,11 @@ pub struct SceneComponent {
 pub struct SceneComponentRaw {
     pub model_matrix: [[f32; 4]; 4],
     pub rotation_only_matrix: [[f32; 3]; 3],
+    pub object_id: u32,
 }
 
 impl SceneComponent {
-    pub fn to_raw(&self) -> SceneComponentRaw {
+    pub fn to_raw(&self, object_id: u32) -> SceneComponentRaw {
         SceneComponentRaw {
             model_matrix: Mat4::from_scale_rotation_translation(
                 self.scale,
@@ -30,24 +31,9 @@ impl SceneComponent {
             // Instead of the inverse transpose, we can just pass the rotation matrix
             // As non-uniform scaling is not supported, this is fine
             rotation_only_matrix: Mat3::from_quat(self.rotation).to_cols_array_2d(),
+            object_id,
         }
     }
-
-    // pub fn to_serializable(&self) -> SerializableSceneComponent {
-    //     SerializableSceneComponent {
-    //         position: SerdeVec3Proxy::from_vec3(&self.position),
-    //         scale: SerdeVec3Proxy::from_vec3(&self.scale),
-    //         rotation: self.rotation.to_array(),
-    //     }
-    // }
-
-    // pub fn from_serializable(&self) -> SerializableSceneComponent {
-    //     SerializableSceneComponent {
-    //         position: SerdeVec3Proxy::from_vec3(&self.position),
-    //         scale: SerdeVec3Proxy::from_vec3(&self.scale),
-    //         rotation: self.rotation.to_array(),
-    //     }
-    // }
 }
 
 impl BufferContent for SceneComponentRaw {
@@ -93,6 +79,11 @@ impl BufferContent for SceneComponentRaw {
                     offset: mem::size_of::<[f32; 22]>() as wgpu::BufferAddress,
                     shader_location: 11,
                     format: wgpu::VertexFormat::Float32x3,
+                },
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<[f32; 25]>() as wgpu::BufferAddress,
+                    shader_location: 12,
+                    format: wgpu::VertexFormat::Uint32,
                 },
             ],
         }

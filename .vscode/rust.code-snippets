@@ -1,0 +1,34 @@
+{
+    "Public member function": {
+        "prefix": [
+            "fn_member_pub"
+        ],
+        "body": [
+            "pub fn $0(&self) {",
+            "\t$1",
+            "}"
+        ],
+        "description": "Public member function"
+    },
+    "Public mutable member function": {
+        "prefix": [
+            "fn_member_pub_mut"
+        ],
+        "body": [
+            "pub fn $0(&mut self) {",
+            "\t$1",
+            "}"
+        ],
+        "description": "Public mutable member function"
+    },
+    "Derive": {
+        "prefix": [
+            "de",
+            "derive"
+        ],
+        "body": [
+            "#[derive($0)]"
+        ],
+        "description": "Empty derive macro"
+    }
+}

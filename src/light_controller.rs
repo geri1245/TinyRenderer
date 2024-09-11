@@ -474,7 +474,11 @@ impl LightController {
         }
     }
 
-    pub fn render_shadows(&self, encoder: &mut CommandEncoder, renderables: &Vec<Renderable>) {
+    pub fn render_shadows<'a, T>(&self, encoder: &mut CommandEncoder, renderables: T)
+    where
+        T: Clone,
+        T: Iterator<Item = &'a Renderable>,
+    {
         encoder.push_debug_group("Shadow rendering");
 
         {
@@ -490,7 +494,7 @@ impl LightController {
                 {
                     self.shadow_rp.render(
                         encoder,
-                        renderables,
+                        renderables.clone(),
                         &self.shadow_assets.light_bind_group_viewproj_only,
                         depth_target,
                         ((6 * light_index + face_index)
@@ -518,7 +522,7 @@ impl LightController {
             {
                 self.shadow_rp.render(
                     encoder,
-                    renderables,
+                    renderables.clone(),
                     &self.shadow_assets.light_bind_group_viewproj_only,
                     &light.depth_texture,
                     (base_offset_after_point_lights

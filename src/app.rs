@@ -5,7 +5,7 @@ use crate::instance::SceneComponent;
 use crate::light_controller::LightController;
 use crate::lights::{DirectionalLight, Light, PointLight};
 use crate::material::PbrMaterialDescriptor;
-use crate::model::{MeshSource, ObjectWithMaterial, PbrParameters};
+use crate::model::{MeshSource, ObjectWithMaterial, PbrParameters, WorldObject};
 use crate::player_controller::PlayerController;
 use crate::resource_loader::{PrimitiveShape, ResourceLoader};
 use crate::texture::{MaterialSource, TextureSourceDescriptor, TextureUsage};
@@ -36,9 +36,8 @@ pub struct App {
     player_controller: PlayerController,
 
     light_controller: LightController,
-    world_renderer: WorldRenderer,
 
-    world: World,
+    pub world: World,
     should_draw_gui: bool,
     gui_event_receiver: Receiver<GuiEvent>,
 }
@@ -51,7 +50,10 @@ impl App {
 
         let gui = Gui::new(&window, &renderer.device, gui_event_sender);
 
-        let mut world = World::new();
+        let world_renderer: WorldRenderer =
+            WorldRenderer::new(&renderer, &mut resource_loader).await;
+
+        let mut world = World::new(world_renderer);
         world.add_light(Light::Point(PointLight::new(
             Vec3::new(10.0, 20.0, 0.0),
             Vec3::new(2.0, 5.0, 4.0),
@@ -61,19 +63,9 @@ impl App {
             color: Vec3::new(1.0, 1.0, 1.0),
         }));
 
-        Self::init_world_objects(
-            &renderer.device,
-            &renderer.queue,
-            &mut resource_loader,
-            &mut world,
-        )
-        .await;
+        Self::init_world_objects(&mut world);
 
         let player_controller = PlayerController::new();
-        let mut world_renderer: WorldRenderer =
-            WorldRenderer::new(&renderer, &mut resource_loader).await;
-        // Initial environment cubemap generation from the equirectangular map
-        world_renderer.add_action(RenderingAction::GenerateCubeMapFromEquirectangular);
 
         let camera_controller = CameraController::new(
             &renderer.device,
@@ -86,7 +78,6 @@ impl App {
         Self {
             renderer,
             frame_timer,
-            world_renderer,
             gui,
             should_draw_gui: true,
             gui_event_receiver,
@@ -98,13 +89,8 @@ impl App {
         }
     }
 
-    async fn init_world_objects(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        resource_loader: &mut ResourceLoader,
-        world: &mut World,
-    ) {
-        let cube_instances = vec![
+    fn init_world_objects(world: &mut World) {
+        let big_cube_instances = vec![
             SceneComponent {
                 position: Vec3::new(10.0, 10.0, 0.0),
                 scale: Vec3::splat(3.0),
@@ -132,10 +118,10 @@ impl App {
             },
         ];
 
-        let mut example_instances = Vec::with_capacity(100);
+        let mut small_cube_instances = Vec::with_capacity(100);
         for i in 0..11 {
             for j in 0..11 {
-                example_instances.push(SceneComponent {
+                small_cube_instances.push(SceneComponent {
                     position: Vec3::new(i as f32 * 5.0 - 25.0, j as f32 * 5.0 - 25.0, 0.0),
                     scale: Vec3::splat(1.0),
                     rotation: Quat::from_axis_angle(Vec3::ZERO, 0.0),
@@ -212,65 +198,58 @@ impl App {
             // },
         ];
 
-        let small_cubes = resource_loader
-            .load_model(
-                ObjectWithMaterial {
-                    mesh_source: MeshSource::FromFile("assets/models/cube/cube.obj".into()),
-                    material_descriptor: PbrMaterialDescriptor::Flat(PbrParameters::new(
-                        [0.2, 0.5, 1.0],
-                        1.0,
-                        0.0,
-                    )),
-                },
-                &example_instances,
-                device,
-                queue,
-            )
-            .await
-            .unwrap();
+        let small_cube = ObjectWithMaterial {
+            mesh_source: MeshSource::FromFile("assets/models/cube/cube.obj".into()),
+            material_descriptor: PbrMaterialDescriptor::Flat(PbrParameters::new(
+                [0.2, 0.5, 1.0],
+                1.0,
+                0.0,
+            )),
+        };
 
-        let big_cubes = resource_loader
-            .load_model(
-                ObjectWithMaterial {
-                    mesh_source: MeshSource::FromFile("assets/models/cube/cube.obj".into()),
-                    material_descriptor: PbrMaterialDescriptor::Texture(vec![
-                        TextureSourceDescriptor {
-                            source: MaterialSource::FromFile(
-                                "assets/textures/brick_wall_basic/albedo.jpg".into(),
-                            ),
-                            usage: TextureUsage::Albedo,
-                        },
-                        TextureSourceDescriptor {
-                            source: MaterialSource::FromFile(
-                                "assets/textures/brick_wall_basic/normal.jpg".into(),
-                            ),
-                            usage: TextureUsage::Normal,
-                        },
-                    ]),
+        let big_cube = ObjectWithMaterial {
+            mesh_source: MeshSource::FromFile("assets/models/cube/cube.obj".into()),
+            material_descriptor: PbrMaterialDescriptor::Texture(vec![
+                TextureSourceDescriptor {
+                    source: MaterialSource::FromFile(
+                        "assets/textures/brick_wall_basic/albedo.jpg".into(),
+                    ),
+                    usage: TextureUsage::Albedo,
                 },
-                &cube_instances,
-                device,
-                queue,
-            )
-            .await
-            .unwrap();
-
-        let squares = resource_loader
-            .load_model(
-                ObjectWithMaterial {
-                    mesh_source: MeshSource::PrimitiveInCode(PrimitiveShape::Square),
-                    material_descriptor: PbrMaterialDescriptor::Texture(vec![]),
+                TextureSourceDescriptor {
+                    source: MaterialSource::FromFile(
+                        "assets/textures/brick_wall_basic/normal.jpg".into(),
+                    ),
+                    usage: TextureUsage::Normal,
                 },
-                &square_instances,
-                device,
-                queue,
-            )
-            .await
-            .unwrap();
+            ]),
+        };
 
-        world.add_object(big_cubes);
-        world.add_object(small_cubes);
-        world.add_object(squares);
+        let square = ObjectWithMaterial {
+            mesh_source: MeshSource::PrimitiveInCode(PrimitiveShape::Square),
+            material_descriptor: PbrMaterialDescriptor::Texture(vec![]),
+        };
+
+        for transform in big_cube_instances {
+            world.add_object(WorldObject {
+                object: big_cube.clone(),
+                transform,
+            });
+        }
+
+        for transform in small_cube_instances {
+            world.add_object(WorldObject {
+                object: small_cube.clone(),
+                transform,
+            });
+        }
+
+        for transform in square_instances {
+            world.add_object(WorldObject {
+                object: square.clone(),
+                transform,
+            });
+        }
     }
 
     pub fn reconfigure(&mut self) {
@@ -287,7 +266,7 @@ impl App {
         self.camera_controller
             .resize(new_size.width as f32 / new_size.height as f32);
         self.renderer.resize(new_size);
-        self.world_renderer
+        self.world
             .handle_size_changed(&self.renderer, new_size.width, new_size.height);
     }
 
@@ -309,7 +288,9 @@ impl App {
         match event {
             WindowEvent::CloseRequested => return WindowEventHandlingResult::RequestExit,
 
-            WindowEvent::KeyboardInput { event, .. } => self.handle_keyboard_event(event),
+            WindowEvent::KeyboardInput { event, .. } => {
+                self.handle_keyboard_event(&event);
+            }
 
             WindowEvent::Resized(new_size) => {
                 self.resize(new_size);
@@ -327,13 +308,13 @@ impl App {
         WindowEventHandlingResult::Handled
     }
 
-    fn handle_keyboard_event(&mut self, key_event: KeyEvent) {
+    fn handle_keyboard_event(&mut self, key_event: &KeyEvent) {
         if key_event.state == ElementState::Pressed {
             if let PhysicalKey::Code(key) = key_event.physical_key {
                 match key {
                     KeyCode::KeyF => self.toggle_should_draw_gui(),
                     KeyCode::KeyI => self
-                        .world_renderer
+                        .world
                         .add_action(RenderingAction::SaveDiffuseIrradianceMapToFile),
                     _ => {}
                 }
@@ -341,7 +322,7 @@ impl App {
         }
     }
 
-    pub fn render(&mut self, window: &winit::window::Window) -> Result<(), wgpu::SurfaceError> {
+    pub fn run_frame(&mut self, window: &winit::window::Window) -> Result<(), wgpu::SurfaceError> {
         let delta = self.frame_timer.get_delta_and_reset_timer();
         self.update(delta);
 
@@ -351,11 +332,10 @@ impl App {
             .texture
             .create_view(&TextureViewDescriptor::default());
 
-        self.world_renderer.render(
+        self.world.render(
             &self.renderer,
             &mut encoder,
             &current_frame_texture,
-            self.world.get_meshes(),
             &self.light_controller,
             &self.camera_controller,
         )?;
@@ -363,6 +343,8 @@ impl App {
         self.renderer.queue.submit(Some(encoder.finish()));
 
         if self.should_draw_gui {
+            let frame_time = delta.as_secs_f32();
+            self.gui.update_frame_time(frame_time);
             self.gui.render(
                 &window,
                 &self.renderer.device,
@@ -402,7 +384,7 @@ impl App {
         let results = vec![
             self.light_controller
                 .try_recompile_shaders(&self.renderer.device),
-            self.world_renderer
+            self.world
                 .recompile_shaders_if_needed(&self.renderer.device),
         ];
 
@@ -435,6 +417,12 @@ impl App {
             );
             self.world.set_lights_udpated();
         }
+
+        self.world.update(
+            &self.renderer.device,
+            &self.renderer.queue,
+            &self.resource_loader,
+        );
     }
 
     pub fn toggle_should_draw_gui(&mut self) {

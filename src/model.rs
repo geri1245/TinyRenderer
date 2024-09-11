@@ -2,7 +2,6 @@ use std::{collections::HashMap, rc::Rc};
 
 use glam::{Vec2, Vec3};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 use wgpu::{util::DeviceExt, Device, RenderPass};
 
 use crate::{
@@ -43,13 +42,6 @@ impl Default for PbrParameters {
 }
 
 impl PbrParameters {
-    pub fn fully_rough(albedo: [f32; 3]) -> Self {
-        Self {
-            albedo,
-            ..Default::default()
-        }
-    }
-
     pub fn new(albedo: [f32; 3], roughness: f32, metalness: f32) -> Self {
         Self {
             albedo,
@@ -60,9 +52,10 @@ impl PbrParameters {
     }
 }
 
-pub struct ModelLoadingData {
-    pub path: PathBuf,
-    pub textures: Vec<(TextureUsage, PathBuf)>,
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct WorldObject {
+    pub object: ObjectWithMaterial,
+    pub transform: SceneComponent,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -72,15 +65,22 @@ pub struct ObjectWithMaterial {
 }
 
 #[derive(Debug, serde::Serialize)]
-pub struct Renderable {
+pub struct RenderableDescription {
     pub mesh_descriptor: ObjectWithMaterial,
-    pub instances: Vec<SceneComponent>,
+    pub transform: SceneComponent,
+}
 
-    #[serde(skip)]
+pub struct LoadedModelWithMaterial {
+    pub primitive: Rc<Primitive>,
+    pub material: MaterialRenderData,
+}
+
+#[derive(Debug)]
+pub struct Renderable {
+    pub description: RenderableDescription,
+
     pub instance_render_data: BufferWithLength,
-    #[serde(skip)]
     pub vertex_render_data: Rc<Primitive>,
-    #[serde(skip)]
     pub material_render_data: MaterialRenderData,
 }
 
@@ -102,6 +102,14 @@ pub struct Primitive {
     pub index_data: BufferWithLength,
 }
 
+impl Primitive {
+    pub fn render<'a>(&'a self, render_pass: &mut RenderPass<'a>) {
+        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        render_pass.set_index_buffer(self.index_data.buffer.slice(..), wgpu::IndexFormat::Uint32);
+        render_pass.draw_indexed(0..self.index_data.count, 0, 0..1);
+    }
+}
+
 #[derive(Debug, serde::Serialize)]
 pub struct InstanceData {
     pub instances: Vec<SceneComponent>,
@@ -110,16 +118,19 @@ pub struct InstanceData {
 impl Renderable {
     pub fn new(
         mesh_descriptor: ObjectWithMaterial,
-        instances: Vec<SceneComponent>,
+        transform: SceneComponent,
         primitive: Rc<Primitive>,
         material_render_data: MaterialRenderData,
         device: &wgpu::Device,
+        object_id: u32,
     ) -> Self {
-        let instance_data = create_instance_buffer(&instances, device);
+        let instance_data = create_instance_buffer(&transform, object_id, device);
 
         Self {
-            mesh_descriptor,
-            instances,
+            description: RenderableDescription {
+                mesh_descriptor,
+                transform,
+            },
             vertex_render_data: primitive,
             instance_render_data: instance_data,
             material_render_data,
@@ -146,22 +157,19 @@ impl Renderable {
 }
 
 pub fn create_instance_buffer(
-    instances: &Vec<SceneComponent>,
+    transform: &SceneComponent,
+    object_id: u32,
     device: &Device,
 ) -> BufferWithLength {
-    let raw_instances = instances
-        .iter()
-        .map(|instance| instance.to_raw())
-        .collect::<Vec<_>>();
     let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("Square Instance Buffer"),
-        contents: bytemuck::cast_slice(&raw_instances),
+        contents: bytemuck::cast_slice(&[transform.to_raw(object_id)]),
         usage: wgpu::BufferUsages::VERTEX,
     });
 
     BufferWithLength {
         buffer: instance_buffer,
-        count: instances.len() as u32,
+        count: 1,
     }
 }
 

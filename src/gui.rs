@@ -15,6 +15,12 @@ pub enum GuiEvent {
     ButtonClicked(GuiButton),
 }
 
+struct AppInfo {
+    shader_error: String,
+    frame_time: f32,
+    fps_counter: u32,
+}
+
 #[derive(Default)]
 pub struct GuiParams {
     pub point_light_position: [f32; 3],
@@ -28,7 +34,7 @@ pub struct Gui {
     renderer: EguiRenderer,
     sender: Sender<GuiEvent>,
     gui_params: GuiParams,
-    shader_error: String,
+    app_info: AppInfo,
 }
 
 impl Gui {
@@ -51,7 +57,11 @@ impl Gui {
             sender,
             gui_params,
             renderer: egui_renderer,
-            shader_error: "".into(),
+            app_info: AppInfo {
+                shader_error: "".into(),
+                frame_time: 0.0,
+                fps_counter: 0,
+            },
         }
     }
 
@@ -83,72 +93,75 @@ impl Gui {
             &current_frame_texture_view,
             screen_descriptor,
             |ctx| {
-                egui::Window::new("Settings page")
-                    .min_size(&self.gui_params.gui_size)
-                    .show(&ctx, |ui| {
-                        ui.label(&self.shader_error);
+                egui::Window::new("Settings page").show(&ctx, |ui| {
+                    let frame_time_string = self.app_info.frame_time.to_string();
+                    let fps_string = self.app_info.fps_counter.to_string();
+                    ui.label(format!("Frame time: {frame_time_string}"));
+                    ui.label(format!("FPS: {fps_string}"));
 
-                        if ui.button("Recompile shaders").clicked() {
-                            let _ = self.sender.try_send(GuiEvent::RecompileShaders);
-                        }
-                        ui.style_mut().spacing.slider_width = 300.0;
-                        ui.add(
-                            egui::Slider::new(
-                                &mut self.gui_params.point_light_position[0],
-                                -30.0..=30.0,
-                            )
-                            .smart_aim(false),
-                        );
-                        ui.add(
-                            egui::Slider::new(
-                                &mut self.gui_params.point_light_position[1],
-                                -30_f32..=30.0,
-                            )
-                            .smart_aim(false),
-                        );
-                        ui.add(
-                            egui::Slider::new(
-                                &mut self.gui_params.point_light_position[2],
-                                -30.0..=30.0,
-                            )
-                            .smart_aim(false),
-                        );
+                    ui.label(&self.app_info.shader_error);
 
-                        ui.separator();
-                        ui.label("Gui size");
-                        ui.add(egui::Slider::new(
-                            &mut self.gui_params.gui_size[0],
-                            0_f32..=2000.0,
-                        ));
-                        ui.add(egui::Slider::new(
-                            &mut self.gui_params.gui_size[1],
-                            0.0..=2000.0,
-                        ));
+                    if ui.button("Recompile shaders").clicked() {
+                        let _ = self.sender.try_send(GuiEvent::RecompileShaders);
+                    }
+                    ui.style_mut().spacing.slider_width = 300.0;
+                    ui.add(
+                        egui::Slider::new(
+                            &mut self.gui_params.point_light_position[0],
+                            -30.0..=30.0,
+                        )
+                        .smart_aim(false),
+                    );
+                    ui.add(
+                        egui::Slider::new(
+                            &mut self.gui_params.point_light_position[1],
+                            -30_f32..=30.0,
+                        )
+                        .smart_aim(false),
+                    );
+                    ui.add(
+                        egui::Slider::new(
+                            &mut self.gui_params.point_light_position[2],
+                            -30.0..=30.0,
+                        )
+                        .smart_aim(false),
+                    );
 
-                        ui.add(Separator::default().horizontal());
+                    ui.separator();
+                    ui.label("Gui size");
+                    ui.add(egui::Slider::new(
+                        &mut self.gui_params.gui_size[0],
+                        0_f32..=2000.0,
+                    ));
+                    ui.add(egui::Slider::new(
+                        &mut self.gui_params.gui_size[1],
+                        0.0..=2000.0,
+                    ));
 
-                        if Button::new("Save current level").ui(ui).clicked() {
-                            let _ = self
-                                .sender
-                                .try_send(GuiEvent::ButtonClicked(GuiButton::SaveLevel));
-                            let mut file_dialog = egui_file::FileDialog::open_file(None);
-                            if file_dialog.show(ctx).selected() {
-                                if let Some(file) = file_dialog.path() {
-                                    Some(file.to_path_buf());
-                                }
+                    ui.add(Separator::default().horizontal());
+
+                    if Button::new("Save current level").ui(ui).clicked() {
+                        let _ = self
+                            .sender
+                            .try_send(GuiEvent::ButtonClicked(GuiButton::SaveLevel));
+                        let mut file_dialog = egui_file::FileDialog::open_file(None);
+                        if file_dialog.show(ctx).selected() {
+                            if let Some(file) = file_dialog.path() {
+                                Some(file.to_path_buf());
                             }
                         }
+                    }
 
-                        // ui.horizontal(|ui| {
-                        //     ui.label(format!("Pixels per point: {}", ctx.pixels_per_point()));
-                        //     if ui.button("-").clicked() {
-                        //         scale_factor = (scale_factor - 0.1).max(0.3);
-                        //     }
-                        //     if ui.button("+").clicked() {
-                        //         scale_factor = (scale_factor + 0.1).min(3.0);
-                        //     }
-                        // });
-                    });
+                    // ui.horizontal(|ui| {
+                    //     ui.label(format!("Pixels per point: {}", ctx.pixels_per_point()));
+                    //     if ui.button("-").clicked() {
+                    //         scale_factor = (scale_factor - 0.1).max(0.3);
+                    //     }
+                    //     if ui.button("+").clicked() {
+                    //         scale_factor = (scale_factor + 0.1).min(3.0);
+                    //     }
+                    // });
+                });
             },
         );
 
@@ -164,7 +177,12 @@ impl Gui {
     }
 
     pub fn set_shader_compilation_result(&mut self, result: &Vec<String>) {
-        self.shader_error = result.join("\n");
+        self.app_info.shader_error = result.join("\n");
+    }
+
+    pub fn update_frame_time(&mut self, frame_time: f32) {
+        self.app_info.frame_time = frame_time;
+        self.app_info.fps_counter = frame_time.recip() as u32;
     }
 
     pub fn handle_event(

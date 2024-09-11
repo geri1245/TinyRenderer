@@ -146,11 +146,6 @@ impl EquirectangularToCubemapRP {
         render_pass.set_bind_group(0, projection_bind_group, &[]);
         render_pass.set_bind_group(1, hdr_texture_bind_group, &[]);
 
-        render_pass.set_vertex_buffer(0, primitive.vertex_buffer.slice(..));
-        render_pass.set_index_buffer(
-            primitive.index_data.buffer.slice(..),
-            wgpu::IndexFormat::Uint32,
-        );
-        render_pass.draw_indexed(0..primitive.index_data.count, 0, 0..1 as u32);
+        primitive.render(&mut render_pass);
     }
 }

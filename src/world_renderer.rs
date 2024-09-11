@@ -11,12 +11,14 @@ use crate::{
     gbuffer_geometry_renderer::GBufferGeometryRenderer,
     input_actions::RenderingAction,
     light_controller::LightController,
-    model::Renderable,
+    model::{Renderable, WorldObject},
+    object_picker::ObjectPickManager,
     pipelines::{self, MainRP, ShaderCompilationSuccess},
     post_process_manager::PostProcessManager,
     renderer::Renderer,
     resource_loader::{PrimitiveShape, ResourceLoader},
     skybox::Skybox,
+    super_hash_map::SuperHashMap,
 };
 
 pub struct WorldRenderer {
@@ -28,8 +30,15 @@ pub struct WorldRenderer {
     forward_renderer: ForwardRenderer,
     gbuffer_geometry_renderer: GBufferGeometryRenderer,
     equirec_to_cubemap_renderer: EquirectangularToCubemapRenderer,
+    object_picker: ObjectPickManager,
+
     first_render: bool,
     actions_to_process: VecDeque<RenderingAction>,
+
+    renderables: SuperHashMap<Renderable>,
+
+    /// These are waiting to be loaded
+    pending_renderables: Vec<(u32, WorldObject)>,
 }
 
 impl WorldRenderer {
@@ -80,17 +89,27 @@ impl WorldRenderer {
         .await
         .unwrap();
 
+        let object_picker = ObjectPickManager::new(
+            &renderer.device,
+            renderer.config.width,
+            renderer.config.height,
+        )
+        .await;
+
         WorldRenderer {
             skybox,
             main_rp,
             gbuffer_geometry_renderer,
             forward_renderer: forward_rp,
+            object_picker,
 
             post_process_manager,
             equirec_to_cubemap_renderer,
             diffuse_irradiance_renderer,
             first_render: true,
             actions_to_process: VecDeque::new(),
+            renderables: SuperHashMap::new(),
+            pending_renderables: Vec::new(),
         }
     }
 
@@ -98,12 +117,38 @@ impl WorldRenderer {
         self.actions_to_process.push_back(action);
     }
 
+    pub fn add_object(&mut self, new_renderable_descriptor: WorldObject, new_renderable_id: u32) {
+        self.pending_renderables
+            .push((new_renderable_id, new_renderable_descriptor));
+    }
+
+    pub fn update(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        resource_loader: &ResourceLoader,
+    ) {
+        for (object_id, object) in self.pending_renderables.drain(..) {
+            let loaded_model = resource_loader
+                .load_model(&object.object, device, queue)
+                .unwrap();
+            let new_renderable = Renderable::new(
+                object.object,
+                object.transform,
+                loaded_model.primitive,
+                loaded_model.material,
+                device,
+                object_id,
+            );
+            self.renderables.insert(object_id, new_renderable);
+        }
+    }
+
     pub fn render(
         &mut self,
         renderer: &Renderer,
         encoder: &mut CommandEncoder,
         final_fbo_image_texture: &SurfaceTexture,
-        renderables: &Vec<Renderable>,
         light_controller: &LightController,
         camera_controller: &CameraController,
     ) -> Result<(), wgpu::SurfaceError> {
@@ -124,11 +169,13 @@ impl WorldRenderer {
             }
         }
 
-        light_controller.render_shadows(encoder, &renderables);
+        let renderables = self.renderables.into_iter();
+
+        light_controller.render_shadows(encoder, renderables.clone());
 
         {
             let mut render_pass = self.gbuffer_geometry_renderer.begin_render(encoder);
-            for renderable in renderables {
+            for renderable in renderables.clone() {
                 self.gbuffer_geometry_renderer.render(
                     &mut render_pass,
                     renderable,
@@ -136,6 +183,14 @@ impl WorldRenderer {
                 );
             }
         }
+
+        self.object_picker.render(
+            encoder,
+            renderables,
+            &camera_controller.bind_group,
+            &self.gbuffer_geometry_renderer.textures.depth_texture.view,
+            &self.gbuffer_geometry_renderer.bind_group,
+        );
 
         {
             let mut main_shading_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
@@ -246,6 +301,7 @@ impl WorldRenderer {
             block_on(self.post_process_manager.try_recompile_shader(device))?;
             block_on(self.skybox.try_recompile_shader(device))?;
             block_on(self.forward_renderer.try_recompile_shader(device))?;
+            block_on(self.object_picker.try_recompile_shader(device))?;
             if block_on(
                 self.diffuse_irradiance_renderer
                     .try_recompile_shader(device),
@@ -266,5 +322,6 @@ impl WorldRenderer {
             .resize(&renderer.device, width, height);
         self.post_process_manager
             .resize(&renderer.device, width, height);
+        self.object_picker.resize(&renderer.device, width, height);
     }
 }

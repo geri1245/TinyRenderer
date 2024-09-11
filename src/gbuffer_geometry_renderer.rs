@@ -186,7 +186,7 @@ impl GBufferGeometryRenderer {
         camera_bind_group: &'a BindGroup,
     ) {
         // TODO: filter out the textured version and the flat version and render them separately, so no need to change pipeline state
-        match renderable.mesh_descriptor.material_descriptor {
+        match renderable.description.mesh_descriptor.material_descriptor {
             PbrMaterialDescriptor::Texture(..) => {
                 self.textured_gbuffer_rp
                     .render_mesh(render_pass, renderable, camera_bind_group)

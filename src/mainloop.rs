@@ -30,7 +30,7 @@ pub async fn run_main_loop() {
                         //     inner_size_writer,
                         // } => todo!(),
                         WindowEvent::RedrawRequested => {
-                            match app.render(&window) {
+                            match app.run_frame(&window) {
                                 Ok(_) => (),
                                 // Reconfigure the surface if lost
                                 Err(wgpu::SurfaceError::Lost) => app.reconfigure(),

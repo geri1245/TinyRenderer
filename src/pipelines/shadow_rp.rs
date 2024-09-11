@@ -108,10 +108,10 @@ impl ShadowRP {
         })
     }
 
-    pub fn render(
+    pub fn render<'a, T: Iterator<Item = &'a Renderable>>(
         &self,
         encoder: &mut CommandEncoder,
-        renderables: &Vec<Renderable>,
+        renderables: T,
         light_bind_group: &BindGroup,
         depth_target: &wgpu::TextureView,
         light_bind_group_offset: u32,

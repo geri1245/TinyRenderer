@@ -10,6 +10,11 @@ const CAMERA_UP_VECTOR: Vec3 = Vec3::new(0 as f32, 1 as f32, 0 as f32);
 const MOVEMENT_SENSITIVITY: f32 = 20.0;
 const MOUSE_LOOK_SENSITIVITY: f32 = 0.005;
 
+pub enum CameraEvent {
+    Motion((f64, f64)),
+    Key(KeyEvent),
+}
+
 /// Contains only camera interactions, nothing rendering-related
 pub struct Camera {
     pub position: Vec3,
@@ -80,7 +85,7 @@ impl Camera {
         self.aspect = aspect;
     }
 
-    fn handle_keyboard_event(&mut self, keyboard_event: &RawKeyEvent) {
+    fn handle_keyboard_event(&mut self, keyboard_event: &KeyEvent) {
         match keyboard_event.state {
             ElementState::Pressed => {
                 if let PhysicalKey::Code(keycode) = keyboard_event.physical_key {
@@ -116,15 +121,10 @@ impl Camera {
         self.current_speed_positive = Vec3::ZERO;
     }
 
-    pub fn process_device_events(&mut self, event: &DeviceEvent) {
+    pub fn process_event(&mut self, event: &CameraEvent) {
         match event {
-            DeviceEvent::MouseMotion { delta } => {
-                self.rotate((delta.0 as f32, delta.1 as f32));
-            }
-            DeviceEvent::Key(keyboard_input) => {
-                self.handle_keyboard_event(&keyboard_input);
-            }
-            _ => (),
+            CameraEvent::Motion(delta) => self.rotate((delta.0 as f32, delta.1 as f32)),
+            CameraEvent::Key(key_event) => self.handle_keyboard_event(key_event),
         }
     }
 

@@ -58,8 +58,6 @@ pub async fn run_main_loop() {
                             return;
                         }
                     }
-
-                    app.handle_device_event(&window, &event);
                 }
                 _ => {}
             }

@@ -2,15 +2,20 @@ use std::{fs::File, io::Write};
 
 use wgpu::{Device, Extent3d, SubmissionIndex, TextureFormat};
 
-fn calculate_padded_size_for_image_copy_buffer(width: u32, format: &TextureFormat) -> u32 {
-    let bytes_per_pixel = match format {
+fn get_bytes_per_pixel(format: &TextureFormat) -> u32 {
+    match format {
         TextureFormat::Rgba16Float => 2 * 4,
+        TextureFormat::R32Uint => 4,
         _ => unimplemented!(
             "Capturing images with format {:?} is not yet supported.
             Add the bytes per pixel value here and it will work!",
             format
         ),
-    };
+    }
+}
+
+fn calculate_padded_size_for_image_copy_buffer(width: u32, format: &TextureFormat) -> u32 {
+    let bytes_per_pixel = get_bytes_per_pixel(format);
 
     let unpadded_bytes_per_row = (width * bytes_per_pixel) as usize;
     let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize;
@@ -23,7 +28,8 @@ pub struct OutputBuffer {
     /// of ImageCopyBuffer
     pub padded_row_size: u32,
     pub buffer: wgpu::Buffer,
-    pub texture_extent: wgpu::Extent3d,
+    pub texture_extent: Extent3d,
+    pub texture_format: TextureFormat,
 }
 
 impl OutputBuffer {
@@ -47,6 +53,7 @@ impl OutputBuffer {
             padded_row_size,
             buffer,
             texture_extent: texture_extent.clone(),
+            texture_format: *format,
         }
     }
 

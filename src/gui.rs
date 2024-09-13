@@ -1,7 +1,7 @@
 use crossbeam_channel::Sender;
 use egui::{Button, Separator, Widget};
 use egui_wgpu::ScreenDescriptor;
-use wgpu::TextureFormat;
+use wgpu::{CommandEncoder, TextureFormat};
 
 use crate::gui_helpers::EguiRenderer;
 
@@ -72,11 +72,12 @@ impl Gui {
         queue: &wgpu::Queue,
         config: &wgpu::SurfaceConfiguration,
         current_frame_texture_view: &wgpu::TextureView,
+        encoder: &mut CommandEncoder,
     ) {
-        let mut encoder: wgpu::CommandEncoder =
-            device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("UI encoder"),
-            });
+        // let mut encoder: wgpu::CommandEncoder =
+        //     device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+        //         label: Some("UI encoder"),
+        //     });
 
         let screen_descriptor = ScreenDescriptor {
             size_in_pixels: [config.width, config.height],
@@ -86,11 +87,11 @@ impl Gui {
         let light_position = self.gui_params.point_light_position;
 
         self.renderer.draw(
-            &device,
-            &queue,
-            &mut encoder,
-            &window,
-            &current_frame_texture_view,
+            device,
+            queue,
+            encoder,
+            window,
+            current_frame_texture_view,
             screen_descriptor,
             |ctx| {
                 egui::Window::new("Settings page").show(&ctx, |ui| {
@@ -172,8 +173,6 @@ impl Gui {
                 })
                 .unwrap();
         }
-
-        queue.submit(Some(encoder.finish()));
     }
 
     pub fn set_shader_compilation_result(&mut self, result: &Vec<String>) {
@@ -192,13 +191,5 @@ impl Gui {
     ) -> bool {
         let response = self.renderer.handle_input(window, event);
         response.consumed
-    }
-
-    pub fn handle_device_event(
-        &mut self,
-        _window: &winit::window::Window,
-        _event: &winit::event::DeviceEvent,
-    ) -> bool {
-        false
     }
 }

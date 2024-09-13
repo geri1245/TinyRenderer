@@ -1,6 +1,6 @@
+use crate::actions::{RenderingAction, UserInputAction};
 use crate::camera_controller::CameraController;
 use crate::gui::{Gui, GuiButton, GuiEvent};
-use crate::input_actions::RenderingAction;
 use crate::instance::SceneComponent;
 use crate::light_controller::LightController;
 use crate::lights::{DirectionalLight, Light, PointLight};
@@ -17,8 +17,8 @@ use crossbeam_channel::{unbounded, Receiver};
 use glam::{Quat, Vec3};
 use std::f32::consts::FRAC_PI_2;
 use std::time::Duration;
-use wgpu::TextureViewDescriptor;
-use winit::event::{DeviceEvent, ElementState, KeyEvent, MouseButton, WindowEvent};
+use wgpu::{MaintainBase, TextureViewDescriptor};
+use winit::event::{ElementState, KeyEvent, MouseButton, WindowEvent};
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::Window;
 
@@ -40,18 +40,20 @@ pub struct App {
     pub world: World,
     should_draw_gui: bool,
     gui_event_receiver: Receiver<GuiEvent>,
+    user_input_action_receiver: Receiver<UserInputAction>,
 }
 
 impl App {
     pub async fn new(window: &Window) -> Self {
         let renderer = Renderer::new(window).await;
         let (gui_event_sender, gui_event_receiver) = unbounded::<GuiEvent>();
+        let (user_input_action_sender, user_input_action_receiver) = unbounded::<UserInputAction>();
         let mut resource_loader = ResourceLoader::new(&renderer.device, &renderer.queue).await;
 
         let gui = Gui::new(&window, &renderer.device, gui_event_sender);
 
         let world_renderer: WorldRenderer =
-            WorldRenderer::new(&renderer, &mut resource_loader).await;
+            WorldRenderer::new(&renderer, &mut resource_loader, user_input_action_sender).await;
 
         let mut world = World::new(world_renderer);
         world.add_light(Light::Point(PointLight::new(
@@ -86,6 +88,7 @@ impl App {
             light_controller,
             resource_loader,
             player_controller,
+            user_input_action_receiver,
         }
     }
 
@@ -278,13 +281,9 @@ impl App {
         self.gui.handle_event(window, event);
     }
 
-    pub fn handle_device_event(&mut self, window: &Window, event: &DeviceEvent) {
-        self.gui.handle_device_event(window, event);
-
-        self.camera_controller.process_device_events(event);
-    }
-
     pub fn handle_window_event(&mut self, event: WindowEvent) -> WindowEventHandlingResult {
+        self.camera_controller.process_window_event(&event);
+
         match event {
             WindowEvent::CloseRequested => return WindowEventHandlingResult::RequestExit,
 
@@ -298,10 +297,6 @@ impl App {
             // WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
             // self.resize(); // TODO Handle scale factor change
             // }
-            WindowEvent::MouseInput { state, button, .. } if button == MouseButton::Right => {
-                self.camera_controller
-                    .set_is_movement_enabled(state == ElementState::Pressed);
-            }
             _ => {}
         };
 
@@ -340,8 +335,6 @@ impl App {
             &self.camera_controller,
         )?;
 
-        self.renderer.queue.submit(Some(encoder.finish()));
-
         if self.should_draw_gui {
             let frame_time = delta.as_secs_f32();
             self.gui.update_frame_time(frame_time);
@@ -351,8 +344,15 @@ impl App {
                 &self.renderer.queue,
                 &self.renderer.config,
                 &current_frame_texture_view,
+                &mut encoder,
             );
         }
+
+        self.world
+            .world_renderer
+            .object_picker
+            .update(&self.renderer.device);
+        self.renderer.queue.submit(Some(encoder.finish()));
 
         current_frame_texture.present();
 

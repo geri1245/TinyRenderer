@@ -3,14 +3,9 @@ use std::collections::HashMap;
 use wgpu::{CommandEncoder, Device, SurfaceTexture};
 
 use crate::{
-    camera_controller::CameraController,
-    input_actions::RenderingAction,
-    light_controller::LightController,
-    lights::Light,
-    model::{ObjectWithMaterial, WorldObject},
-    renderer::Renderer,
-    resource_loader::ResourceLoader,
-    world_renderer::WorldRenderer,
+    actions::RenderingAction, camera_controller::CameraController,
+    light_controller::LightController, lights::Light, model::WorldObject, renderer::Renderer,
+    resource_loader::ResourceLoader, world_renderer::WorldRenderer,
 };
 
 pub struct ObjectHandle {
@@ -29,7 +24,7 @@ pub enum DirtyState {
 }
 
 pub struct World {
-    world_renderer: WorldRenderer,
+    pub world_renderer: WorldRenderer,
 
     meshes: HashMap<u32, WorldObject>,
     lights: Vec<Light>,

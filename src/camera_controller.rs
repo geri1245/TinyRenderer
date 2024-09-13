@@ -1,14 +1,17 @@
 use glam::{Mat4, Vec4};
 use std::time;
 use wgpu::Device;
-use winit::event::DeviceEvent;
+use winit::{
+    dpi::PhysicalPosition,
+    event::{MouseButton, WindowEvent},
+};
 
 use crate::{
     bind_group_layout_descriptors,
     buffer::{
         create_bind_group_from_buffer_entire_binding_init, BufferInitBindGroupCreationOptions,
     },
-    camera::Camera,
+    camera::{Camera, CameraEvent},
 };
 
 /// Contains the rendering-related concepts of the camera
@@ -17,6 +20,7 @@ pub struct CameraController {
     pub binding_buffer: wgpu::Buffer,
     pub bind_group: wgpu::BindGroup,
     is_movement_enabled: bool,
+    cursor_position: Option<PhysicalPosition<f64>>,
 }
 
 impl CameraController {
@@ -39,6 +43,7 @@ impl CameraController {
             binding_buffer,
             bind_group,
             is_movement_enabled: false,
+            cursor_position: None,
         }
     }
 
@@ -61,13 +66,39 @@ impl CameraController {
 
         if !self.is_movement_enabled {
             self.camera.stop_movement();
+            self.cursor_position = None;
         }
     }
 
-    pub fn process_device_events(&mut self, event: &DeviceEvent) {
-        if self.is_movement_enabled {
-            self.camera.process_device_events(event);
+    pub fn process_window_event(&mut self, event: &WindowEvent) -> bool {
+        match event {
+            WindowEvent::MouseInput { button, state, .. } => {
+                if *button == MouseButton::Right {
+                    self.set_is_movement_enabled(state.is_pressed());
+                    return true;
+                }
+            }
+            WindowEvent::CursorMoved { position, .. } => {
+                if self.is_movement_enabled {
+                    if let Some(previous_position) = self.cursor_position {
+                        self.camera.process_event(&CameraEvent::Motion((
+                            position.x - previous_position.x,
+                            position.y - previous_position.y,
+                        )));
+                    }
+
+                    self.cursor_position = Some(*position);
+                    return true;
+                }
+            }
+            WindowEvent::KeyboardInput { event, .. } if self.is_movement_enabled => {
+                self.camera.process_event(&CameraEvent::Key(event.clone()));
+                return true;
+            }
+            _ => {}
         }
+
+        false
     }
 
     pub fn to_raw(&self) -> CameraRaw {

@@ -1,15 +1,16 @@
 use std::collections::VecDeque;
 
 use async_std::task::block_on;
+use crossbeam_channel::Sender;
 use wgpu::{CommandEncoder, Device, Extent3d, RenderPassDepthStencilAttachment, SurfaceTexture};
 
 use crate::{
+    actions::{RenderingAction, UserInputAction},
     camera_controller::CameraController,
     diffuse_irradiance_renderer::DiffuseIrradianceRenderer,
     equirectangular_to_cubemap_renderer::EquirectangularToCubemapRenderer,
     forward_renderer::ForwardRenderer,
     gbuffer_geometry_renderer::GBufferGeometryRenderer,
-    input_actions::RenderingAction,
     light_controller::LightController,
     model::{Renderable, WorldObject},
     object_picker::ObjectPickManager,
@@ -30,7 +31,7 @@ pub struct WorldRenderer {
     forward_renderer: ForwardRenderer,
     gbuffer_geometry_renderer: GBufferGeometryRenderer,
     equirec_to_cubemap_renderer: EquirectangularToCubemapRenderer,
-    object_picker: ObjectPickManager,
+    pub object_picker: ObjectPickManager,
 
     first_render: bool,
     actions_to_process: VecDeque<RenderingAction>,
@@ -42,7 +43,11 @@ pub struct WorldRenderer {
 }
 
 impl WorldRenderer {
-    pub async fn new(renderer: &Renderer, resource_loader: &mut ResourceLoader) -> Self {
+    pub async fn new(
+        renderer: &Renderer,
+        resource_loader: &mut ResourceLoader,
+        action_sender: Sender<UserInputAction>,
+    ) -> Self {
         let main_rp = pipelines::MainRP::new(&renderer.device).await.unwrap();
         let gbuffer_geometry_renderer = GBufferGeometryRenderer::new(
             &renderer.device,
@@ -93,6 +98,7 @@ impl WorldRenderer {
             &renderer.device,
             renderer.config.width,
             renderer.config.height,
+            action_sender,
         )
         .await;
 
@@ -142,6 +148,8 @@ impl WorldRenderer {
             );
             self.renderables.insert(object_id, new_renderable);
         }
+
+        self.object_picker.update(device);
     }
 
     pub fn render(
@@ -186,10 +194,10 @@ impl WorldRenderer {
 
         self.object_picker.render(
             encoder,
+            &renderer.device,
             renderables,
             &camera_controller.bind_group,
             &self.gbuffer_geometry_renderer.textures.depth_texture.view,
-            &self.gbuffer_geometry_renderer.bind_group,
         );
 
         {

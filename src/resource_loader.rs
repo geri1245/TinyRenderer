@@ -10,7 +10,7 @@ use wgpu::{Device, Extent3d, Queue};
 
 use glam::{Vec2, Vec3};
 
-use crate::model::{LoadedModelWithMaterial, ObjectWithMaterial};
+use crate::model::ObjectWithMaterial;
 use crate::primitive_shapes::square;
 use crate::texture::TextureSourceDescriptor;
 use crate::{
@@ -20,10 +20,10 @@ use crate::{
     texture::{SampledTexture, TextureUsage},
 };
 
-// const ASSETS_FOLDER_NAME: &str = "assets";
-// const MODELS_FOLDER_NAME: &str = "models";
-// const TEXTURES_FOLDER_NAME: &str = "textures";
-// const ASSET_FILE_NAME: &str = "asset.json";
+pub struct LoadedModelWithMaterial {
+    pub primitive: Rc<Primitive>,
+    pub material: MaterialRenderData,
+}
 
 #[derive(Debug, Hash, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum PrimitiveShape {

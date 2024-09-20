@@ -1,16 +1,16 @@
 use std::collections::VecDeque;
 
 use async_std::task::block_on;
-use crossbeam_channel::Sender;
 use wgpu::{CommandEncoder, Device, Extent3d, RenderPassDepthStencilAttachment, SurfaceTexture};
 
 use crate::{
-    actions::{RenderingAction, UserInputAction},
+    actions::RenderingAction,
     camera_controller::CameraController,
     diffuse_irradiance_renderer::DiffuseIrradianceRenderer,
     equirectangular_to_cubemap_renderer::EquirectangularToCubemapRenderer,
     forward_renderer::ForwardRenderer,
     gbuffer_geometry_renderer::GBufferGeometryRenderer,
+    instance::TransformComponent,
     light_controller::LightController,
     model::{Renderable, WorldObject},
     object_picker::ObjectPickManager,
@@ -37,17 +37,14 @@ pub struct WorldRenderer {
     actions_to_process: VecDeque<RenderingAction>,
 
     renderables: SuperHashMap<Renderable>,
+    dirty_objects: Vec<u32>,
 
     /// These are waiting to be loaded
     pending_renderables: Vec<(u32, WorldObject)>,
 }
 
 impl WorldRenderer {
-    pub async fn new(
-        renderer: &Renderer,
-        resource_loader: &mut ResourceLoader,
-        action_sender: Sender<UserInputAction>,
-    ) -> Self {
+    pub async fn new(renderer: &Renderer, resource_loader: &mut ResourceLoader) -> Self {
         let main_rp = pipelines::MainRP::new(&renderer.device).await.unwrap();
         let gbuffer_geometry_renderer = GBufferGeometryRenderer::new(
             &renderer.device,
@@ -98,7 +95,6 @@ impl WorldRenderer {
             &renderer.device,
             renderer.config.width,
             renderer.config.height,
-            action_sender,
         )
         .await;
 
@@ -116,6 +112,7 @@ impl WorldRenderer {
             actions_to_process: VecDeque::new(),
             renderables: SuperHashMap::new(),
             pending_renderables: Vec::new(),
+            dirty_objects: Vec::new(),
         }
     }
 
@@ -126,6 +123,17 @@ impl WorldRenderer {
     pub fn add_object(&mut self, new_renderable_descriptor: WorldObject, new_renderable_id: u32) {
         self.pending_renderables
             .push((new_renderable_id, new_renderable_descriptor));
+    }
+
+    pub fn update_object_transform(&mut self, id: u32, new_transform: TransformComponent) {
+        if let Some(renderable) = self.renderables.get_mut(id) {
+            renderable.description.transform = new_transform;
+            self.mark_object_dirty(id);
+        }
+    }
+
+    fn mark_object_dirty(&mut self, id: u32) {
+        self.dirty_objects.push(id);
     }
 
     pub fn update(
@@ -139,8 +147,8 @@ impl WorldRenderer {
                 .load_model(&object.object, device, queue)
                 .unwrap();
             let new_renderable = Renderable::new(
-                object.object,
-                object.transform,
+                object.object.clone(),
+                object.get_transform(),
                 loaded_model.primitive,
                 loaded_model.material,
                 device,
@@ -149,7 +157,13 @@ impl WorldRenderer {
             self.renderables.insert(object_id, new_renderable);
         }
 
-        self.object_picker.update(device);
+        for object_id in self.dirty_objects.drain(..) {
+            if let Some(renderable) = self.renderables.get_mut(object_id) {
+                renderable.update_transform_render_state(queue, object_id);
+            }
+        }
+
+        self.object_picker.update();
     }
 
     pub fn render(
@@ -288,6 +302,10 @@ impl WorldRenderer {
         );
 
         Ok(())
+    }
+
+    pub fn post_render(&mut self) {
+        self.object_picker.post_render();
     }
 
     pub fn recompile_shaders_if_needed(&mut self, device: &Device) -> anyhow::Result<()> {

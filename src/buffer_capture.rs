@@ -76,20 +76,6 @@ impl OutputBuffer {
             let padded_buffer = buffer_slice.get_mapped_range();
             let mut file = File::create(output_path).unwrap();
 
-            // let mut png_encoder = png::Encoder::new(
-            //     File::create(png_output_path).unwrap(),
-            //     frame_content_copy_dest.dimensions.width as u32,
-            //     frame_content_copy_dest.dimensions.height as u32,
-            // );
-            // png_encoder.set_depth(png::BitDepth::Eight);
-            // png_encoder.set_color(png::ColorType::Rgba);
-            // let mut png_writer = png_encoder
-            //     .write_header()
-            //     .unwrap()
-            //     .into_stream_writer_with_size(frame_content_copy_dest.dimensions.unpadded_bytes_per_row)
-            //     .unwrap();
-
-            // from the padded_buffer we write just the unpadded bytes into the image
             file.write_all(&padded_buffer).unwrap();
 
             // With the current interface, we have to make sure all mapped views are

@@ -5,10 +5,20 @@ use glam::{Mat3, Mat4, Quat, Vec3};
 use crate::buffer_content::BufferContent;
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Copy, Clone)]
-pub struct SceneComponent {
+pub struct TransformComponent {
     pub position: Vec3,
     pub scale: Vec3,
     pub rotation: Quat,
+}
+
+impl Default for TransformComponent {
+    fn default() -> Self {
+        Self {
+            position: Vec3::ZERO,
+            scale: Vec3::ONE,
+            rotation: Quat::IDENTITY,
+        }
+    }
 }
 
 #[repr(C)]
@@ -19,7 +29,7 @@ pub struct SceneComponentRaw {
     pub object_id: u32,
 }
 
-impl SceneComponent {
+impl TransformComponent {
     pub fn to_raw(&self, object_id: u32) -> SceneComponentRaw {
         SceneComponentRaw {
             model_matrix: Mat4::from_scale_rotation_translation(

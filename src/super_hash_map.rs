@@ -41,12 +41,18 @@ impl<T> SuperHashMap<T> {
         self.empty_spots.insert(index);
     }
 
-    pub fn get(&self, id: u32) -> &T {
-        &self.items[self.id_to_place_in_vec[&id]]
+    fn get_index_of_item_in_vec(&self, id: u32) -> Option<usize> {
+        self.id_to_place_in_vec.get(&id).map(|id| *id)
     }
 
-    pub fn get_mut(&mut self, id: u32) -> &T {
-        &self.items[self.id_to_place_in_vec[&id]]
+    pub fn get(&self, id: u32) -> Option<&T> {
+        self.get_index_of_item_in_vec(id)
+            .map(|index| &self.items[index])
+    }
+
+    pub fn get_mut(&mut self, id: u32) -> Option<&mut T> {
+        self.get_index_of_item_in_vec(id)
+            .map(|index| &mut self.items[index])
     }
 }
 

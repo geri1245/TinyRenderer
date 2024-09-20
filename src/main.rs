@@ -31,7 +31,6 @@ mod primitive_shapes;
 mod render_pipeline_layout;
 mod renderer;
 mod resource_loader;
-mod shader_manager;
 mod skybox;
 mod super_hash_map;
 mod texture;

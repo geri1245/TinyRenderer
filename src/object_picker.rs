@@ -1,17 +1,11 @@
 use std::collections::VecDeque;
 
-use async_std::task::block_on;
-use crossbeam_channel::Sender;
-use log::warn;
-use rayon::{ThreadPool, ThreadPoolBuilder};
 use wgpu::{
     BindGroup, CommandEncoder, Device, Extent3d, ImageCopyTexture, RenderPassColorAttachment,
     RenderPassDepthStencilAttachment, TextureAspect, TextureFormat, TextureUsages, TextureView,
 };
 
 use crate::{
-    actions::UserInputAction,
-    buffer_capture::OutputBuffer,
     buffer_reader::ReadableBuffer,
     model::Renderable,
     pipelines::{ObjectPickerRP, ShaderCompilationSuccess},
@@ -27,25 +21,37 @@ const CLEAR_COLOR: wgpu::Color = wgpu::Color {
 };
 const NUM_OF_PICK_BUFFERS: usize = 8;
 
+/// The contents of a 2D texture in a buffer, that might have been padded
+/// Because of this, some information needs to be stored, so we can get the
+/// value at (x, y)
+struct SingleDimensionPaddedImageBuffer {
+    data: Vec<u32>,
+    padded_row_size: u32,
+}
+
+impl SingleDimensionPaddedImageBuffer {
+    fn get(&self, x: u32, y: u32) -> Option<u32> {
+        self.data
+            .get((y * self.padded_row_size + x) as usize)
+            .map(|result| *result)
+    }
+}
+
 pub struct ObjectPickManager {
     pub object_id_texture: SampledTexture,
+
     width: u32,
     height: u32,
     object_picker_rp: ObjectPickerRP,
-    thread_pool: ThreadPool,
 
+    // The buffer length is usually only 1, no need to reallocate the buffer over and over again,
+    // just keep the gpu memory and pingpong with 2 (or maybe more) buffers
     output_buffers: VecDeque<ReadableBuffer>,
-    selected_object_id_sender: Sender<UserInputAction>,
-    should_allocate_new_buffer: bool,
+    latest_object_id_buffer: SingleDimensionPaddedImageBuffer,
 }
 
 impl ObjectPickManager {
-    pub async fn new(
-        device: &wgpu::Device,
-        width: u32,
-        height: u32,
-        selected_object_id_sender: Sender<UserInputAction>,
-    ) -> Self {
+    pub async fn new(device: &wgpu::Device, width: u32, height: u32) -> Self {
         let texture = Self::create_texture(device, width, height);
 
         let render_pipeline = ObjectPickerRP::new(
@@ -62,13 +68,15 @@ impl ObjectPickManager {
             height,
             object_picker_rp: render_pipeline,
             output_buffers: VecDeque::with_capacity(NUM_OF_PICK_BUFFERS),
-            should_allocate_new_buffer: true,
-            thread_pool: ThreadPoolBuilder::new()
-                .num_threads(NUM_OF_PICK_BUFFERS)
-                .build()
-                .unwrap(),
-            selected_object_id_sender,
+            latest_object_id_buffer: SingleDimensionPaddedImageBuffer {
+                data: Vec::new(),
+                padded_row_size: 0,
+            },
         }
+    }
+
+    pub fn get_object_id_at_position(&self, x: u32, y: u32) -> Option<u32> {
+        self.latest_object_id_buffer.get(x, y)
     }
 
     pub async fn try_recompile_shader(
@@ -90,14 +98,13 @@ impl ObjectPickManager {
         self.height = height;
     }
 
-    pub fn update(&mut self, device: &Device) {
+    pub fn update(&mut self) {
         let mut should_pop_front = false;
         self.output_buffers.front().map(|item| {
-            if let Some(data) = item.get_value_at_position::<u32>(device) {
-                warn!("Got ID {data}");
-                self.selected_object_id_sender
-                    .send(UserInputAction::SelectObject(data))
-                    .unwrap();
+            if let Some(padded_row_size) =
+                item.poll_mapped_buffer(&mut self.latest_object_id_buffer.data)
+            {
+                self.latest_object_id_buffer.padded_row_size = padded_row_size;
                 should_pop_front = true;
             }
         });
@@ -107,13 +114,11 @@ impl ObjectPickManager {
         }
     }
 
-    fn create_readable_buffer(
-        device: &wgpu::Device,
-        width: u32,
-        height: u32,
-        x: u32,
-        y: u32,
-    ) -> ReadableBuffer {
+    pub fn post_render(&mut self) {
+        self.output_buffers.back().unwrap().post_render();
+    }
+
+    fn create_readable_buffer(device: &wgpu::Device, width: u32, height: u32) -> ReadableBuffer {
         ReadableBuffer::new(
             device,
             &Extent3d {
@@ -122,8 +127,6 @@ impl ObjectPickManager {
                 depth_or_array_layers: 1,
             },
             &OBJECT_PICKER_TEXTURE_FORMAT,
-            x,
-            y,
         )
     }
 
@@ -187,28 +190,25 @@ impl ObjectPickManager {
             }
         }
 
-        if self.output_buffers.len() < 1 {
-            let readable_buffer =
-                Self::create_readable_buffer(device, self.width, self.height, 3, 145);
-            encoder.copy_texture_to_buffer(
-                ImageCopyTexture {
-                    aspect: TextureAspect::All,
-                    texture: &self.object_id_texture.texture,
-                    mip_level: 0,
-                    origin: wgpu::Origin3d::ZERO,
+        let readable_buffer = Self::create_readable_buffer(device, self.width, self.height);
+        encoder.copy_texture_to_buffer(
+            ImageCopyTexture {
+                aspect: TextureAspect::All,
+                texture: &self.object_id_texture.texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+            },
+            wgpu::ImageCopyBuffer {
+                buffer: &readable_buffer.mapable_buffer.buffer,
+                layout: wgpu::ImageDataLayout {
+                    offset: 0,
+                    bytes_per_row: Some(readable_buffer.mapable_buffer.padded_row_size as u32),
+                    rows_per_image: Some(self.height),
                 },
-                wgpu::ImageCopyBuffer {
-                    buffer: &readable_buffer.mapable_buffer.buffer,
-                    layout: wgpu::ImageDataLayout {
-                        offset: 0,
-                        bytes_per_row: Some(readable_buffer.mapable_buffer.padded_row_size as u32),
-                        rows_per_image: Some(self.height),
-                    },
-                },
-                readable_buffer.mapable_buffer.texture_extent,
-            );
+            },
+            readable_buffer.mapable_buffer.texture_extent,
+        );
 
-            self.output_buffers.push_back(readable_buffer);
-        }
+        self.output_buffers.push_back(readable_buffer);
     }
 }

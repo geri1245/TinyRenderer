@@ -2,10 +2,10 @@ use std::{collections::HashMap, rc::Rc};
 
 use glam::{Vec2, Vec3};
 use serde::{Deserialize, Serialize};
-use wgpu::{util::DeviceExt, Device, RenderPass};
+use wgpu::{util::DeviceExt, Device, Queue, RenderPass};
 
 use crate::{
-    instance::SceneComponent,
+    instance::TransformComponent,
     material::{MaterialRenderData, PbrMaterialDescriptor},
     resource_loader::PrimitiveShape,
     texture::TextureUsage,
@@ -27,6 +27,9 @@ pub struct PbrParameters {
     pub albedo: [f32; 3],
     pub roughness: f32,
     pub metalness: f32,
+
+    #[serde(skip_serializing)]
+    #[serde(default)]
     _padding: [u32; 3],
 }
 
@@ -52,10 +55,42 @@ impl PbrParameters {
     }
 }
 
+#[derive(Default, Debug, Clone, Copy, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+pub enum DirtyState {
+    /// No changes, nothing needs to be updated
+    #[default]
+    NothingChanged,
+    /// In this case we might have to regenerate the buffers, as the number of items might have changed
+    TransformChanged,
+    /// In this case it's enough to copy the new data to the existing buffers,
+    /// as the number/structure of items remains the same
+    EverythingChanged,
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct WorldObject {
     pub object: ObjectWithMaterial,
-    pub transform: SceneComponent,
+    transform: TransformComponent,
+
+    #[serde(skip_serializing)]
+    #[serde(default)]
+    pub is_transform_dirty: bool,
+}
+
+impl WorldObject {
+    pub fn get_transform(&self) -> TransformComponent {
+        self.transform
+    }
+
+    pub fn reset_transform_dirty(&mut self) -> TransformComponent {
+        self.is_transform_dirty = false;
+        self.get_transform()
+    }
+
+    pub fn set_location(&mut self, new_position: Vec3) {
+        self.transform.position = new_position;
+        self.is_transform_dirty = true;
+    }
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -67,12 +102,7 @@ pub struct ObjectWithMaterial {
 #[derive(Debug, serde::Serialize)]
 pub struct RenderableDescription {
     pub mesh_descriptor: ObjectWithMaterial,
-    pub transform: SceneComponent,
-}
-
-pub struct LoadedModelWithMaterial {
-    pub primitive: Rc<Primitive>,
-    pub material: MaterialRenderData,
+    pub transform: TransformComponent,
 }
 
 #[derive(Debug)]
@@ -96,6 +126,17 @@ pub struct BufferWithLength {
     pub count: u32,
 }
 
+impl Renderable {
+    pub fn update_transform_render_state(&mut self, queue: &Queue, object_id: u32) {
+        queue.write_buffer(
+            &self.instance_render_data.buffer,
+            0,
+            bytemuck::cast_slice(&[self.description.transform.to_raw(object_id)]),
+        );
+        self.instance_render_data.count = 1;
+    }
+}
+
 #[derive(Debug)]
 pub struct Primitive {
     pub vertex_buffer: wgpu::Buffer,
@@ -112,13 +153,13 @@ impl Primitive {
 
 #[derive(Debug, serde::Serialize)]
 pub struct InstanceData {
-    pub instances: Vec<SceneComponent>,
+    pub instances: Vec<TransformComponent>,
 }
 
 impl Renderable {
     pub fn new(
         mesh_descriptor: ObjectWithMaterial,
-        transform: SceneComponent,
+        transform: TransformComponent,
         primitive: Rc<Primitive>,
         material_render_data: MaterialRenderData,
         device: &wgpu::Device,
@@ -157,14 +198,14 @@ impl Renderable {
 }
 
 pub fn create_instance_buffer(
-    transform: &SceneComponent,
+    transform: &TransformComponent,
     object_id: u32,
     device: &Device,
 ) -> BufferWithLength {
     let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("Square Instance Buffer"),
         contents: bytemuck::cast_slice(&[transform.to_raw(object_id)]),
-        usage: wgpu::BufferUsages::VERTEX,
+        usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
     });
 
     BufferWithLength {

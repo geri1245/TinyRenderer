@@ -461,17 +461,8 @@ impl LightController {
         device: &Device,
         world: &World,
     ) {
-        match world.get_lights_dirty_state() {
-            crate::world::DirtyState::NothingChanged => {}
-            crate::world::DirtyState::ItemsChanged => {
-                self.update_shadow_assets_if_needed(device, world.get_lights());
-                self.update_lights_gpu_data(render_queue, world.get_lights());
-            }
-            crate::world::DirtyState::ItemPropertiesChanged => {
-                self.update_shadow_assets_if_needed(device, world.get_lights());
-                self.update_lights_gpu_data(render_queue, world.get_lights());
-            }
-        }
+        self.update_shadow_assets_if_needed(device, world.get_lights());
+        self.update_lights_gpu_data(render_queue, world.get_lights());
     }
 
     pub fn render_shadows<'a, T>(&self, encoder: &mut CommandEncoder, renderables: T)

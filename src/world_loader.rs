@@ -7,7 +7,7 @@ use std::{
 
 use serde_json::{json, to_value};
 
-use crate::{instance::SceneComponent, lights::Light, world::World};
+use crate::{lights::Light, model::WorldObject, world::World};
 
 pub enum SaveResult {
     Ok,
@@ -16,20 +16,26 @@ pub enum SaveResult {
     FailedToSerializeData,
 }
 
-struct LoadedObjects {
-    instances: Vec<SceneComponent>,
-}
-
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct LevelFileContent {
-    objects: Vec<LoadedObjects>,
+    objects: Vec<WorldObject>,
     lights: Vec<Light>,
 }
 
 pub struct WorldLoader {}
 
 impl WorldLoader {
-    pub fn load_level(&self, world: &mut World, level_file_path: &Path) {
-        let file_contents = fs::read_to_string(level_file_path);
+    pub fn load_level(world: &mut World, level_file_path: &Path) -> anyhow::Result<()> {
+        let file_contents = fs::read_to_string(level_file_path)?;
+        let mut json = serde_json::from_str::<LevelFileContent>(&file_contents)?;
+        for object in json.objects.drain(..) {
+            world.add_object(object);
+        }
+        for light in json.lights.drain(..) {
+            world.add_light(light);
+        }
+
+        Ok(())
     }
 
     pub fn save_level(world: &World, level_file_name: &str) -> anyhow::Result<bool> {
@@ -46,19 +52,16 @@ impl WorldLoader {
 
         let serialized_lights = to_value(lights)?;
         let serialized_objects = to_value(meshes)?;
-        // let does_file_exist = target_file.try_exists()?;
 
-        // if !does_file_exist
-        {
-            // let mut file = File::create_new(target_file)?;
-            let mut file = File::options()
-                .create(true)
-                .write(true)
-                .truncate(true)
-                .open(target_file)?;
-            let json = json!({"objects": serialized_objects, "lights": serialized_lights});
-            file.write(json.to_string().as_bytes())?;
-        }
+        let mut file = File::options()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(target_file)?;
+        let json = json!({"objects": serialized_objects, "lights": serialized_lights});
+        let contents = json.to_string();
+        file.write(contents.as_bytes())?;
+
         Ok(true)
     }
 }

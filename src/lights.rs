@@ -1,8 +1,8 @@
 use std::f32::consts;
 
-use glam::{Mat4, Quat, Vec3, Vec3Swizzles};
+use glam::{Mat4, Vec3, Vec3Swizzles};
 
-use crate::instance::SceneComponent;
+use crate::instance::TransformComponent;
 
 const POINT_LIGHT_FAR_PLANE: f32 = 100.0;
 const DIRECTIONAL_LIGHT_FAR_PLANE: f32 = 250.0;
@@ -25,7 +25,7 @@ pub struct CommonLightParams {
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Copy, Clone)]
 pub struct PointLight {
-    pub transform: SceneComponent,
+    pub transform: TransformComponent,
     pub color: Vec3,
 }
 
@@ -72,10 +72,10 @@ impl PointLight {
     pub fn new(position: Vec3, color: Vec3) -> Self {
         Self {
             color,
-            transform: SceneComponent {
+            transform: TransformComponent {
                 position,
-                rotation: Quat::IDENTITY,
                 scale: Vec3::splat(0.2),
+                ..Default::default()
             },
         }
     }

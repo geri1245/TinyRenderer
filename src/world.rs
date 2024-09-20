@@ -8,27 +8,11 @@ use crate::{
     resource_loader::ResourceLoader, world_renderer::WorldRenderer,
 };
 
-pub struct ObjectHandle {
-    id: usize,
-}
-
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub enum DirtyState {
-    /// No changes, nothing needs to be updated
-    NothingChanged,
-    /// In this case we might have to regenerate the buffers, as the number of items might have changed
-    ItemsChanged,
-    /// In this case it's enough to copy the new data to the existing buffers,
-    /// as the number/structure of items remains the same
-    ItemPropertiesChanged,
-}
-
 pub struct World {
     pub world_renderer: WorldRenderer,
 
     meshes: HashMap<u32, WorldObject>,
     lights: Vec<Light>,
-    lights_dirty_state: DirtyState,
 
     next_object_id: u32,
 }
@@ -41,17 +25,29 @@ impl World {
         World {
             meshes: HashMap::new(),
             lights: vec![],
-            lights_dirty_state: DirtyState::ItemsChanged,
-            next_object_id: 0,
+            next_object_id: 1, // 0 stands for the placeholder "no object"
             world_renderer,
         }
     }
 
-    pub fn add_object(&mut self, object: WorldObject) {
+    pub fn add_object(&mut self, object: WorldObject) -> u32 {
         self.meshes.insert(self.next_object_id, object.clone());
         self.world_renderer.add_object(object, self.next_object_id);
 
+        let ret_val = self.next_object_id;
         self.next_object_id += 1;
+
+        ret_val
+    }
+
+    pub fn get_object_mut(&mut self, id: u32) -> Option<&mut WorldObject> {
+        self.meshes.get_mut(&id)
+    }
+
+    pub fn get_object_id_at(&self, x: u32, y: u32) -> Option<u32> {
+        self.world_renderer
+            .object_picker
+            .get_object_id_at_position(x, y)
     }
 
     pub fn add_light(&mut self, light: Light) -> usize {
@@ -60,14 +56,26 @@ impl World {
         self.lights.len()
     }
 
-    pub fn get_light(&mut self, handle: &ObjectHandle) -> Option<&mut Light> {
-        if handle.id < self.lights.len() {
-            self.lights_dirty_state = DirtyState::ItemPropertiesChanged;
-            Some(&mut self.lights[handle.id])
+    pub fn get_light(&mut self, handle: &u32) -> Option<&mut Light> {
+        let id = *handle as usize;
+        if id < self.lights.len() {
+            Some(&mut self.lights[id])
         } else {
             None
         }
     }
+
+    // fn handle_user_input_action_events(&mut self) {
+    //     while let Ok(event) = self.action_receiver.try_recv() {
+    //         match event {
+    //             UserInputAction::SelectObject(id) => {
+    //                 if id != 0 {
+    //                     self.object_manipulation_state = Some();
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
 
     pub fn update(
         &mut self,
@@ -75,6 +83,13 @@ impl World {
         queue: &wgpu::Queue,
         resource_loader: &ResourceLoader,
     ) {
+        for (id, mesh) in &mut self.meshes {
+            if mesh.is_transform_dirty {
+                self.world_renderer
+                    .update_object_transform(*id, mesh.reset_transform_dirty());
+            }
+        }
+
         self.world_renderer.update(device, queue, resource_loader);
     }
 
@@ -95,6 +110,10 @@ impl World {
         )
     }
 
+    pub fn post_render(&mut self) {
+        self.world_renderer.post_render();
+    }
+
     pub fn recompile_shaders_if_needed(&mut self, device: &Device) -> anyhow::Result<()> {
         self.world_renderer.recompile_shaders_if_needed(device)
     }
@@ -106,19 +125,6 @@ impl World {
     pub fn handle_size_changed(&mut self, renderer: &Renderer, width: u32, height: u32) {
         self.world_renderer
             .handle_size_changed(renderer, width, height);
-    }
-
-    // This will be raypicking in the future
-    pub fn pick(&self) -> ObjectHandle {
-        return ObjectHandle { id: 0 };
-    }
-
-    pub fn get_lights_dirty_state(&self) -> DirtyState {
-        self.lights_dirty_state
-    }
-
-    pub fn set_lights_udpated(&mut self) {
-        self.lights_dirty_state = DirtyState::NothingChanged;
     }
 
     pub fn get_lights(&self) -> &Vec<Light> {

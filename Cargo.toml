@@ -13,7 +13,10 @@ anyhow = "1.0"
 glam = { version = "0.25", features = ["serde"] }
 futures-intrusive = "0.5"
 png = "0.17"
-simple_logger = "4.3.3"
+simple_logger = "5.0.0"
+# simple_logger uses time, we don't, but a certain version is
+# needed for it to compile with latest rust, thus we specify that version
+time = "0.3.36"
 crossbeam-channel = "0.5"
 rayon = "1.8"
 half = "2.4"

@@ -30,5 +30,36 @@
             "#[derive($0)]"
         ],
         "description": "Empty derive macro"
+    },
+    "Impl with new": {
+        "prefix": [
+            "implnew",
+        ],
+        "body": [
+            "impl $0 {",
+            "    pub fn new() -> Self {",
+            "        Self {}",
+            "    }",
+            "}"
+        ],
+        "description": "Empty derive macro"
+    },
+    "Test module": {
+        "prefix": [
+            "tests",
+        ],
+        "body": [
+            "#[cfg(test)]",
+            "mod tests {",
+            "   use super::*;",
+            "",
+            "   #[test]",
+            "   fn $1()",
+            "   {",
+            "       $2",
+            "   }",
+            "}"
+        ],
+        "description": "Empty derive macro"
     }
 }

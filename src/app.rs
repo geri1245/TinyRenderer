@@ -27,7 +27,6 @@ pub struct App {
     resource_loader: ResourceLoader,
     frame_timer: BasicTimer,
     gui: Gui,
-    camera_controller: CameraController,
     player_controller: PlayerController,
 
     light_controller: LightController,
@@ -48,16 +47,18 @@ impl App {
         let world_renderer: WorldRenderer =
             WorldRenderer::new(&renderer, &mut resource_loader).await;
 
-        let mut world = World::new(world_renderer);
+        let camera_controller = CameraController::new(
+            &renderer.device,
+            renderer.config.width,
+            renderer.config.height,
+        );
+
+        let mut world = World::new(world_renderer, camera_controller);
 
         WorldLoader::load_level(&mut world, Path::new("levels/test.lvl")).unwrap();
 
         let player_controller = PlayerController::new();
 
-        let camera_controller = CameraController::new(
-            &renderer.device,
-            renderer.config.width as f32 / renderer.config.height as f32,
-        );
         let light_controller = LightController::new(&renderer.device).await;
 
         let frame_timer = BasicTimer::new();
@@ -69,7 +70,6 @@ impl App {
             should_draw_gui: true,
             gui_event_receiver,
             world,
-            camera_controller,
             light_controller,
             resource_loader,
             player_controller,
@@ -87,8 +87,6 @@ impl App {
     }
 
     fn resize_unchecked(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
-        self.camera_controller
-            .resize(new_size.width as f32 / new_size.height as f32);
         self.renderer.resize(new_size);
         self.world
             .handle_size_changed(&self.renderer, new_size.width, new_size.height);
@@ -107,10 +105,6 @@ impl App {
             .player_controller
             .handle_window_event(&event, &mut self.world)
         {
-            return WindowEventHandlingResult::Handled;
-        }
-
-        if self.camera_controller.process_window_event(&event) {
             return WindowEventHandlingResult::Handled;
         }
 
@@ -162,7 +156,6 @@ impl App {
             &mut encoder,
             &current_frame_texture,
             &self.light_controller,
-            &self.camera_controller,
         )?;
 
         if self.should_draw_gui {
@@ -199,11 +192,7 @@ impl App {
             match event {
                 GuiEvent::RecompileShaders => self.try_recompile_shaders(),
                 GuiEvent::ButtonClicked(button) => self.handle_gui_button_pressed(button),
-                _ => {
-                    _ = self
-                        .player_controller
-                        .handle_gui_events(&event, &mut self.world)
-                }
+                _ => {}
             }
         }
     }
@@ -238,8 +227,6 @@ impl App {
 
         object.set_location(object.get_transform().position + Vec3::X * (delta.as_secs_f32()));
 
-        self.camera_controller.update(delta, &self.renderer.queue);
-
         {
             self.light_controller.update(
                 delta,
@@ -250,6 +237,7 @@ impl App {
         }
 
         self.world.update(
+            delta,
             &self.renderer.device,
             &self.renderer.queue,
             &self.resource_loader,

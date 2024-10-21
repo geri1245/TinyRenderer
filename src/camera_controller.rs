@@ -1,4 +1,4 @@
-use glam::{Mat4, Vec4};
+use glam::{Mat4, Vec3, Vec4, Vec4Swizzles};
 use std::time;
 use wgpu::Device;
 use winit::{
@@ -16,7 +16,7 @@ use crate::{
 
 /// Contains the rendering-related concepts of the camera
 pub struct CameraController {
-    camera: Camera,
+    pub camera: Camera,
     pub binding_buffer: wgpu::Buffer,
     pub bind_group: wgpu::BindGroup,
     is_movement_enabled: bool,
@@ -24,9 +24,13 @@ pub struct CameraController {
 }
 
 impl CameraController {
-    pub fn new(device: &Device, aspect_ratio: f32) -> CameraController {
-        let camera = Camera::new(aspect_ratio);
+    pub fn new(device: &Device, width: u32, height: u32) -> CameraController {
+        let camera = Camera::new(width, height);
 
+        Self::from_camera(device, &camera)
+    }
+
+    pub fn from_camera(device: &Device, camera: &Camera) -> Self {
         let (binding_buffer, bind_group) = create_bind_group_from_buffer_entire_binding_init(
             device,
             &BufferInitBindGroupCreationOptions {
@@ -35,11 +39,11 @@ impl CameraController {
                 usages: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
                 label: "Camera".into(),
             },
-            bytemuck::cast_slice(&[Self::get_raw(&camera)]),
+            bytemuck::cast_slice(&[Self::get_raw(camera)]),
         );
 
         Self {
-            camera,
+            camera: camera.clone(),
             binding_buffer,
             bind_group,
             is_movement_enabled: false,
@@ -47,8 +51,8 @@ impl CameraController {
         }
     }
 
-    pub fn resize(&mut self, aspect: f32) {
-        self.camera.resize(aspect);
+    pub fn resize(&mut self, width: u32, height: u32) {
+        self.camera.resize(width, height);
     }
 
     pub fn update(&mut self, delta_time: time::Duration, render_queue: &wgpu::Queue) {
@@ -120,6 +124,32 @@ impl CameraController {
             proj_inv: proj.inverse().to_cols_array_2d(),
             camera_pos: pos_homogenous.to_array(),
         }
+    }
+
+    pub fn deproject_screen_to_world(&self, screen_coords: Vec3) -> Vec3 {
+        let view = Mat4::look_at_rh(
+            self.camera.position,
+            self.camera.get_target(),
+            self.camera.up,
+        );
+        let proj = Mat4::perspective_rh(
+            self.camera.fov_y,
+            self.camera.aspect,
+            self.camera.znear,
+            self.camera.zfar,
+        );
+
+        let width = 1200.0;
+        let height = 800.0;
+
+        let result = (proj * view).inverse()
+            * Vec4::new(
+                screen_coords.x / width * 2.0 - 1.0, // Clip space goes from -1 to 1, so transform there
+                (screen_coords.y / height * 2.0 - 1.0) * -1.0, // Clip space goes from -1 to 1, so transform there
+                screen_coords.z,
+                1.0,
+            );
+        result.xyz() / result.w
     }
 }
 

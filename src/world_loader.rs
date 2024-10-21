@@ -5,21 +5,15 @@ use std::{
     path::Path,
 };
 
-use serde_json::{json, to_value};
+use serde_json::json;
 
-use crate::{lights::Light, model::WorldObject, world::World};
-
-pub enum SaveResult {
-    Ok,
-    FailedToCheckPathExists,
-    PathAlreadyExists,
-    FailedToSerializeData,
-}
+use crate::{camera::Camera, lights::Light, model::WorldObject, world::World};
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct LevelFileContent {
     objects: Vec<WorldObject>,
     lights: Vec<Light>,
+    camera: Camera,
 }
 
 pub struct WorldLoader {}
@@ -27,13 +21,14 @@ pub struct WorldLoader {}
 impl WorldLoader {
     pub fn load_level(world: &mut World, level_file_path: &Path) -> anyhow::Result<()> {
         let file_contents = fs::read_to_string(level_file_path)?;
-        let mut json = serde_json::from_str::<LevelFileContent>(&file_contents)?;
-        for object in json.objects.drain(..) {
+        let mut level_contents = serde_json::from_str::<LevelFileContent>(&file_contents)?;
+        for object in level_contents.objects.drain(..) {
             world.add_object(object);
         }
-        for light in json.lights.drain(..) {
+        for light in level_contents.lights.drain(..) {
             world.add_light(light);
         }
+        world.set_camera(&level_contents.camera);
 
         Ok(())
     }
@@ -50,15 +45,14 @@ impl WorldLoader {
 
         log::info!("Saving into {:?}", target_file);
 
-        let serialized_lights = to_value(lights)?;
-        let serialized_objects = to_value(meshes)?;
-
         let mut file = File::options()
             .create(true)
             .write(true)
             .truncate(true)
             .open(target_file)?;
-        let json = json!({"objects": serialized_objects, "lights": serialized_lights});
+
+        let json =
+            json!({"objects": meshes, "lights": lights, "camera": world.camera_controller.camera});
         let contents = json.to_string();
         file.write(contents.as_bytes())?;
 

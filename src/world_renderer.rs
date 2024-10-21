@@ -125,6 +125,10 @@ impl WorldRenderer {
             .push((new_renderable_id, new_renderable_descriptor));
     }
 
+    pub fn remove_object(&mut self, renderable_id_to_remove: u32) {
+        self.renderables.remove(renderable_id_to_remove);
+    }
+
     pub fn update_object_transform(&mut self, id: u32, new_transform: TransformComponent) {
         if let Some(renderable) = self.renderables.get_mut(id) {
             renderable.description.transform = new_transform;

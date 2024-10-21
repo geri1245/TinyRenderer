@@ -1,4 +1,5 @@
 use winit::{
+    dpi::LogicalSize,
     event::{DeviceEvent, Event, WindowEvent},
     event_loop::EventLoop,
     keyboard::{KeyCode, PhysicalKey},
@@ -11,7 +12,10 @@ pub async fn run_main_loop() {
     simple_logger::init_with_level(log::Level::Warn).unwrap();
     let event_loop = EventLoop::new().unwrap();
 
-    let window = WindowBuilder::new().build(&event_loop).unwrap();
+    let window = WindowBuilder::new()
+        .with_inner_size(LogicalSize::new(1200.0, 800.0))
+        .build(&event_loop)
+        .unwrap();
     // window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
     window.set_title("Awesome application");
 

@@ -156,8 +156,11 @@ impl SampledTexture {
 
         let bytes_per_pixel = match format {
             wgpu::TextureFormat::Rgba32Float => 4 * 4,
+            wgpu::TextureFormat::Rgba8Unorm => 4 * 1,
             wgpu::TextureFormat::R32Float => 4,
-            _ => 4,
+            _ => {
+                panic!("Texture format {format:?} is not supported yet. Please add it to the list!")
+            }
         };
 
         let gpu_usage = wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST;

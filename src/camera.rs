@@ -7,15 +7,19 @@ use winit::keyboard::{KeyCode, PhysicalKey};
 const REFERENCE_DIRECTION: Vec3 = Vec3::new(1.0, 0.0, 0.0);
 const CAMERA_UP_VECTOR: Vec3 = Vec3::new(0 as f32, 1 as f32, 0 as f32);
 
-const MOVEMENT_SENSITIVITY: f32 = 20.0;
-const MOUSE_LOOK_SENSITIVITY: f32 = 0.005;
+const DEFAULT_FOV_Y: f32 = 45.0;
+const DEFAULT_MOVEMENT_SENSITIVITY: f32 = 20.0;
+const DEFAULT_MOUSE_LOOK_SENSITIVITY: f32 = 0.005;
 
 pub enum CameraEvent {
     Motion((f64, f64)),
     Key(KeyEvent),
 }
 
-/// Contains only camera interactions, nothing rendering-related
+/// Contains the math part of the camera
+/// For rendering-related things, see camera_controller
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Camera {
     pub position: Vec3,
     pub up: Vec3,
@@ -23,15 +27,21 @@ pub struct Camera {
     pub znear: f32,
     pub zfar: f32,
     pub orientation: (f32, f32, f32),
-    look_sensitivity: Vec2,
-    current_speed_positive: Vec3,
-    current_speed_negative: Vec3,
-    movement_sensitivity: Vec3,
     pub fov_y: f32,
+
+    look_sensitivity: Vec2,
+    movement_sensitivity: Vec3,
+
+    #[serde(skip_serializing)]
+    #[serde(default)]
+    current_speed_positive: Vec3,
+    #[serde(skip_serializing)]
+    #[serde(default)]
+    current_speed_negative: Vec3,
 }
 
 impl Camera {
-    pub fn new(aspect_ratio: f32) -> Self {
+    pub fn new(width: u32, height: u32) -> Self {
         let eye: Vec3 = Vec3::new(-12.0, 10.0, 0.0);
         let target: Vec3 = Vec3::new(0.0, 0.0, 0.0);
         let view_dir = (target - eye).normalize();
@@ -47,19 +57,22 @@ impl Camera {
         Self {
             position: eye,
             up: CAMERA_UP_VECTOR,
-            aspect: aspect_ratio,
+            aspect: width as f32 / height as f32,
             znear: 0.1,
             zfar: 300.0,
             orientation,
-            look_sensitivity: Vec2::new(MOUSE_LOOK_SENSITIVITY, MOUSE_LOOK_SENSITIVITY),
+            look_sensitivity: Vec2::new(
+                DEFAULT_MOUSE_LOOK_SENSITIVITY,
+                DEFAULT_MOUSE_LOOK_SENSITIVITY,
+            ),
             movement_sensitivity: Vec3::new(
-                MOVEMENT_SENSITIVITY,
-                MOVEMENT_SENSITIVITY,
-                MOVEMENT_SENSITIVITY,
+                DEFAULT_MOVEMENT_SENSITIVITY,
+                DEFAULT_MOVEMENT_SENSITIVITY,
+                DEFAULT_MOVEMENT_SENSITIVITY,
             ),
             current_speed_positive: Vec3::ZERO,
             current_speed_negative: Vec3::ZERO,
-            fov_y: 45.0,
+            fov_y: DEFAULT_FOV_Y,
         }
     }
 
@@ -81,8 +94,8 @@ impl Camera {
         self.position + self.get_forward()
     }
 
-    pub fn resize(&mut self, aspect: f32) {
-        self.aspect = aspect;
+    pub fn resize(&mut self, width: u32, height: u32) {
+        self.aspect = width as f32 / height as f32;
     }
 
     fn handle_keyboard_event(&mut self, keyboard_event: &KeyEvent) {

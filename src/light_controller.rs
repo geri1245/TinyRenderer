@@ -54,14 +54,16 @@ struct ShadowAssets {
     point_lights: Vec<PointLightRenderData>,
     directional_lights: DirectionalLightShadowAssets,
 
+    /// Contains the actual data about the lights, eg. position, direction
     light_uniform_buffer: wgpu::Buffer,
     light_bind_group: wgpu::BindGroup,
 
+    /// Contains parameters about the lights in general, eg. count of point lights
     light_parameters_uniform_buffer: wgpu::Buffer,
     light_parameters_bind_group: wgpu::BindGroup,
 
-    // This is used for creating the shadow maps. Here we are using dynamic offsets into the buffer,
-    // so the data needs to be aligned properly. Thus we have 2 separate buffers
+    /// This is used for creating the shadow maps. Here we are using dynamic offsets into the buffer,
+    /// so the data needs to be aligned properly. Thus we have 2 separate buffers
     light_viewproj_only_uniform_buffer: wgpu::Buffer,
     light_bind_group_viewproj_only: wgpu::BindGroup,
 

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, path::PathBuf, rc::Rc};
 
 use glam::{Vec2, Vec3};
 use serde::{Deserialize, Serialize};
@@ -78,6 +78,14 @@ pub struct WorldObject {
 }
 
 impl WorldObject {
+    pub fn new(object: ObjectWithMaterial, transform: Option<TransformComponent>) -> Self {
+        Self {
+            object,
+            transform: transform.unwrap_or_default(),
+            is_transform_dirty: false,
+        }
+    }
+
     pub fn get_transform(&self) -> TransformComponent {
         self.transform
     }
@@ -117,7 +125,7 @@ pub struct Renderable {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum MeshSource {
     PrimitiveInCode(PrimitiveShape),
-    FromFile(String),
+    FromFile(PathBuf),
 }
 
 #[derive(Debug)]
@@ -270,11 +278,11 @@ impl Primitive {
 
     pub fn new(
         device: &Device,
-        path: String,
-        positions: Vec<Vec3>,
-        normals: Vec<Vec3>,
-        tex_coords: Vec<Vec2>,
-        indices: Vec<u32>,
+        path: PathBuf,
+        positions: &[Vec3],
+        normals: &[Vec3],
+        tex_coords: &[Vec2],
+        indices: &[u32],
     ) -> Self {
         let mut vertices = (0..positions.len())
             .map(|i| VertexRawWithTangents {

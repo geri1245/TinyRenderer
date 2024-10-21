@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use anyhow::anyhow;
 use std::io::{BufRead, BufReader};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tobj::MTLLoadResult;
 use wgpu::{Device, Extent3d, Queue};
 
@@ -214,24 +214,43 @@ fn vec_to_vec2s(values: Vec<f32>) -> Vec<Vec2> {
 pub fn load_obj<Reader>(
     reader: &mut Reader,
     device: &wgpu::Device,
-    asset_path: String,
+    asset_path: PathBuf,
 ) -> anyhow::Result<Primitive>
 where
     Reader: BufRead,
 {
-    let (mut models, _obj_materials) = tobj::load_obj_buf(reader, &tobj::GPU_LOAD_OPTIONS, |_| {
+    let (models, _obj_materials) = tobj::load_obj_buf(reader, &tobj::GPU_LOAD_OPTIONS, |_| {
         // We don't care about the mtl file, so this is just a dummy loader implementation
         MTLLoadResult::Ok((Default::default(), Default::default()))
     })?;
 
-    let model = models.remove(0);
+    let mut positions = Vec::new();
+    let mut normals = Vec::new();
+    let mut tex_coords = Vec::new();
+    let mut indices = Vec::new();
+
+    // Each model loaded by tobj is a self-standing model, meaning that it will contain all the positions/normals
+    // etc. that it needs, unlike in the obj format, where each model can reference prebious positions, etc. that
+    // do not strictly belongs to them. Thus when combining the models into a single model, we need to increase the
+    // index values by the number of position parameters that were before this one. We divide by 3, because
+    // at this point the Vec3s are flattened out, but we will use the indices to index a Vec<Vec3>
+    let mut index_offset = 0;
+
+    for model in models {
+        positions.extend(&model.mesh.positions);
+        normals.extend(&model.mesh.normals);
+        tex_coords.extend(&model.mesh.texcoords);
+        indices.extend(model.mesh.indices.iter().map(|index| index + index_offset));
+
+        index_offset += (model.mesh.positions.len() / 3) as u32;
+    }
 
     Ok(Primitive::new(
         device,
         asset_path,
-        vec_to_vec3s(model.mesh.positions),
-        vec_to_vec3s(model.mesh.normals),
-        vec_to_vec2s(model.mesh.texcoords),
-        model.mesh.indices,
+        &vec_to_vec3s(positions),
+        &vec_to_vec3s(normals),
+        &vec_to_vec2s(tex_coords),
+        &indices,
     ))
 }

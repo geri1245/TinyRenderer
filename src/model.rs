@@ -67,6 +67,10 @@ pub enum DirtyState {
     EverythingChanged,
 }
 
+fn default_is_transient() -> bool {
+    false
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct WorldObject {
     pub object: ObjectWithMaterial,
@@ -75,14 +79,23 @@ pub struct WorldObject {
     #[serde(skip_serializing)]
     #[serde(default)]
     pub is_transform_dirty: bool,
+
+    #[serde(skip_serializing)]
+    #[serde(default = "default_is_transient")]
+    pub is_transient: bool,
 }
 
 impl WorldObject {
-    pub fn new(object: ObjectWithMaterial, transform: Option<TransformComponent>) -> Self {
+    pub fn new(
+        object: ObjectWithMaterial,
+        transform: Option<TransformComponent>,
+        is_transient: bool,
+    ) -> Self {
         Self {
             object,
             transform: transform.unwrap_or_default(),
             is_transform_dirty: false,
+            is_transient,
         }
     }
 

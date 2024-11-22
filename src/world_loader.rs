@@ -34,8 +34,6 @@ impl WorldLoader {
     }
 
     pub fn save_level(world: &World, level_file_name: &str) -> anyhow::Result<bool> {
-        let lights = world.get_lights();
-        let meshes = world.get_meshes();
         let mut target_folder = env::current_dir()?;
         target_folder.push("levels");
         let target_file = target_folder.join(level_file_name);
@@ -51,8 +49,14 @@ impl WorldLoader {
             .truncate(true)
             .open(target_file)?;
 
-        let json =
-            json!({"objects": meshes, "lights": lights, "camera": world.camera_controller.camera});
+        let lights = world.get_lights();
+        let meshes = world.get_meshes();
+        let meshes_to_save = meshes
+            .iter()
+            .filter(|object| !object.is_transient)
+            .collect::<Vec<_>>();
+
+        let json = json!({"objects": meshes_to_save, "lights": lights, "camera": world.camera_controller.camera});
         let contents = serde_json::to_string_pretty(&json)?;
         file.write(contents.as_bytes())?;
 

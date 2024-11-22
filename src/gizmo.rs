@@ -107,6 +107,7 @@ impl Gizmo {
                             let gizmo_id = world.add_object(WorldObject::new(
                                 arrow_object.clone(),
                                 Some(gizmo_transform),
+                                true,
                             ));
                             self.gizmo_parts.insert(gizmo_id, gizmo_axis);
                         }

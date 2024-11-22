@@ -66,6 +66,7 @@ impl PlayerController {
                         material_descriptor: PbrMaterialDescriptor::Flat(PbrParameters::default()),
                     },
                     None,
+                    false,
                 );
 
                 world.add_object(object);

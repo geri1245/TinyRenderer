@@ -53,7 +53,7 @@ impl WorldLoader {
 
         let json =
             json!({"objects": meshes, "lights": lights, "camera": world.camera_controller.camera});
-        let contents = json.to_string();
+        let contents = serde_json::to_string_pretty(&json)?;
         file.write(contents.as_bytes())?;
 
         Ok(true)

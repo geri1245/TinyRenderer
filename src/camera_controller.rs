@@ -21,16 +21,19 @@ pub struct CameraController {
     pub bind_group: wgpu::BindGroup,
     is_movement_enabled: bool,
     cursor_position: Option<PhysicalPosition<f64>>,
+
+    width: u32,
+    height: u32,
 }
 
 impl CameraController {
     pub fn new(device: &Device, width: u32, height: u32) -> CameraController {
         let camera = Camera::new(width, height);
 
-        Self::from_camera(device, &camera)
+        Self::from_camera(device, &camera, width, height)
     }
 
-    pub fn from_camera(device: &Device, camera: &Camera) -> Self {
+    pub fn from_camera(device: &Device, camera: &Camera, width: u32, height: u32) -> Self {
         let (binding_buffer, bind_group) = create_bind_group_from_buffer_entire_binding_init(
             device,
             &BufferInitBindGroupCreationOptions {
@@ -48,11 +51,16 @@ impl CameraController {
             bind_group,
             is_movement_enabled: false,
             cursor_position: None,
+            width,
+            height,
         }
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
         self.camera.resize(width, height);
+
+        self.width = width;
+        self.height = height;
     }
 
     pub fn update(&mut self, delta_time: time::Duration, render_queue: &wgpu::Queue) {
@@ -139,13 +147,10 @@ impl CameraController {
             self.camera.zfar,
         );
 
-        let width = 1200.0;
-        let height = 800.0;
-
         let result = (proj * view).inverse()
             * Vec4::new(
-                screen_coords.x / width * 2.0 - 1.0, // Clip space goes from -1 to 1, so transform there
-                (screen_coords.y / height * 2.0 - 1.0) * -1.0, // Clip space goes from -1 to 1, so transform there
+                screen_coords.x / (self.width as f32) * 2.0 - 1.0, // Clip space goes from -1 to 1, so transform there
+                (screen_coords.y / (self.height as f32) * 2.0 - 1.0) * -1.0, // Clip space goes from -1 to 1, so transform there
                 screen_coords.z,
                 1.0,
             );

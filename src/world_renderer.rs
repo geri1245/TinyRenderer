@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 
 use async_std::task::block_on;
 use wgpu::{CommandEncoder, Device, Extent3d, RenderPassDepthStencilAttachment, SurfaceTexture};
@@ -19,7 +19,6 @@ use crate::{
     renderer::Renderer,
     resource_loader::{PrimitiveShape, ResourceLoader},
     skybox::Skybox,
-    super_hash_map::SuperHashMap,
 };
 
 pub struct WorldRenderer {
@@ -36,7 +35,7 @@ pub struct WorldRenderer {
     first_render: bool,
     actions_to_process: VecDeque<RenderingAction>,
 
-    renderables: SuperHashMap<Renderable>,
+    renderables: HashMap<u32, Renderable>,
     dirty_objects: Vec<u32>,
 
     /// These are waiting to be loaded
@@ -110,7 +109,7 @@ impl WorldRenderer {
             diffuse_irradiance_renderer,
             first_render: true,
             actions_to_process: VecDeque::new(),
-            renderables: SuperHashMap::new(),
+            renderables: HashMap::new(),
             pending_renderables: Vec::new(),
             dirty_objects: Vec::new(),
         }
@@ -126,11 +125,11 @@ impl WorldRenderer {
     }
 
     pub fn remove_object(&mut self, renderable_id_to_remove: u32) {
-        self.renderables.remove(renderable_id_to_remove);
+        self.renderables.remove(&renderable_id_to_remove);
     }
 
     pub fn update_object_transform(&mut self, id: u32, new_transform: TransformComponent) {
-        if let Some(renderable) = self.renderables.get_mut(id) {
+        if let Some(renderable) = self.renderables.get_mut(&id) {
             renderable.description.transform = new_transform;
             self.mark_object_dirty(id);
         }
@@ -162,7 +161,7 @@ impl WorldRenderer {
         }
 
         for object_id in self.dirty_objects.drain(..) {
-            if let Some(renderable) = self.renderables.get_mut(object_id) {
+            if let Some(renderable) = self.renderables.get_mut(&object_id) {
                 renderable.update_transform_render_state(queue, object_id);
             }
         }
@@ -195,7 +194,7 @@ impl WorldRenderer {
             }
         }
 
-        let renderables = self.renderables.into_iter();
+        let renderables = self.renderables.values();
 
         light_controller.render_shadows(encoder, renderables.clone());
 

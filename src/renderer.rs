@@ -70,9 +70,6 @@ impl Renderer {
             .await
             .unwrap();
 
-        let device = device;
-        let queue = queue;
-
         let surface_capabilities = surface.get_capabilities(&adapter);
         // TODO: Unfortunately copying from an rgba to a bgra texture is not supported
         // At the same time having a bgra texture as a storage attachment (to the post processing
@@ -84,7 +81,10 @@ impl Renderer {
             .formats
             .contains(&TextureFormat::Rgba8Unorm)
         {
-            panic!("Format {:?} is not supported", surface_texture_format);
+            panic!(
+                "Format {:?} is not supported as the main render target",
+                surface_texture_format
+            );
         }
 
         let config = wgpu::SurfaceConfiguration {

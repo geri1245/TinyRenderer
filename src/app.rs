@@ -1,15 +1,14 @@
 use crate::actions::RenderingAction;
 use crate::camera_controller::CameraController;
-use crate::gui::{Gui, GuiButton, GuiEvent};
+use crate::gui::{Gui, GuiButton, GuiEvent, GuiUpdateEvent};
 use crate::light_controller::LightController;
 use crate::player_controller::PlayerController;
 use crate::resource_loader::ResourceLoader;
 use crate::world::World;
-use crate::world_loader::WorldLoader;
+use crate::world_loader::{load_level, save_level};
 use crate::world_renderer::WorldRenderer;
 use crate::{frame_timer::BasicTimer, renderer::Renderer};
 use crossbeam_channel::{unbounded, Receiver};
-use glam::Vec3;
 use std::path::Path;
 use std::time::Duration;
 use wgpu::TextureViewDescriptor;
@@ -18,8 +17,9 @@ use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::Window;
 
 pub enum WindowEventHandlingResult {
-    RequestExit,
     Handled,
+    Unhandled,
+    RequestExit,
 }
 
 pub struct App {
@@ -55,7 +55,7 @@ impl App {
 
         let mut world = World::new(world_renderer, camera_controller);
 
-        WorldLoader::load_level(&mut world, Path::new("levels/test.lvl")).unwrap();
+        load_level(&mut world, Path::new("levels/test.lvl")).unwrap();
 
         let player_controller = PlayerController::new();
 
@@ -76,10 +76,6 @@ impl App {
         }
     }
 
-    pub fn reconfigure(&mut self) {
-        self.resize_unchecked(self.renderer.size);
-    }
-
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         if new_size.width > 0 && new_size.height > 0 && new_size != self.renderer.size {
             self.resize_unchecked(new_size);
@@ -92,15 +88,15 @@ impl App {
             .handle_size_changed(&self.renderer, new_size.width, new_size.height);
     }
 
-    pub fn handle_event(
+    pub fn handle_window_event(
         &mut self,
         window: &winit::window::Window,
         event: &winit::event::WindowEvent,
-    ) {
-        self.gui.handle_event(window, event);
-    }
+    ) -> WindowEventHandlingResult {
+        if self.gui.handle_event(window, event) {
+            return WindowEventHandlingResult::Handled;
+        }
 
-    pub fn handle_window_event(&mut self, event: WindowEvent) -> WindowEventHandlingResult {
         if self
             .player_controller
             .handle_window_event(&event, &mut self.world)
@@ -109,22 +105,38 @@ impl App {
         }
 
         match event {
-            WindowEvent::CloseRequested => return WindowEventHandlingResult::RequestExit,
-
             WindowEvent::KeyboardInput { event, .. } => {
                 self.handle_keyboard_event(&event);
+                WindowEventHandlingResult::Handled
             }
-
             WindowEvent::Resized(new_size) => {
-                self.resize(new_size);
+                self.resize(*new_size);
+                WindowEventHandlingResult::Handled
             }
-            // WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
-            // self.resize(); // TODO Handle scale factor change
-            // }
-            _ => {}
-        };
-
-        WindowEventHandlingResult::Handled
+            WindowEvent::CloseRequested => WindowEventHandlingResult::RequestExit,
+            // WindowEvent::ScaleFactorChanged {
+            //     scale_factor,
+            //     inner_size_writer,
+            // } => todo!(),
+            WindowEvent::RedrawRequested => {
+                match self.run_frame(window) {
+                    Ok(_) => WindowEventHandlingResult::Handled,
+                    // Reconfigure the surface if lost
+                    Err(wgpu::SurfaceError::Lost) => {
+                        self.resize_unchecked(self.renderer.size);
+                        WindowEventHandlingResult::Handled
+                    }
+                    // The system is out of memory, we should probably quit
+                    Err(wgpu::SurfaceError::OutOfMemory) => WindowEventHandlingResult::RequestExit,
+                    // All other errors (Outdated, Timeout) should be resolved by the next frame
+                    Err(e) => {
+                        eprintln!("{:?}", e);
+                        WindowEventHandlingResult::RequestExit
+                    }
+                }
+            }
+            _ => WindowEventHandlingResult::Unhandled,
+        }
     }
 
     fn handle_keyboard_event(&mut self, key_event: &KeyEvent) {
@@ -180,11 +192,14 @@ impl App {
         Ok(())
     }
 
-    fn handle_gui_button_pressed(&self, button: GuiButton) {
+    fn handle_gui_button_pressed(&mut self, button: GuiButton) {
         match button {
-            GuiButton::SaveLevel => WorldLoader::save_level(&self.world, "test.lvl"),
-        }
-        .unwrap();
+            GuiButton::SaveLevel => {
+                let result = save_level(&self.world, "test.lvl");
+                self.gui
+                    .push_update(GuiUpdateEvent::LevelSaveResult(result));
+            }
+        };
     }
 
     fn handle_events_received_from_gui(&mut self) {
@@ -198,43 +213,28 @@ impl App {
     }
 
     fn try_recompile_shaders(&mut self) {
-        let results = vec![
-            self.light_controller
-                .try_recompile_shaders(&self.renderer.device),
-            self.world
+        let result = match self
+            .light_controller
+            .try_recompile_shaders(&self.renderer.device)
+        {
+            Ok(_) => self
+                .world
                 .recompile_shaders_if_needed(&self.renderer.device),
-        ];
-
-        let mut errors = Vec::new();
-        for result in results {
-            if let Err(error) = result {
-                errors.push(error.to_string());
-            }
-        }
-
-        if errors.is_empty() {
-            self.gui
-                .set_shader_compilation_result(&vec!["Success!".into()]);
-        } else {
-            self.gui.set_shader_compilation_result(&errors);
-        }
+            error => error,
+        };
+        self.gui
+            .push_update(GuiUpdateEvent::ShaderCompilationResult(result));
     }
 
     pub fn update(&mut self, delta: Duration) {
         self.handle_events_received_from_gui();
 
-        let object = self.world.get_object_mut(3).unwrap();
-
-        object.set_location(object.get_transform().position + Vec3::X * (delta.as_secs_f32()));
-
-        {
-            self.light_controller.update(
-                delta,
-                &self.renderer.queue,
-                &self.renderer.device,
-                &self.world,
-            );
-        }
+        self.light_controller.update(
+            delta,
+            &self.renderer.queue,
+            &self.renderer.device,
+            &self.world,
+        );
 
         self.world.update(
             delta,
@@ -242,6 +242,8 @@ impl App {
             &self.renderer.queue,
             &self.resource_loader,
         );
+
+        self.gui.update(delta);
     }
 
     pub fn toggle_should_draw_gui(&mut self) {

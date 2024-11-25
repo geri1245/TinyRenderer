@@ -80,18 +80,6 @@ impl World {
         }
     }
 
-    // fn handle_user_input_action_events(&mut self) {
-    //     while let Ok(event) = self.action_receiver.try_recv() {
-    //         match event {
-    //             UserInputAction::SelectObject(id) => {
-    //                 if id != 0 {
-    //                     self.object_manipulation_state = Some();
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
-
     pub fn update(
         &mut self,
         delta: Duration,

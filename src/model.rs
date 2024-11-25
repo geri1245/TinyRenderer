@@ -21,7 +21,15 @@ pub struct ModelDescriptorFile {
 
 #[repr(C)]
 #[derive(
-    Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable, serde::Serialize, serde::Deserialize,
+    Debug,
+    Copy,
+    Clone,
+    bytemuck::Pod,
+    bytemuck::Zeroable,
+    serde::Serialize,
+    serde::Deserialize,
+    PartialEq,
+    PartialOrd,
 )]
 pub struct PbrParameters {
     pub albedo: [f32; 3],
@@ -67,21 +75,39 @@ pub enum DirtyState {
     EverythingChanged,
 }
 
-fn default_is_transient() -> bool {
-    false
+#[derive(
+    Debug, Clone, Copy, Default, serde::Serialize, serde::Deserialize, PartialEq, PartialOrd,
+)]
+pub enum RenderingPass {
+    #[default]
+    DeferredMain,
+    ForceForwardAfterDeferred,
 }
 
+#[derive(
+    Debug, Clone, Copy, Default, serde::Serialize, serde::Deserialize, PartialEq, PartialOrd,
+)]
+pub struct ModelRenderingOptions {
+    pub pass: RenderingPass,
+    pub use_depth_test: bool,
+}
+
+/// Describes a model in the world. Mostly this is used to save out the current state into the level file
+/// The important thing is that from this info only, the world should be reconstructable
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct WorldObject {
     pub object: ObjectWithMaterial,
     transform: TransformComponent,
+
+    #[serde(default)]
+    rendering_options: ModelRenderingOptions,
 
     #[serde(skip_serializing)]
     #[serde(default)]
     pub is_transform_dirty: bool,
 
     #[serde(skip_serializing)]
-    #[serde(default = "default_is_transient")]
+    #[serde(default)]
     pub is_transient: bool,
 }
 
@@ -90,12 +116,14 @@ impl WorldObject {
         object: ObjectWithMaterial,
         transform: Option<TransformComponent>,
         is_transient: bool,
+        rendering_options: ModelRenderingOptions,
     ) -> Self {
         Self {
             object,
             transform: transform.unwrap_or_default(),
             is_transform_dirty: false,
             is_transient,
+            rendering_options,
         }
     }
 
@@ -114,7 +142,7 @@ impl WorldObject {
     }
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, PartialOrd)]
 pub struct ObjectWithMaterial {
     pub mesh_source: MeshSource,
     pub material_descriptor: PbrMaterialDescriptor,
@@ -135,7 +163,7 @@ pub struct Renderable {
     pub material_render_data: MaterialRenderData,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum MeshSource {
     PrimitiveInCode(PrimitiveShape),
     FromFile(PathBuf),

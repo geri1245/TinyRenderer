@@ -7,7 +7,10 @@ use crate::{
     instance::TransformComponent,
     material::PbrMaterialDescriptor,
     math::Line,
-    model::{MeshSource, ObjectWithMaterial, PbrParameters, WorldObject},
+    model::{
+        MeshSource, ModelRenderingOptions, ObjectWithMaterial, PbrParameters, RenderingPass,
+        WorldObject,
+    },
     world::World,
 };
 
@@ -108,6 +111,10 @@ impl Gizmo {
                                 arrow_object.clone(),
                                 Some(gizmo_transform),
                                 true,
+                                ModelRenderingOptions {
+                                    pass: RenderingPass::ForceForwardAfterDeferred,
+                                    use_depth_test: false,
+                                },
                             ));
                             self.gizmo_parts.insert(gizmo_id, gizmo_axis);
                         }

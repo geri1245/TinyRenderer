@@ -35,7 +35,6 @@ mod render_pipeline_layout;
 mod renderer;
 mod resource_loader;
 mod skybox;
-mod super_hash_map;
 mod texture;
 mod vertex;
 mod world;

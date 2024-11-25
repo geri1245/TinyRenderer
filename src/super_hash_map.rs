@@ -36,32 +36,26 @@ impl<T> SuperHashMap<T> {
         self.items.len() - self.empty_spots.len()
     }
 
-    pub fn remove(&mut self, id: u32) {
+    pub fn remove(&mut self, id: &u32) {
         let index = self.id_to_place_in_vec.remove(&id).unwrap();
         self.empty_spots.insert(index);
     }
 
-    fn get_index_of_item_in_vec(&self, id: u32) -> Option<usize> {
+    fn get_index_of_item_in_vec(&self, id: &u32) -> Option<usize> {
         self.id_to_place_in_vec.get(&id).map(|id| *id)
     }
 
-    pub fn get(&self, id: u32) -> Option<&T> {
+    pub fn get(&self, id: &u32) -> Option<&T> {
         self.get_index_of_item_in_vec(id)
             .map(|index| &self.items[index])
     }
 
-    pub fn get_mut(&mut self, id: u32) -> Option<&mut T> {
+    pub fn get_mut(&mut self, id: &u32) -> Option<&mut T> {
         self.get_index_of_item_in_vec(id)
             .map(|index| &mut self.items[index])
     }
-}
 
-impl<'a, T> IntoIterator for &'a SuperHashMap<T> {
-    type Item = &'a T;
-
-    type IntoIter = SuperHashMapIterator<'a, T>;
-
-    fn into_iter(self) -> Self::IntoIter {
+    pub fn iter<'a>(&'a self) -> SuperHashMapIterator<'a, T> {
         SuperHashMapIterator {
             values: &self.items,
             index: 0,
@@ -120,7 +114,7 @@ mod tests {
         let expected_element_count = original.len();
         let mut actual_element_count = 0;
 
-        for item in map.into_iter() {
+        for item in map.iter() {
             actual_element_count += 1;
             assert!(original.contains(item));
         }
@@ -132,10 +126,10 @@ mod tests {
         let mut map = SuperHashMap::new();
         map.insert(4, 12);
         map.insert(12, 453);
-        map.remove(4);
+        map.remove(&4);
 
         assert_eq!(map.len(), 1);
-        let mut iter = map.into_iter();
+        let mut iter = map.iter();
         assert_eq!(iter.next(), Some(&453));
         assert_eq!(iter.next(), None);
     }

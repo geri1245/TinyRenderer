@@ -25,7 +25,9 @@ pub struct LoadedModelWithMaterial {
     pub material: MaterialRenderData,
 }
 
-#[derive(Debug, Hash, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Hash, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, PartialOrd, Ord,
+)]
 pub enum PrimitiveShape {
     Cube,
     Square,

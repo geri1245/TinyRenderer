@@ -15,13 +15,13 @@ pub struct SampledTexture {
     pub descriptor: SampledTextureDescriptor,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum MaterialSource {
     FromFile(String),
     Defaults(TextureUsage),
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TextureSourceDescriptor {
     pub source: MaterialSource,
     pub usage: TextureUsage,
@@ -34,7 +34,7 @@ pub struct SampledTextureDescriptor {
     pub extents: Extent3d,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Hash, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TextureUsage {
     Albedo,
     Normal,

@@ -6,7 +6,10 @@ use winit::{
 use crate::{
     gizmo_handler::GizmoHandler,
     material::PbrMaterialDescriptor,
-    model::{MeshSource, ObjectWithMaterial, PbrParameters, WorldObject},
+    model::{
+        MeshSource, ModelRenderingOptions, ObjectWithMaterial, PbrParameters, RenderingPass,
+        WorldObject,
+    },
     world::World,
 };
 
@@ -67,6 +70,10 @@ impl PlayerController {
                     },
                     None,
                     false,
+                    ModelRenderingOptions {
+                        pass: RenderingPass::DeferredMain,
+                        use_depth_test: true,
+                    },
                 );
 
                 world.add_object(object);

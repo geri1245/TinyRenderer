@@ -114,6 +114,7 @@ impl ForwardRP {
             }),
             multisample: wgpu::MultisampleState::default(),
             multiview: None,
+            cache: None,
         })
     }
 

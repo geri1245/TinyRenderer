@@ -116,11 +116,6 @@ impl Gui {
         current_frame_texture_view: &wgpu::TextureView,
         encoder: &mut CommandEncoder,
     ) {
-        // let mut encoder: wgpu::CommandEncoder =
-        //     device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-        //         label: Some("UI encoder"),
-        //     });
-
         let screen_descriptor = ScreenDescriptor {
             size_in_pixels: [config.width, config.height],
             pixels_per_point: window.scale_factor() as f32,
@@ -135,7 +130,7 @@ impl Gui {
             window,
             current_frame_texture_view,
             screen_descriptor,
-            |ctx| {
+            &mut |ctx| {
                 egui::Window::new("Settings page").show(&ctx, |ui| {
                     let frame_time_string = self.app_info.frame_time.to_string();
                     let fps_string = self.app_info.fps_counter.to_string();
@@ -185,12 +180,6 @@ impl Gui {
                         let _ = self
                             .sender
                             .try_send(GuiEvent::ButtonClicked(GuiButton::SaveLevel));
-                        let mut file_dialog = egui_file::FileDialog::open_file(None);
-                        if file_dialog.show(ctx).selected() {
-                            if let Some(file) = file_dialog.path() {
-                                Some(file.to_path_buf());
-                            }
-                        }
                     }
 
                     if let Some(result) = &self.app_info.recent_operation_result {

@@ -118,6 +118,7 @@ impl GBufferGeometryRP {
             }),
             multisample: wgpu::MultisampleState::default(),
             multiview: None,
+            cache: None,
         });
 
         gbuffer_pipeline

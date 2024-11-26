@@ -1,6 +1,6 @@
 use wgpu::{
-    CommandEncoder, CommandEncoderDescriptor, Device, Extent3d, InstanceDescriptor, SurfaceTexture,
-    TextureFormat,
+    CommandEncoder, CommandEncoderDescriptor, Device, Extent3d, InstanceDescriptor, MemoryHints,
+    SurfaceTexture, TextureFormat,
 };
 
 use crate::texture::{self, SampledTexture};
@@ -64,6 +64,7 @@ impl Renderer {
                         }
                     },
                     label: None,
+                    memory_hints: MemoryHints::Performance,
                 },
                 None,
             )

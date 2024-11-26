@@ -66,6 +66,7 @@ impl MainRP {
             layout: Some(&render_pipeline_layout),
             entry_point: "cs_main",
             module: shader,
+            cache: None,
         })
     }
 

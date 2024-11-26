@@ -17,6 +17,7 @@ mod frame_timer;
 mod gbuffer_geometry_renderer;
 mod gizmo;
 mod gizmo_handler;
+mod global_params;
 mod gui;
 mod gui_helpers;
 mod instance;

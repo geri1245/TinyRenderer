@@ -73,6 +73,7 @@ impl SimpleCP {
             module: shader,
             entry_point: "cs_main",
             layout: Some(&pipeline_layout),
+            cache: None,
         })
     }
 

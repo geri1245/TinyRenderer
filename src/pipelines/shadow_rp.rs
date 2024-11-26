@@ -105,6 +105,7 @@ impl ShadowRP {
             }),
             multisample: wgpu::MultisampleState::default(),
             multiview: None,
+            cache: None,
         })
     }
 

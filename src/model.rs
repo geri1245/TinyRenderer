@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf, rc::Rc};
+use std::{collections::HashMap, default, path::PathBuf, rc::Rc};
 
 use glam::{Vec2, Vec3};
 use serde::{Deserialize, Serialize};
@@ -84,12 +84,35 @@ pub enum RenderingPass {
     ForceForwardAfterDeferred,
 }
 
-#[derive(
-    Debug, Clone, Copy, Default, serde::Serialize, serde::Deserialize, PartialEq, PartialOrd,
-)]
+pub fn default_true() -> bool {
+    true
+}
+
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize, PartialEq, PartialOrd)]
 pub struct ModelRenderingOptions {
     pub pass: RenderingPass,
+    /// Should we use depth testing when rendering this object? If not, then it will be drawn to the screen even if
+    /// this object is behind something else
+    #[serde(default = "default_true")]
     pub use_depth_test: bool,
+    /// Should this object cast shadows? If not, it won't be rendered into the shadow map
+    #[serde(default = "default_true")]
+    pub cast_shadows: bool,
+    /// Whether this object should use a projection matrix during rendering
+    #[serde(default = "default_true")]
+    pub needs_projection: bool,
+}
+
+impl Default for ModelRenderingOptions {
+    fn default() -> Self {
+        Self {
+            cast_shadows: true,
+            needs_projection: true,
+            use_depth_test: true,
+
+            pass: Default::default(),
+        }
+    }
 }
 
 /// Describes a model in the world. Mostly this is used to save out the current state into the level file
@@ -100,7 +123,7 @@ pub struct WorldObject {
     transform: TransformComponent,
 
     #[serde(default)]
-    rendering_options: ModelRenderingOptions,
+    pub rendering_options: ModelRenderingOptions,
 
     #[serde(skip_serializing)]
     #[serde(default)]
@@ -152,6 +175,7 @@ pub struct ObjectWithMaterial {
 pub struct RenderableDescription {
     pub mesh_descriptor: ObjectWithMaterial,
     pub transform: TransformComponent,
+    pub rendering_options: ModelRenderingOptions,
 }
 
 #[derive(Debug)]
@@ -213,6 +237,7 @@ impl Renderable {
         material_render_data: MaterialRenderData,
         device: &wgpu::Device,
         object_id: u32,
+        rendering_options: &ModelRenderingOptions,
     ) -> Self {
         let instance_data = create_instance_buffer(&transform, object_id, device);
 
@@ -220,6 +245,7 @@ impl Renderable {
             description: RenderableDescription {
                 mesh_descriptor,
                 transform,
+                rendering_options: *rendering_options,
             },
             vertex_render_data: primitive,
             instance_render_data: instance_data,

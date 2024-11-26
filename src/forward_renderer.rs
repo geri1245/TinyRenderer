@@ -29,10 +29,10 @@ impl ForwardRenderer {
             .await
     }
 
-    pub fn render<'a>(
+    pub fn render<'a, T: Iterator<Item = &'a Renderable>>(
         &'a self,
         render_pass: &mut RenderPass<'a>,
-        renderable: &'a Renderable,
+        renderable: T,
         camera_bind_group: &'a BindGroup,
         light_bind_group: &'a BindGroup,
     ) {

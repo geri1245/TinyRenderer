@@ -179,23 +179,31 @@ impl GBufferGeometryRenderer {
         })
     }
 
-    pub fn render<'a>(
+    pub fn render<'a, T: Iterator<Item = &'a Renderable> + Clone>(
         &'a self,
         render_pass: &mut RenderPass<'a>,
-        renderable: &'a Renderable,
+        renderables: T,
         camera_bind_group: &'a BindGroup,
     ) {
-        // TODO: filter out the textured version and the flat version and render them separately, so no need to change pipeline state
-        match renderable.description.mesh_descriptor.material_descriptor {
-            PbrMaterialDescriptor::Texture(..) => {
-                self.textured_gbuffer_rp
-                    .render_mesh(render_pass, renderable, camera_bind_group)
-            }
-            PbrMaterialDescriptor::Flat(..) => self.flat_parameter_gbuffer_rp.render_mesh(
-                render_pass,
-                renderable,
-                camera_bind_group,
-            ),
-        }
+        let textured_renderables = renderables.clone().filter(|renderable| {
+            matches!(
+                renderable.description.mesh_descriptor.material_descriptor,
+                PbrMaterialDescriptor::Texture(_)
+            )
+        });
+        self.textured_gbuffer_rp
+            .render(render_pass, textured_renderables, camera_bind_group);
+
+        let flat_param_renderables = renderables.clone().filter(|renderable| {
+            matches!(
+                renderable.description.mesh_descriptor.material_descriptor,
+                PbrMaterialDescriptor::Flat(_)
+            )
+        });
+        self.flat_parameter_gbuffer_rp.render(
+            render_pass,
+            flat_param_renderables,
+            camera_bind_group,
+        );
     }
 }

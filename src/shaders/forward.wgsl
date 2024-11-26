@@ -14,6 +14,8 @@ struct InstanceInput {
     @location(9) normal_matrix_0: vec3<f32>,
     @location(10) normal_matrix_1: vec3<f32>,
     @location(11) normal_matrix_2: vec3<f32>,
+    @interpolate(flat)
+    @location(12) object_id: u32,
 };
 
 struct CameraUniform {
@@ -74,5 +76,5 @@ fn vs_main(
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    return vec4<f32>(1.0, 1.0, 1.0, 1.0);
+    return vec4<f32>(1.0, 1.0, 0.0, 1.0);
 }

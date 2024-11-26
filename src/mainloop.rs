@@ -24,9 +24,9 @@ struct MainApplicationState {
 }
 
 impl ApplicationHandler<MyUserEvent> for MainApplicationState {
-    // This is a common indicator that you can create a window.
+    /// This method is the entry point, this is where the creation logic should be
     // TODO: probably this won't handle multiple initializations gracefully, which doesn't seem to be a problem on
-    // Windows for now, but we definitely should handle it!
+    // Windows for now, as this event only arrives once on startup, but we definitely should handle it!
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         let new_window = event_loop
             .create_window(

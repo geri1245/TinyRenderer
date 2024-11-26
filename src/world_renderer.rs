@@ -12,7 +12,7 @@ use crate::{
     gbuffer_geometry_renderer::GBufferGeometryRenderer,
     instance::TransformComponent,
     light_controller::LightController,
-    model::{Renderable, WorldObject},
+    model::{Renderable, RenderingPass, WorldObject},
     object_picker::ObjectPickManager,
     pipelines::{self, MainRP, ShaderCompilationSuccess},
     post_process_manager::PostProcessManager,
@@ -156,6 +156,7 @@ impl WorldRenderer {
                 loaded_model.material,
                 device,
                 object_id,
+                &object.rendering_options,
             );
             self.renderables.insert(object_id, new_renderable);
         }
@@ -199,20 +200,21 @@ impl WorldRenderer {
         light_controller.render_shadows(encoder, renderables.clone());
 
         {
+            let deferred_pass_items = renderables.clone().filter(|renderable| {
+                renderable.description.rendering_options.pass == RenderingPass::DeferredMain
+            });
             let mut render_pass = self.gbuffer_geometry_renderer.begin_render(encoder);
-            for renderable in renderables.clone() {
-                self.gbuffer_geometry_renderer.render(
-                    &mut render_pass,
-                    renderable,
-                    &camera_controller.bind_group,
-                );
-            }
+            self.gbuffer_geometry_renderer.render(
+                &mut render_pass,
+                deferred_pass_items,
+                &camera_controller.bind_group,
+            );
         }
 
         self.object_picker.render(
             encoder,
             &renderer.device,
-            renderables,
+            renderables.clone(),
             &camera_controller.bind_group,
             &self.gbuffer_geometry_renderer.textures.depth_texture.view,
         );
@@ -268,14 +270,15 @@ impl WorldRenderer {
                 &self.equirec_to_cubemap_renderer.cube_map_to_sample,
             );
 
-            // for renderable in renderables {
-            //     self.forward_renderer.render(
-            //         &mut render_pass,
-            //         mesh,
-            //         &camera_controller.bind_group,
-            //         &light_controller.light_bind_group,
-            //     );
-            // }
+            self.forward_renderer.render(
+                &mut render_pass,
+                renderables.filter(|renderable| {
+                    renderable.description.rendering_options.pass
+                        == RenderingPass::ForceForwardAfterDeferred
+                }),
+                &camera_controller.bind_group,
+                &light_controller.get_light_bind_group(),
+            );
         }
 
         {

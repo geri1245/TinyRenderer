@@ -62,6 +62,10 @@ impl GizmoHandler {
         }
     }
 
+    pub fn remove_object_selection(&mut self, world: &mut World) {
+        self.gizmo.update_with_new_object_id(None, world);
+    }
+
     pub fn handle_window_event(&mut self, event: &WindowEvent, world: &mut World) -> bool {
         match event {
             WindowEvent::CursorMoved { position, .. } => {
@@ -177,5 +181,9 @@ impl GizmoHandler {
         object.set_location(new_position);
 
         self.gizmo.update_position(new_position, world);
+    }
+
+    pub fn get_active_onject_id(&self) -> Option<u32> {
+        self.gizmo.active_object_id
     }
 }

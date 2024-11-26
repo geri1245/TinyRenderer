@@ -108,7 +108,7 @@ impl ForwardRP {
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: texture::SampledTexture::DEPTH_FORMAT,
                 depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
+                depth_compare: wgpu::CompareFunction::Always,
                 stencil: wgpu::StencilState::default(),
                 bias: wgpu::DepthBiasState::default(),
             }),
@@ -118,10 +118,10 @@ impl ForwardRP {
         })
     }
 
-    pub fn render_model<'a>(
+    pub fn render_model<'a, T: Iterator<Item = &'a Renderable>>(
         &'a self,
         render_pass: &mut RenderPass<'a>,
-        renderable: &'a Renderable,
+        renderables: T,
         camera_bind_group: &'a BindGroup,
         light_bind_group: &'a BindGroup,
     ) {
@@ -129,6 +129,8 @@ impl ForwardRP {
         render_pass.set_bind_group(0, &light_bind_group, &[]);
         render_pass.set_bind_group(1, &camera_bind_group, &[]);
 
-        renderable.render(render_pass, false);
+        for renderable in renderables {
+            renderable.render(render_pass, false);
+        }
     }
 }

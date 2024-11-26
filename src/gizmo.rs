@@ -114,6 +114,8 @@ impl Gizmo {
                                 ModelRenderingOptions {
                                     pass: RenderingPass::ForceForwardAfterDeferred,
                                     use_depth_test: false,
+                                    cast_shadows: false,
+                                    needs_projection: false,
                                 },
                             ));
                             self.gizmo_parts.insert(gizmo_id, gizmo_axis);

@@ -238,7 +238,7 @@ impl Gui {
                 ));
             }
             GuiUpdateEvent::LevelSaveResult(result) => {
-                Some(OperationResult::from_result(
+                self.app_info.recent_operation_result = Some(OperationResult::from_result(
                     result,
                     "Saving level result: ".into(),
                 ));

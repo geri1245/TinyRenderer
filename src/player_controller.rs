@@ -1,15 +1,13 @@
 use winit::{
     dpi::PhysicalPosition,
     event::{ElementState, MouseButton, WindowEvent},
+    keyboard::{KeyCode, PhysicalKey},
 };
 
 use crate::{
     gizmo_handler::GizmoHandler,
     material::PbrMaterialDescriptor,
-    model::{
-        MeshSource, ModelRenderingOptions, ObjectWithMaterial, PbrParameters, RenderingPass,
-        WorldObject,
-    },
+    model::{MeshSource, ModelRenderingOptions, ObjectWithMaterial, PbrParameters, WorldObject},
     world::World,
 };
 
@@ -62,6 +60,18 @@ impl PlayerController {
                     false
                 }
             }
+            WindowEvent::KeyboardInput { event, .. } => match event.physical_key {
+                PhysicalKey::Code(KeyCode::Delete) => {
+                    if let Some(id) = self.gizmo_handler.get_active_onject_id() {
+                        world.remove_object(id);
+                        self.gizmo_handler.remove_object_selection(world);
+                        true
+                    } else {
+                        false
+                    }
+                }
+                _ => false,
+            },
             WindowEvent::DroppedFile(path) => {
                 let object = WorldObject::new(
                     ObjectWithMaterial {
@@ -70,10 +80,7 @@ impl PlayerController {
                     },
                     None,
                     false,
-                    ModelRenderingOptions {
-                        pass: RenderingPass::DeferredMain,
-                        use_depth_test: true,
-                    },
+                    ModelRenderingOptions::default(),
                 );
 
                 world.add_object(object);

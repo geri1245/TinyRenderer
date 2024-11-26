@@ -135,7 +135,9 @@ impl ShadowRP {
         shadow_pass.set_pipeline(&self.pipeline);
         shadow_pass.set_bind_group(0, &light_bind_group, &[light_bind_group_offset]);
 
-        for renderable in renderables {
+        for renderable in
+            renderables.filter(|renderable| renderable.description.rendering_options.cast_shadows)
+        {
             renderable.render(&mut shadow_pass, false);
         }
     }

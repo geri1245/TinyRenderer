@@ -175,15 +175,17 @@ impl GBufferGeometryRP {
         }
     }
 
-    pub fn render_mesh<'a>(
+    pub fn render<'a, T: Iterator<Item = &'a Renderable>>(
         &'a self,
         render_pass: &mut RenderPass<'a>,
-        renderable: &'a Renderable,
+        renderables: T,
         camera_bind_group: &'a BindGroup,
     ) {
         render_pass.set_pipeline(&self.render_pipeline);
         render_pass.set_bind_group(1, &camera_bind_group, &[]);
 
-        renderable.render(render_pass, true);
+        for renderable in renderables {
+            renderable.render(render_pass, true);
+        }
     }
 }

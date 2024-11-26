@@ -150,11 +150,11 @@ impl ObjectPickManager {
 
     pub fn render<'a, T>(
         &'a mut self,
-        encoder: &mut CommandEncoder,
+        encoder: &'a mut CommandEncoder,
         device: &Device,
         renderables: T,
         camera_bind_group: &'a BindGroup,
-        depth_texture: &TextureView,
+        depth_texture: &'a TextureView,
     ) where
         T: Clone,
         T: Iterator<Item = &'a Renderable>,
@@ -185,9 +185,11 @@ impl ObjectPickManager {
             render_pass.set_bind_group(0, camera_bind_group, &[]);
             render_pass.set_pipeline(&self.object_picker_rp.render_pipeline);
 
-            for renderable in renderables {
-                self.object_picker_rp.render(&mut render_pass, renderable)
-            }
+            self.object_picker_rp.render(
+                &mut render_pass.forget_lifetime(),
+                renderables,
+                camera_bind_group,
+            );
         }
 
         let readable_buffer = Self::create_readable_buffer(device, self.width, self.height);

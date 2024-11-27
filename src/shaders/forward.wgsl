@@ -18,6 +18,12 @@ struct InstanceInput {
     @location(12) object_id: u32,
 };
 
+struct PbrParameters {
+    albedo: vec3<f32>,
+    roughness: f32,
+    metalness: f32,
+}
+
 struct CameraUniform {
     view_proj: mat4x4<f32>,
     view: mat4x4<f32>,
@@ -74,7 +80,10 @@ fn vs_main(
     return out;
 }
 
+@group(2) @binding(0)
+var<uniform> pbr_parameters: PbrParameters;
+
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    return vec4<f32>(1.0, 1.0, 0.0, 1.0);
+    return vec4<f32>(pbr_parameters.albedo, 1.0);
 }

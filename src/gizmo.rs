@@ -78,37 +78,52 @@ impl Gizmo {
                     if let Some(object) = world.get_object(object_id) {
                         self.active_object_id = Some(object_id);
                         let selected_object_transform = object.get_transform();
-                        let arrow_object = ObjectWithMaterial {
-                            mesh_source: MeshSource::FromFile(
-                                PathBuf::from_str("./assets/models/arrow/arrow.obj").unwrap(),
-                            ),
-                            material_descriptor: PbrMaterialDescriptor::Flat(
-                                PbrParameters::default(),
-                            ),
-                        };
+                        let arrow_source = MeshSource::FromFile(
+                            PathBuf::from_str("./assets/models/arrow/arrow.obj").unwrap(),
+                        );
 
                         self.gizmo_position = Some(selected_object_transform.position);
-
                         let gizmo_parts = vec![
                             (
                                 Vec3::X,
                                 Quat::from_axis_angle(Vec3::Z, -f32::consts::FRAC_PI_2),
+                                PbrMaterialDescriptor::Flat(PbrParameters::new(
+                                    [1.0, 0.0, 0.0],
+                                    1.0,
+                                    0.0,
+                                )),
                             ),
-                            (Vec3::Y, Quat::IDENTITY),
+                            (
+                                Vec3::Y,
+                                Quat::IDENTITY,
+                                PbrMaterialDescriptor::Flat(PbrParameters::new(
+                                    [0.0, 1.0, 0.0],
+                                    1.0,
+                                    0.0,
+                                )),
+                            ),
                             (
                                 Vec3::Z,
                                 Quat::from_axis_angle(Vec3::X, f32::consts::FRAC_PI_2),
+                                PbrMaterialDescriptor::Flat(PbrParameters::new(
+                                    [0.0, 0.0, 1.0],
+                                    1.0,
+                                    0.0,
+                                )),
                             ),
                         ];
 
-                        for (gizmo_axis, rotation) in gizmo_parts {
+                        for (gizmo_axis, rotation, material) in gizmo_parts {
                             let gizmo_transform = TransformComponent {
                                 position: selected_object_transform.position,
                                 scale: Vec3::splat(1.0),
                                 rotation,
                             };
                             let gizmo_id = world.add_object(WorldObject::new(
-                                arrow_object.clone(),
+                                ObjectWithMaterial {
+                                    material_descriptor: material,
+                                    mesh_source: arrow_source.clone(),
+                                },
                                 Some(gizmo_transform),
                                 true,
                                 ModelRenderingOptions {

@@ -1,10 +1,11 @@
 use winit::{
     dpi::PhysicalPosition,
     event::{ElementState, MouseButton, WindowEvent},
-    keyboard::{KeyCode, PhysicalKey},
+    keyboard::{KeyCode, ModifiersState, PhysicalKey},
 };
 
 use crate::{
+    app::{WindowEventHandlingAction, WindowEventHandlingResult},
     gizmo_handler::GizmoHandler,
     material::PbrMaterialDescriptor,
     model::{MeshSource, ModelRenderingOptions, ObjectWithMaterial, PbrParameters, WorldObject},
@@ -15,6 +16,7 @@ pub struct PlayerController {
     cursor_position: Option<PhysicalPosition<f64>>,
     is_left_button_pressed: bool,
     gizmo_handler: GizmoHandler,
+    modifiers: ModifiersState,
 }
 
 impl PlayerController {
@@ -23,16 +25,21 @@ impl PlayerController {
             cursor_position: None,
             is_left_button_pressed: false,
             gizmo_handler: GizmoHandler::new(),
+            modifiers: ModifiersState::empty(),
         }
     }
 
-    pub fn handle_window_event(&mut self, window_event: &WindowEvent, world: &mut World) -> bool {
+    pub fn handle_window_event(
+        &mut self,
+        window_event: &WindowEvent,
+        world: &mut World,
+    ) -> WindowEventHandlingResult {
         if self.gizmo_handler.handle_window_event(window_event, world) {
-            return true;
+            return WindowEventHandlingResult::Handled;
         }
 
         if world.camera_controller.process_window_event(window_event) {
-            return true;
+            return WindowEventHandlingResult::Handled;
         }
 
         match window_event {
@@ -40,11 +47,11 @@ impl PlayerController {
                 self.cursor_position = Some(*position);
 
                 // Pretend we didn't handle this event, so others will get it as well and can update the position
-                false
+                return WindowEventHandlingResult::Unhandled;
             }
             WindowEvent::CursorLeft { .. } => {
                 self.cursor_position = None;
-                false
+                WindowEventHandlingResult::Unhandled
             }
             WindowEvent::MouseInput { state, button, .. } => {
                 if *button == MouseButton::Left {
@@ -55,9 +62,9 @@ impl PlayerController {
                         ElementState::Released => self.is_left_button_pressed = false,
                     }
 
-                    true
+                    return WindowEventHandlingResult::Handled;
                 } else {
-                    false
+                    WindowEventHandlingResult::Unhandled
                 }
             }
             WindowEvent::KeyboardInput { event, .. } => match event.physical_key {
@@ -65,13 +72,27 @@ impl PlayerController {
                     if let Some(id) = self.gizmo_handler.get_active_onject_id() {
                         world.remove_object(id);
                         self.gizmo_handler.remove_object_selection(world);
-                        true
+                        WindowEventHandlingResult::Handled
                     } else {
-                        false
+                        WindowEventHandlingResult::Unhandled
                     }
                 }
-                _ => false,
+                PhysicalKey::Code(KeyCode::KeyR) => {
+                    if self.modifiers.contains(ModifiersState::CONTROL) {
+                        WindowEventHandlingResult::RequestAction(
+                            WindowEventHandlingAction::RecompileShaders,
+                        )
+                    } else {
+                        WindowEventHandlingResult::Unhandled
+                    }
+                }
+                _ => WindowEventHandlingResult::Unhandled,
             },
+            WindowEvent::ModifiersChanged(modifiers) => {
+                self.modifiers = modifiers.state();
+
+                WindowEventHandlingResult::Unhandled
+            }
             WindowEvent::DroppedFile(path) => {
                 let object = WorldObject::new(
                     ObjectWithMaterial {
@@ -85,9 +106,9 @@ impl PlayerController {
 
                 world.add_object(object);
 
-                true
+                WindowEventHandlingResult::Handled
             }
-            _ => false,
+            _ => WindowEventHandlingResult::Unhandled,
         }
     }
 

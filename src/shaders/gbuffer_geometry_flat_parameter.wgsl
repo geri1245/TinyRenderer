@@ -1,6 +1,10 @@
 /// Renders into offscreen buffers:
 /// Fills up the GBuffer, doesn't do any lighting calculations
 
+struct GlobalGpuParams {
+    random_parameter: f32,
+}
+
 struct CameraUniform {
     view_proj: mat4x4<f32>,
     view: mat4x4<f32>,
@@ -85,6 +89,8 @@ fn vs_main(
 
 @group(0) @binding(0)
 var<uniform> pbr_parameters: PbrParameters;
+@group(2) @binding(0)
+var<uniform> global_gpu_params: GlobalGpuParams;
 
 struct GBufferOutput {
   @location(0) position: vec4<f32>,

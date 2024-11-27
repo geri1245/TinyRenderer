@@ -195,7 +195,7 @@ impl GBufferGeometryRP {
         render_pass.set_bind_group(2, &global_gpu_params_bind_group, &[]);
 
         for renderable in renderables {
-            renderable.render(render_pass, true);
+            renderable.render(render_pass, true, 0);
         }
     }
 }

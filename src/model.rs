@@ -253,9 +253,15 @@ impl Renderable {
         }
     }
 
-    pub fn render<'a>(&'a self, render_pass: &mut RenderPass<'a>, use_material: bool) {
+    pub fn render<'a>(
+        &'a self,
+        render_pass: &mut RenderPass<'a>,
+        use_material: bool,
+        material_group_index: u32,
+    ) {
         if use_material {
-            self.material_render_data.bind_render_pass(render_pass, 0);
+            self.material_render_data
+                .bind_render_pass(render_pass, material_group_index);
         }
 
         render_pass.set_vertex_buffer(0, self.vertex_render_data.vertex_buffer.slice(..));

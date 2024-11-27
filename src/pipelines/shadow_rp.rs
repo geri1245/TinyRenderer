@@ -138,7 +138,7 @@ impl ShadowRP {
         for renderable in
             renderables.filter(|renderable| renderable.description.rendering_options.cast_shadows)
         {
-            renderable.render(&mut shadow_pass, false);
+            renderable.render(&mut shadow_pass, false, 0);
         }
     }
 }

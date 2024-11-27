@@ -37,6 +37,6 @@ impl ForwardRenderer {
         light_bind_group: &'a BindGroup,
     ) {
         self.forward_rp
-            .render_model(render_pass, renderable, camera_bind_group, light_bind_group);
+            .render(render_pass, renderable, camera_bind_group, light_bind_group);
     }
 }

@@ -20,10 +20,15 @@ use winit::event::{ElementState, KeyEvent, WindowEvent};
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::Window;
 
+pub enum WindowEventHandlingAction {
+    Exit,
+    RecompileShaders,
+}
+
 pub enum WindowEventHandlingResult {
     Handled,
     Unhandled,
-    RequestExit,
+    RequestAction(WindowEventHandlingAction),
 }
 
 pub struct App {
@@ -116,11 +121,20 @@ impl App {
             return WindowEventHandlingResult::Handled;
         }
 
-        if self
+        match self
             .player_controller
             .handle_window_event(&event, &mut self.world)
         {
-            return WindowEventHandlingResult::Handled;
+            WindowEventHandlingResult::RequestAction(action) => {
+                if matches!(action, WindowEventHandlingAction::RecompileShaders) {
+                    self.try_recompile_shaders();
+                    return WindowEventHandlingResult::Handled;
+                } else {
+                    return WindowEventHandlingResult::RequestAction(action);
+                }
+            }
+            WindowEventHandlingResult::Handled => return WindowEventHandlingResult::Handled,
+            WindowEventHandlingResult::Unhandled => {}
         }
 
         match event {
@@ -132,7 +146,9 @@ impl App {
                 self.resize(*new_size);
                 WindowEventHandlingResult::Handled
             }
-            WindowEvent::CloseRequested => WindowEventHandlingResult::RequestExit,
+            WindowEvent::CloseRequested => {
+                WindowEventHandlingResult::RequestAction(WindowEventHandlingAction::Exit)
+            }
             // WindowEvent::ScaleFactorChanged {
             //     scale_factor,
             //     inner_size_writer,
@@ -146,11 +162,13 @@ impl App {
                         WindowEventHandlingResult::Handled
                     }
                     // The system is out of memory, we should probably quit
-                    Err(wgpu::SurfaceError::OutOfMemory) => WindowEventHandlingResult::RequestExit,
+                    Err(wgpu::SurfaceError::OutOfMemory) => {
+                        WindowEventHandlingResult::RequestAction(WindowEventHandlingAction::Exit)
+                    }
                     // All other errors (Outdated, Timeout) should be resolved by the next frame
                     Err(e) => {
                         eprintln!("{:?}", e);
-                        WindowEventHandlingResult::RequestExit
+                        WindowEventHandlingResult::RequestAction(WindowEventHandlingAction::Exit)
                     }
                 }
             }
@@ -230,11 +248,11 @@ impl App {
                 GuiEvent::LightPositionChanged { .. } => {}
                 GuiEvent::FieldValueChanged(name, new_value) => {
                     let data = self.gpu_rendering_params.get_data();
-                    if name == "random param" {
+                    if name == "random parameter" {
                         self.gpu_rendering_params.update_data(
                             &self.renderer.queue,
                             GlobalGPUParams {
-                                rotation_rad: new_value,
+                                random_param: new_value,
                                 ..data
                             },
                         );

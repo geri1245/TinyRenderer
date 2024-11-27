@@ -65,13 +65,14 @@ impl ForwardRP {
         shader: &ShaderModule,
         texture_format: wgpu::TextureFormat,
     ) -> RenderPipeline {
+        let buffer_layout = device
+            .create_bind_group_layout(&bind_group_layout_descriptors::BUFFER_VISIBLE_EVERYWHERE);
         let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Light Pipeline Layout"),
             bind_group_layouts: &[
                 &device.create_bind_group_layout(&bind_group_layout_descriptors::LIGHT),
-                &device.create_bind_group_layout(
-                    &bind_group_layout_descriptors::BUFFER_VISIBLE_EVERYWHERE,
-                ),
+                &buffer_layout,
+                &buffer_layout,
             ],
             push_constant_ranges: &[],
         });
@@ -118,7 +119,7 @@ impl ForwardRP {
         })
     }
 
-    pub fn render_model<'a, T: Iterator<Item = &'a Renderable>>(
+    pub fn render<'a, T: Iterator<Item = &'a Renderable>>(
         &'a self,
         render_pass: &mut RenderPass<'a>,
         renderables: T,
@@ -130,7 +131,7 @@ impl ForwardRP {
         render_pass.set_bind_group(1, &camera_bind_group, &[]);
 
         for renderable in renderables {
-            renderable.render(render_pass, false);
+            renderable.render(render_pass, true, 2);
         }
     }
 }

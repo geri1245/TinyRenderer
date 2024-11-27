@@ -2,16 +2,12 @@
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct GlobalGPUParams {
-    pub tiling_count: f32,
-    pub rotation_rad: f32,
+    pub random_param: f32,
 }
 
 impl Default for GlobalGPUParams {
     fn default() -> Self {
-        Self {
-            tiling_count: 1.0,
-            rotation_rad: Default::default(),
-        }
+        Self { random_param: 1.0 }
     }
 }
 

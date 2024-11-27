@@ -8,11 +8,13 @@ use winit::{
     window::{Window, WindowAttributes, WindowId},
 };
 
-use crate::app::{App, WindowEventHandlingResult};
+use crate::app::{App, WindowEventHandlingAction, WindowEventHandlingResult};
 
 // This event can be posted from inside the app and can be handled in fn user_event
 // Add members later if needed
-struct MyUserEvent;
+enum CustomEvent {
+    RecompileShaders,
+}
 
 #[derive(Default)]
 struct MainApplicationState {
@@ -23,7 +25,7 @@ struct MainApplicationState {
     frame_number: i32,
 }
 
-impl ApplicationHandler<MyUserEvent> for MainApplicationState {
+impl ApplicationHandler<CustomEvent> for MainApplicationState {
     /// This method is the entry point, this is where the creation logic should be
     // TODO: probably this won't handle multiple initializations gracefully, which doesn't seem to be a problem on
     // Windows for now, as this event only arrives once on startup, but we definitely should handle it!
@@ -53,11 +55,11 @@ impl ApplicationHandler<MyUserEvent> for MainApplicationState {
             .unwrap()
             .handle_window_event(&window, &event);
 
-        if matches!(result, WindowEventHandlingResult::RequestExit) {
+        if let WindowEventHandlingResult::RequestAction(WindowEventHandlingAction::Exit) = result {
             event_loop.exit();
         }
     }
-    fn user_event(&mut self, _event_loop: &ActiveEventLoop, _event: MyUserEvent) {
+    fn user_event(&mut self, _event_loop: &ActiveEventLoop, _event: CustomEvent) {
         todo!()
     }
     fn device_event(
@@ -83,7 +85,7 @@ impl ApplicationHandler<MyUserEvent> for MainApplicationState {
 
 pub async fn run_main_loop() {
     simple_logger::init_with_level(log::Level::Warn).unwrap();
-    let event_loop = EventLoop::<MyUserEvent>::with_user_event().build().unwrap();
+    let event_loop = EventLoop::<CustomEvent>::with_user_event().build().unwrap();
     let mut app_state = MainApplicationState::default();
 
     event_loop.run_app(&mut app_state).unwrap();

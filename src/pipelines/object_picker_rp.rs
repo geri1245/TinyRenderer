@@ -171,7 +171,7 @@ impl ObjectPickerRP {
             .clone()
             .filter(|renderable| renderable.description.rendering_options.use_depth_test)
         {
-            renderable.render(render_pass, false);
+            renderable.render(render_pass, false, 0);
         }
 
         render_pass.set_pipeline(&self.render_pipeline_no_depth_test);
@@ -181,7 +181,7 @@ impl ObjectPickerRP {
             .clone()
             .filter(|renderable| !renderable.description.rendering_options.use_depth_test)
         {
-            renderable.render(render_pass, false);
+            renderable.render(render_pass, false, 0);
         }
     }
 }

@@ -184,6 +184,7 @@ impl GBufferGeometryRenderer {
         render_pass: &mut RenderPass<'a>,
         renderables: T,
         camera_bind_group: &'a BindGroup,
+        global_gpu_params_bind_group: &'a BindGroup,
     ) {
         let textured_renderables = renderables.clone().filter(|renderable| {
             matches!(
@@ -191,8 +192,12 @@ impl GBufferGeometryRenderer {
                 PbrMaterialDescriptor::Texture(_)
             )
         });
-        self.textured_gbuffer_rp
-            .render(render_pass, textured_renderables, camera_bind_group);
+        self.textured_gbuffer_rp.render(
+            render_pass,
+            textured_renderables,
+            camera_bind_group,
+            global_gpu_params_bind_group,
+        );
 
         let flat_param_renderables = renderables.clone().filter(|renderable| {
             matches!(
@@ -204,6 +209,7 @@ impl GBufferGeometryRenderer {
             render_pass,
             flat_param_renderables,
             camera_bind_group,
+            global_gpu_params_bind_group,
         );
     }
 }

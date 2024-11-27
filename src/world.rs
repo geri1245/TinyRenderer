@@ -1,6 +1,6 @@
 use std::{collections::HashMap, time::Duration};
 
-use wgpu::{CommandEncoder, Device, SurfaceTexture};
+use wgpu::{BindGroup, CommandEncoder, Device, SurfaceTexture};
 
 use crate::{
     actions::RenderingAction, camera::Camera, camera_controller::CameraController,
@@ -104,6 +104,7 @@ impl World {
         encoder: &mut CommandEncoder,
         final_fbo_image_texture: &SurfaceTexture,
         light_controller: &LightController,
+        global_gpu_params_bind_group: &BindGroup,
     ) -> Result<(), wgpu::SurfaceError> {
         self.world_renderer.render(
             renderer,
@@ -111,6 +112,7 @@ impl World {
             final_fbo_image_texture,
             light_controller,
             &self.camera_controller,
+            global_gpu_params_bind_group,
         )
     }
 

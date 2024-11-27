@@ -1,5 +1,9 @@
 use crate::actions::RenderingAction;
+use crate::bind_group_layout_descriptors;
+use crate::buffer::GpuBufferCreationOptions;
 use crate::camera_controller::CameraController;
+use crate::global_params::{GlobalCPUParams, GlobalGPUParams};
+use crate::gpu_buffer::GpuBuffer;
 use crate::gui::{Gui, GuiButton, GuiEvent, GuiUpdateEvent};
 use crate::light_controller::LightController;
 use crate::player_controller::PlayerController;
@@ -28,6 +32,8 @@ pub struct App {
     frame_timer: BasicTimer,
     gui: Gui,
     player_controller: PlayerController,
+    gpu_rendering_params: GpuBuffer<GlobalGPUParams>,
+    cpu_rendering_params: GlobalCPUParams,
 
     light_controller: LightController,
 
@@ -63,6 +69,17 @@ impl App {
 
         let frame_timer = BasicTimer::new();
 
+        let global_gpu_params = GpuBuffer::new(
+            GlobalGPUParams::default(),
+            &renderer.device,
+            &GpuBufferCreationOptions {
+                bind_group_layout_descriptor:
+                    &bind_group_layout_descriptors::BUFFER_VISIBLE_EVERYWHERE,
+                usages: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                label: "Global GPU params".into(),
+            },
+        );
+
         Self {
             renderer,
             frame_timer,
@@ -73,6 +90,8 @@ impl App {
             light_controller,
             resource_loader,
             player_controller,
+            cpu_rendering_params: GlobalCPUParams::default(),
+            gpu_rendering_params: global_gpu_params,
         }
     }
 
@@ -168,6 +187,7 @@ impl App {
             &mut encoder,
             &current_frame_texture,
             &self.light_controller,
+            &self.gpu_rendering_params.bind_group,
         )?;
 
         if self.should_draw_gui {
@@ -207,7 +227,19 @@ impl App {
             match event {
                 GuiEvent::RecompileShaders => self.try_recompile_shaders(),
                 GuiEvent::ButtonClicked(button) => self.handle_gui_button_pressed(button),
-                _ => {}
+                GuiEvent::LightPositionChanged { .. } => {}
+                GuiEvent::FieldValueChanged(name, new_value) => {
+                    let data = self.gpu_rendering_params.get_data();
+                    if name == "random param" {
+                        self.gpu_rendering_params.update_data(
+                            &self.renderer.queue,
+                            GlobalGPUParams {
+                                rotation_rad: new_value,
+                                ..data
+                            },
+                        );
+                    }
+                }
             }
         }
     }

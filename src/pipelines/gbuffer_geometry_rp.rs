@@ -66,14 +66,22 @@ impl GBufferGeometryRP {
             PbrParameterVariation::Texture => {
                 device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("Geometry pass pipeline layout, textured"),
-                    bind_group_layouts: &[&pbr_texture_bind_group, &buffer_bind_group],
+                    bind_group_layouts: &[
+                        &pbr_texture_bind_group,
+                        &buffer_bind_group,
+                        &buffer_bind_group,
+                    ],
                     push_constant_ranges: &[],
                 })
             }
             PbrParameterVariation::Flat => {
                 device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("Geometry pass pipeline layout, flat parameters"),
-                    bind_group_layouts: &[&buffer_bind_group, &buffer_bind_group],
+                    bind_group_layouts: &[
+                        &buffer_bind_group,
+                        &buffer_bind_group,
+                        &buffer_bind_group,
+                    ],
                     push_constant_ranges: &[],
                 })
             }
@@ -180,9 +188,11 @@ impl GBufferGeometryRP {
         render_pass: &mut RenderPass<'a>,
         renderables: T,
         camera_bind_group: &'a BindGroup,
+        global_gpu_params_bind_group: &'a BindGroup,
     ) {
         render_pass.set_pipeline(&self.render_pipeline);
         render_pass.set_bind_group(1, &camera_bind_group, &[]);
+        render_pass.set_bind_group(2, &global_gpu_params_bind_group, &[]);
 
         for renderable in renderables {
             renderable.render(render_pass, true);

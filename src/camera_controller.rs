@@ -9,7 +9,7 @@ use winit::{
 use crate::{
     bind_group_layout_descriptors,
     buffer::{
-        create_bind_group_from_buffer_entire_binding_init, BufferInitBindGroupCreationOptions,
+        create_bind_group_from_buffer_entire_binding_init, GpuBufferCreationOptions,
     },
     camera::{Camera, CameraEvent},
 };
@@ -36,7 +36,7 @@ impl CameraController {
     pub fn from_camera(device: &Device, camera: &Camera, width: u32, height: u32) -> Self {
         let (binding_buffer, bind_group) = create_bind_group_from_buffer_entire_binding_init(
             device,
-            &BufferInitBindGroupCreationOptions {
+            &GpuBufferCreationOptions {
                 bind_group_layout_descriptor:
                     &bind_group_layout_descriptors::BUFFER_VISIBLE_EVERYWHERE,
                 usages: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,

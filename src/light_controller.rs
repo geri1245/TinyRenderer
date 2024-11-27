@@ -10,7 +10,7 @@ use crate::{
         create_bind_group_from_buffer_entire_binding,
         create_bind_group_from_buffer_entire_binding_fixed_size,
         create_bind_group_from_buffer_entire_binding_init, BufferBindGroupCreationOptions,
-        BufferInitBindGroupCreationOptions,
+        GpuBufferCreationOptions,
     },
     lights::{
         DirectionalLight, DirectionalLightRenderData, Light, LightRaw, LightRawSmall, PointLight,
@@ -194,7 +194,7 @@ impl LightController {
         let (light_parameters_uniform_buffer, light_parameters_bind_group) =
             create_bind_group_from_buffer_entire_binding_init(
                 device,
-                &BufferInitBindGroupCreationOptions {
+                &GpuBufferCreationOptions {
                     bind_group_layout_descriptor:
                         &bind_group_layout_descriptors::BUFFER_VISIBLE_EVERYWHERE,
                     usages: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,

@@ -5,6 +5,8 @@ use wgpu::{
     BindGroup, BindingResource, Buffer, BufferDescriptor,
 };
 
+use crate::bind_group_layout_descriptors;
+
 pub struct BufferBindGroupCreationOptions<'a> {
     pub bind_group_layout_descriptor: &'a wgpu::BindGroupLayoutDescriptor<'a>,
     pub num_of_items: u64,
@@ -14,10 +16,20 @@ pub struct BufferBindGroupCreationOptions<'a> {
     pub binding_size: Option<u64>,
 }
 
-pub struct BufferInitBindGroupCreationOptions<'a> {
+pub struct GpuBufferCreationOptions<'a> {
     pub bind_group_layout_descriptor: &'a wgpu::BindGroupLayoutDescriptor<'a>,
     pub usages: wgpu::BufferUsages,
     pub label: &'a str,
+}
+
+impl<'a> Default for GpuBufferCreationOptions<'a> {
+    fn default() -> Self {
+        Self {
+            bind_group_layout_descriptor: &bind_group_layout_descriptors::BUFFER_VISIBLE_EVERYWHERE,
+            usages: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            label: "Anonymous buffer",
+        }
+    }
 }
 
 pub fn create_bind_group_from_buffer_entire_binding_fixed_size(
@@ -56,7 +68,7 @@ pub fn create_bind_group_from_buffer_entire_binding<Type>(
 
 pub fn create_bind_group_from_buffer_entire_binding_init(
     device: &wgpu::Device,
-    options: &BufferInitBindGroupCreationOptions,
+    options: &GpuBufferCreationOptions,
     contents: &[u8],
 ) -> (Buffer, BindGroup) {
     let buffer_label = options.label.to_string() + " buffer";

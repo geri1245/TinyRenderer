@@ -2,7 +2,7 @@ use std::{fs::File, io::BufReader};
 
 use anyhow::*;
 use serde::{Deserialize, Serialize};
-use wgpu::{Extent3d, TextureFormat, TextureUsages};
+use wgpu::{AddressMode, Extent3d, TextureFormat, TextureUsages};
 
 const SKYBOX_TEXTURE_SIZE: u32 = 512;
 

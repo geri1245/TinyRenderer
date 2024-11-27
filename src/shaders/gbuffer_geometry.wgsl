@@ -1,6 +1,10 @@
 /// Renders into offscreen buffers:
 /// Fills up the GBuffer, doesn't do any lighting calculations
 
+struct GlobalGpuParams {
+    random_parameter: f32,
+}
+
 struct InstanceInput {
     @location(5) model_matrix_0: vec4<f32>,
     @location(6) model_matrix_1: vec4<f32>,
@@ -96,6 +100,9 @@ var t_metalness: texture_2d<f32>;
 @group(0) @binding(7)
 var s_metalness: sampler;
 
+@group(2) @binding(0)
+var<uniform> global_gpu_params: GlobalGpuParams;
+
 struct GBufferOutput {
   @location(0) position: vec4<f32>,
   @location(1) normal: vec4<f32>,
@@ -115,7 +122,9 @@ fn fs_main(in: VertexOutput) -> GBufferOutput {
 
     let tangent_space_normal = 2.0 * textureSample(t_normal, s_normal, in.tex_coord).xyz - 1.0;
     output.normal = vec4(normalize(tbn_mat * tangent_space_normal), 1.0);
+
     output.albedo = textureSample(t_diffuse, s_diffuse, in.tex_coord);
+
     output.rough_metal_ao = vec4(
         textureSample(t_roughness, s_roughness, in.tex_coord).x,
         textureSample(t_metalness, s_metalness, in.tex_coord).x,

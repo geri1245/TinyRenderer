@@ -4,9 +4,7 @@ use wgpu::RenderPass;
 
 use crate::{
     bind_group_layout_descriptors,
-    buffer::{
-        create_bind_group_from_buffer_entire_binding_init, BufferInitBindGroupCreationOptions,
-    },
+    buffer::{create_bind_group_from_buffer_entire_binding_init, GpuBufferCreationOptions},
     model::PbrParameters,
     texture::{SampledTexture, TextureSourceDescriptor, TextureUsage},
 };
@@ -72,7 +70,7 @@ impl MaterialRenderData {
     pub fn from_flat_parameters(device: &wgpu::Device, pbr_parameters: &PbrParameters) -> Self {
         let (_buffer, bind_group) = create_bind_group_from_buffer_entire_binding_init(
             device,
-            &BufferInitBindGroupCreationOptions {
+            &GpuBufferCreationOptions {
                 bind_group_layout_descriptor:
                     &bind_group_layout_descriptors::BUFFER_VISIBLE_EVERYWHERE,
                 usages: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,

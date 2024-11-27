@@ -1,6 +1,6 @@
 {
   "camera": {
-    "aspect": 1.5,
+    "aspect": 1.2558479309082031,
     "fov_y": 45.0,
     "look_sensitivity": [
       0.004999999888241291,
@@ -12,14 +12,14 @@
       20.0
     ],
     "orientation": [
-      0.8202589154243469,
+      1.5752586126327515,
       -0.0,
-      -0.0950000137090683
+      -1.225000023841858
     ],
     "position": [
-      -16.988140106201172,
-      19.047954559326172,
-      23.49724769592285
+      4.417689800262451,
+      91.21551513671875,
+      37.845298767089844
     ],
     "up": [
       0.0,
@@ -76,102 +76,10 @@
     {
       "object": {
         "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
+          "Texture": []
         },
         "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          -5.0,
-          -15.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          -15.0,
-          10.162302017211914,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
+          "PrimitiveInCode": "Square"
         }
       },
       "rendering_options": {
@@ -183,397 +91,19 @@
       "transform": {
         "position": [
           0.0,
-          -10.0,
-          0.0
+          0.0,
+          -40.0
         ],
         "rotation": [
+          0.7071067690849304,
           0.0,
           0.0,
-          0.0,
-          1.0
+          0.7071067690849304
         ],
         "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          -18.195594787597656,
-          -10.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          -5.0,
-          -5.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          -14.450302124023438,
-          25.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          -15.0,
-          25.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          10.0,
-          5.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          5.0,
-          5.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          25.0,
-          0.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          5.0,
-          -25.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          -25.0,
-          -25.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
+          100.0,
+          100.0,
+          100.0
         ]
       }
     },
@@ -644,259 +174,49 @@
       },
       "transform": {
         "position": [
-          -25.0,
-          -5.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          -11.497142791748047,
-          9.408920288085938,
-          0.07865667343139648
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          15.0,
-          -15.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          15.0,
-          0.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          -25.0,
-          -15.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          10.0,
-          -5.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
           -20.0,
+          15.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          20.0,
           -5.0,
           0.0
         ],
@@ -938,8 +258,8 @@
       },
       "transform": {
         "position": [
+          -25.0,
           15.0,
-          10.0,
           0.0
         ],
         "rotation": [
@@ -980,7 +300,7 @@
       },
       "transform": {
         "position": [
-          10.0,
+          15.0,
           -10.0,
           0.0
         ],
@@ -1022,8 +342,8 @@
       },
       "transform": {
         "position": [
-          -15.0,
-          -20.0,
+          -5.0,
+          -5.0,
           0.0
         ],
         "rotation": [
@@ -1064,8 +384,8 @@
       },
       "transform": {
         "position": [
-          -20.0,
-          0.0,
+          -10.0,
+          -25.0,
           0.0
         ],
         "rotation": [
@@ -1106,49 +426,7 @@
       },
       "transform": {
         "position": [
-          25.0,
-          10.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          10.0,
+          -5.0,
           -15.0,
           0.0
         ],
@@ -1190,8 +468,349 @@
       },
       "transform": {
         "position": [
-          25.0,
           15.0,
+          19.938325881958008,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          10.0,
+          15.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          20.0,
+          -10.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Texture": [
+            {
+              "source": {
+                "FromFile": "assets/textures/brick_wall_basic/albedo.jpg"
+              },
+              "usage": "Albedo"
+            },
+            {
+              "source": {
+                "FromFile": "assets/textures/brick_wall_basic/normal.jpg"
+              },
+              "usage": "Normal"
+            }
+          ]
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          -20.0,
+          10.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          2.0,
+          2.0,
+          2.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          -20.0,
+          -5.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          10.0,
+          -15.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          -25.0,
+          5.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          -20.0,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          5.0,
+          5.0,
           0.0
         ],
         "rotation": [
@@ -1279,8 +898,8 @@
       },
       "transform": {
         "position": [
-          -2.857086181640625,
-          15.542594909667969,
+          -25.0,
+          -25.0,
           0.0
         ],
         "rotation": [
@@ -1321,49 +940,7 @@
       },
       "transform": {
         "position": [
-          15.0,
-          -5.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          25.0,
+          -10.0,
           -10.0,
           0.0
         ],
@@ -1405,252 +982,8 @@
       },
       "transform": {
         "position": [
-          15.0,
-          -25.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          10.0,
-          -20.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          0.0,
-          5.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Texture": []
-        },
-        "mesh_source": {
-          "PrimitiveInCode": "Square"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          0.0,
-          0.0,
-          -40.0
-        ],
-        "rotation": [
-          0.7071067690849304,
-          0.0,
-          0.0,
-          0.7071067690849304
-        ],
-        "scale": [
-          100.0,
-          100.0,
-          100.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          -3.597273588180542,
-          9.172385215759277,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          -25.0,
-          10.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
+          25.0,
           20.0,
-          15.0,
           0.0
         ],
         "rotation": [
@@ -1691,8 +1024,8 @@
       },
       "transform": {
         "position": [
-          5.0,
           15.0,
+          10.0,
           0.0
         ],
         "rotation": [
@@ -1775,470 +1108,8 @@
       },
       "transform": {
         "position": [
-          15.0,
-          5.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          -20.0,
-          10.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          20.0,
-          -20.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          5.0,
-          25.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          -2.2403392791748047,
-          0.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          -5.0,
-          20.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          -15.0,
-          0.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          -10.0,
-          17.50706672668457,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          -20.0,
-          15.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          0.8125535249710083,
-          -20.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          10.0,
-          25.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          10.0,
-          15.0,
+          -2.857086181640625,
+          15.542594909667969,
           0.0
         ],
         "rotation": [
@@ -2321,1232 +1192,7 @@
       },
       "transform": {
         "position": [
-          20.0,
-          -5.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          -10.0,
-          -10.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          0.0,
-          -5.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          -10.0,
-          -25.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          -10.0,
-          -5.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Texture": [
-            {
-              "source": {
-                "FromFile": "assets/textures/brick_wall_basic/albedo.jpg"
-              },
-              "usage": "Albedo"
-            },
-            {
-              "source": {
-                "FromFile": "assets/textures/brick_wall_basic/normal.jpg"
-              },
-              "usage": "Normal"
-            }
-          ]
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          10.0,
-          10.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          3.0,
-          3.0,
-          3.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          -20.0,
-          20.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          15.0,
-          19.938325881958008,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          -25.0,
-          5.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          20.0,
-          0.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
           25.0,
-          5.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          -15.0,
-          -25.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          -25.0,
-          15.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          0.0,
-          0.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          -10.0,
-          25.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Texture": [
-            {
-              "source": {
-                "FromFile": "assets/textures/brick_wall_basic/albedo.jpg"
-              },
-              "usage": "Albedo"
-            },
-            {
-              "source": {
-                "FromFile": "assets/textures/brick_wall_basic/normal.jpg"
-              },
-              "usage": "Normal"
-            }
-          ]
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          -20.0,
-          10.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          2.0,
-          2.0,
-          2.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          0.0,
-          -20.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          -15.0,
-          15.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          -25.0,
-          20.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          15.0,
-          -10.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          5.0,
-          0.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          -20.0,
-          25.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          25.0,
-          -15.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          20.0,
-          -10.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          15.0,
-          -20.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          25.0,
-          20.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Texture": [
-            {
-              "source": {
-                "FromFile": "assets/textures/brick_wall_basic/albedo.jpg"
-              },
-              "usage": "Albedo"
-            },
-            {
-              "source": {
-                "FromFile": "assets/textures/brick_wall_basic/normal.jpg"
-              },
-              "usage": "Normal"
-            }
-          ]
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          30.0,
-          20.0,
-          10.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          2.0,
-          2.0,
-          2.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          -5.0,
-          25.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          1.0,
-          1.0,
-          1.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Texture": []
-        },
-        "mesh_source": {
-          "PrimitiveInCode": "Square"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          0.0,
-          -10.0,
-          0.0
-        ],
-        "rotation": [
-          0.0,
-          0.0,
-          0.0,
-          1.0
-        ],
-        "scale": [
-          100.0,
-          100.0,
-          100.0
-        ]
-      }
-    },
-    {
-      "object": {
-        "material_descriptor": {
-          "Flat": {
-            "albedo": [
-              0.20000000298023224,
-              0.5,
-              1.0
-            ],
-            "metalness": 0.0,
-            "roughness": 1.0
-          }
-        },
-        "mesh_source": {
-          "FromFile": "assets/models/cube/cube.obj"
-        }
-      },
-      "rendering_options": {
-        "cast_shadows": true,
-        "needs_projection": true,
-        "pass": "DeferredMain",
-        "use_depth_test": true
-      },
-      "transform": {
-        "position": [
-          -20.0,
           -10.0,
           0.0
         ],
@@ -3636,7 +1282,2361 @@
       "transform": {
         "position": [
           -10.0,
+          17.50706672668457,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          20.0,
+          -20.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          -25.0,
+          20.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          5.0,
           15.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          -3.597273588180542,
+          9.172385215759277,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Texture": []
+        },
+        "mesh_source": {
+          "PrimitiveInCode": "Square"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          0.0,
+          -10.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          100.0,
+          100.0,
+          100.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          -25.0,
+          -15.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          10.0,
+          -10.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          10.0,
+          5.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          -20.0,
+          10.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          -2.2403392791748047,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          25.0,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          15.0,
+          -15.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          -14.450302124023438,
+          25.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          -15.0,
+          10.162302017211914,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          -10.0,
+          25.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          25.0,
+          -15.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          -15.0,
+          -20.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          -15.0,
+          15.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          -18.195594787597656,
+          -10.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          25.0,
+          15.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          20.0,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          15.0,
+          -5.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          -20.0,
+          -10.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          -20.0,
+          20.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          10.0,
+          -5.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          5.0,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          5.0,
+          -25.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          0.0,
+          -5.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          25.0,
+          5.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          -11.497142791748047,
+          9.408920288085938,
+          0.07865667343139648
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          -20.0,
+          25.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          0.0,
+          5.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          25.0,
+          10.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          -10.0,
+          -5.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          5.0,
+          25.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          15.0,
+          -20.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          15.0,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          -15.0,
+          -25.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          0.0,
+          -20.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          10.0,
+          25.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          -5.0,
+          25.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          0.8125535249710083,
+          -20.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          -25.0,
+          -5.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Texture": [
+            {
+              "source": {
+                "FromFile": "assets/textures/brick_wall_basic/albedo.jpg"
+              },
+              "usage": "Albedo"
+            },
+            {
+              "source": {
+                "FromFile": "assets/textures/brick_wall_basic/normal.jpg"
+              },
+              "usage": "Normal"
+            }
+          ]
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          30.0,
+          20.0,
+          10.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          2.0,
+          2.0,
+          2.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          -10.0,
+          15.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          -5.0,
+          20.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          15.0,
+          -25.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          -15.0,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          -15.0,
+          25.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          0.0,
+          -10.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          15.0,
+          5.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          20.0,
+          15.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Texture": [
+            {
+              "source": {
+                "FromFile": "assets/textures/brick_wall_basic/albedo.jpg"
+              },
+              "usage": "Albedo"
+            },
+            {
+              "source": {
+                "FromFile": "assets/textures/brick_wall_basic/normal.jpg"
+              },
+              "usage": "Normal"
+            }
+          ]
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          10.0,
+          10.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          3.0,
+          3.0,
+          3.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          -25.0,
+          10.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "object": {
+        "material_descriptor": {
+          "Flat": {
+            "albedo": [
+              0.20000000298023224,
+              0.5,
+              1.0
+            ],
+            "metalness": 0.0,
+            "roughness": 1.0
+          }
+        },
+        "mesh_source": {
+          "FromFile": "assets/models/cube/cube.obj"
+        }
+      },
+      "rendering_options": {
+        "cast_shadows": true,
+        "needs_projection": true,
+        "pass": "DeferredMain",
+        "use_depth_test": true
+      },
+      "transform": {
+        "position": [
+          10.0,
+          -20.0,
           0.0
         ],
         "rotation": [

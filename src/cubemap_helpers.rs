@@ -6,7 +6,7 @@ use wgpu::{Device, Texture};
 use crate::{
     bind_group_layout_descriptors,
     buffer::{
-        create_bind_group_from_buffer_entire_binding_init, BufferInitBindGroupCreationOptions,
+        create_bind_group_from_buffer_entire_binding_init, GpuBufferCreationOptions,
     },
 };
 
@@ -39,7 +39,7 @@ pub fn create_cubemap_face_rendering_parameters(
 
             let (_buffer, bind_group) = create_bind_group_from_buffer_entire_binding_init(
                 device,
-                &BufferInitBindGroupCreationOptions {
+                &GpuBufferCreationOptions {
                     bind_group_layout_descriptor:
                         &bind_group_layout_descriptors::BUFFER_VISIBLE_EVERYWHERE,
                     usages: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,

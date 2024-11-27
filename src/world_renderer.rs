@@ -1,7 +1,9 @@
 use std::collections::{HashMap, VecDeque};
 
 use async_std::task::block_on;
-use wgpu::{CommandEncoder, Device, Extent3d, RenderPassDepthStencilAttachment, SurfaceTexture};
+use wgpu::{
+    BindGroup, CommandEncoder, Device, Extent3d, RenderPassDepthStencilAttachment, SurfaceTexture,
+};
 
 use crate::{
     actions::RenderingAction,
@@ -177,6 +179,7 @@ impl WorldRenderer {
         final_fbo_image_texture: &SurfaceTexture,
         light_controller: &LightController,
         camera_controller: &CameraController,
+        global_gpu_params_bind_group: &BindGroup,
     ) -> Result<(), wgpu::SurfaceError> {
         for action in self.actions_to_process.drain(..) {
             match action {
@@ -208,6 +211,7 @@ impl WorldRenderer {
                 &mut render_pass,
                 deferred_pass_items,
                 &camera_controller.bind_group,
+                global_gpu_params_bind_group,
             );
         }
 

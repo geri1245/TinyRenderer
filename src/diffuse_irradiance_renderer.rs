@@ -8,8 +8,8 @@ use wgpu::{
 
 use crate::{
     bind_group_layout_descriptors,
-    buffer_capture::OutputBuffer,
     cubemap_helpers::{create_cubemap_face_rendering_parameters, RenderingIntoCubemapResources},
+    mappable_gpu_buffer::MapableGpuBuffer,
     model::Primitive,
     pipelines::{DiffuseIrradianceBakerRP, ShaderCompilationSuccess},
 };
@@ -29,7 +29,7 @@ pub struct DiffuseIrradianceRenderer {
     cube_face_rendering_params: Vec<RenderingIntoCubemapResources>,
     pub diffuse_irradiance_cubemap: Rc<wgpu::BindGroup>,
     color_format: wgpu::TextureFormat,
-    output_buffer: OutputBuffer,
+    output_buffer: MapableGpuBuffer,
     ibl_irradiance_texture: wgpu::Texture,
 }
 
@@ -102,7 +102,7 @@ impl DiffuseIrradianceRenderer {
         let render_into_cubemap_params =
             create_cubemap_face_rendering_parameters(device, &ibl_irradiance_texture);
 
-        let output_buffer = OutputBuffer::new(device, &IBL_MAP_EXTENT, &color_format);
+        let output_buffer = MapableGpuBuffer::new(device, &IBL_MAP_EXTENT, &color_format);
 
         Ok(Self {
             pipeline,

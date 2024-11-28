@@ -66,6 +66,10 @@ impl GizmoHandler {
         self.gizmo.update_with_new_object_id(None, world);
     }
 
+    pub fn update(&mut self, world: &mut World) {
+        self.gizmo.update(world);
+    }
+
     pub fn handle_window_event(&mut self, event: &WindowEvent, world: &mut World) -> bool {
         match event {
             WindowEvent::CursorMoved { position, .. } => {
@@ -102,8 +106,12 @@ impl GizmoHandler {
                 // Pretend we didn't handle this event, so others will get it as well and can update the position
                 false
             }
-            WindowEvent::MouseInput { state, button, .. } => {
-                if *button == MouseButton::Left {
+            WindowEvent::MouseInput { state, button, .. } => match button {
+                MouseButton::Right => {
+                    let result = self.gizmo.update_with_new_object_id(None, world);
+                    matches!(result, GizmoUpdateResult::GizmoRemoved)
+                }
+                MouseButton::Left => {
                     match state {
                         ElementState::Pressed => {
                             if let Some(pos) = self.cursor_position {
@@ -152,10 +160,9 @@ impl GizmoHandler {
                     }
 
                     true
-                } else {
-                    false
                 }
-            }
+                _ => false,
+            },
             _ => false,
         }
     }

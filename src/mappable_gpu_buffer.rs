@@ -23,7 +23,7 @@ fn calculate_padded_size_for_image_copy_buffer(width: u32, format: &TextureForma
     (unpadded_bytes_per_row + padded_bytes_per_row_padding) as u32
 }
 
-pub struct OutputBuffer {
+pub struct MapableGpuBuffer {
     /// Size of each row, padded to `wgpu::COPY_BYTES_PER_ROW_ALIGNMENT`, as that is a requirement
     /// of ImageCopyBuffer
     pub padded_row_size: u32,
@@ -32,7 +32,7 @@ pub struct OutputBuffer {
     pub texture_format: TextureFormat,
 }
 
-impl OutputBuffer {
+impl MapableGpuBuffer {
     pub fn new(device: &wgpu::Device, texture_extent: &Extent3d, format: &TextureFormat) -> Self {
         // It is a WebGPU requirement that ImageCopyBuffer.layout.bytes_per_row % wgpu::COPY_BYTES_PER_ROW_ALIGNMENT == 0
         // So we calculate padded_bytes_per_row by rounding unpadded_bytes_per_row
@@ -49,7 +49,7 @@ impl OutputBuffer {
             mapped_at_creation: false,
         });
 
-        OutputBuffer {
+        MapableGpuBuffer {
             padded_row_size,
             buffer,
             texture_extent: texture_extent.clone(),
@@ -73,14 +73,14 @@ impl OutputBuffer {
         }
 
         if let Some(Ok(())) = receiver.receive().await {
-            let padded_buffer = buffer_slice.get_mapped_range();
-            let mut file = File::create(output_path).unwrap();
+            {
+                let padded_buffer = buffer_slice.get_mapped_range();
+                let mut file = File::create(output_path).unwrap();
 
-            file.write_all(&padded_buffer).unwrap();
-
+                file.write_all(&padded_buffer).unwrap();
+            }
             // With the current interface, we have to make sure all mapped views are
             // dropped before we unmap the buffer.
-            drop(padded_buffer);
 
             self.buffer.unmap();
         }

@@ -6,9 +6,9 @@ use wgpu::{
 };
 
 use crate::{
-    buffer_reader::ReadableBuffer,
     model::Renderable,
     pipelines::{ObjectPickerRP, ShaderCompilationSuccess},
+    pollable_gpu_buffer::PollableGpuBuffer,
     texture::{SampledTexture, SampledTextureDescriptor},
 };
 
@@ -46,7 +46,7 @@ pub struct ObjectPickManager {
 
     // The buffer length is usually only 1, no need to reallocate the buffer over and over again,
     // just keep the gpu memory and pingpong with 2 (or maybe more) buffers
-    output_buffers: VecDeque<ReadableBuffer>,
+    output_buffers: VecDeque<PollableGpuBuffer>,
     latest_object_id_buffer: SingleDimensionPaddedImageBuffer,
 }
 
@@ -128,8 +128,8 @@ impl ObjectPickManager {
         self.output_buffers.back().unwrap().post_render();
     }
 
-    fn create_readable_buffer(device: &wgpu::Device, width: u32, height: u32) -> ReadableBuffer {
-        ReadableBuffer::new(
+    fn create_readable_buffer(device: &wgpu::Device, width: u32, height: u32) -> PollableGpuBuffer {
+        PollableGpuBuffer::new(
             device,
             &Extent3d {
                 width,

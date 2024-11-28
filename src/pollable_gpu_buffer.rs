@@ -1,18 +1,18 @@
 use crossbeam_channel::{Receiver, Sender};
-use log::warn;
 use wgpu::{BufferAsyncError, Extent3d, TextureFormat};
 
-use crate::buffer_capture::OutputBuffer;
+use crate::mappable_gpu_buffer::MapableGpuBuffer;
 
-pub struct ReadableBuffer {
-    pub mapable_buffer: OutputBuffer,
+/// A buffer written by the GPU, whose contents can be read back to the CPU
+pub struct PollableGpuBuffer {
+    pub mapable_buffer: MapableGpuBuffer,
     receiver: Receiver<Result<(), BufferAsyncError>>,
     sender: Sender<Result<(), BufferAsyncError>>,
 }
 
-impl ReadableBuffer {
+impl PollableGpuBuffer {
     pub fn new(device: &wgpu::Device, texture_extent: &Extent3d, format: &TextureFormat) -> Self {
-        let buffer = OutputBuffer::new(device, texture_extent, format);
+        let buffer = MapableGpuBuffer::new(device, texture_extent, format);
         let (sender, receiver) = crossbeam_channel::bounded(1);
 
         Self {
@@ -46,14 +46,10 @@ impl ReadableBuffer {
 
                     Some(self.mapable_buffer.padded_row_size / 4)
                 } else {
-                    warn!("We got an error: {result:?}");
                     None
                 }
             }
-            Err(error) => {
-                warn!("We got an error: {error:?}");
-                None
-            }
+            Err(_error) => None,
         }
     }
 }

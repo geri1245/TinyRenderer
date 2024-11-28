@@ -18,11 +18,13 @@ const X_AXIS_COLOR: [f32; 3] = [1.0, 0.0, 0.0];
 const Y_AXIS_COLOR: [f32; 3] = [0.0, 1.0, 0.0];
 const Z_AXIS_COLOR: [f32; 3] = [0.0, 0.0, 1.0];
 const HOVERED_GIZMO_COLOR: [f32; 3] = [0.9, 0.9, 0.0];
+const GIZMO_DISTANCE_SCALE: f32 = 0.06;
 
 pub enum GizmoUpdateResult {
     Nothing,
     GizmoAddedWithPosition,
     GizmoSelectedWithAxis(Line),
+    GizmoRemoved,
 }
 
 #[derive(PartialEq, Eq, Hash)]
@@ -98,6 +100,33 @@ impl Gizmo {
         self.gizmo_parts_drawn.get(&id)
     }
 
+    fn calculate_gizmo_scale(camera_position: Vec3, selected_object_position: Vec3) -> f32 {
+        camera_position.distance(selected_object_position) * GIZMO_DISTANCE_SCALE
+    }
+
+    pub fn update(&mut self, world: &mut World) {
+        if let Some(selected_object_id) = self.selected_object_id {
+            let maybe_selected_object_position =
+                if let Some(selected_object) = world.get_object(selected_object_id) {
+                    Some(selected_object.get_transform().position)
+                } else {
+                    None
+                };
+
+            if let Some(selected_object_position) = maybe_selected_object_position {
+                let camera_position = world.camera_controller.camera.get_position();
+                let gizmo_scale =
+                    Self::calculate_gizmo_scale(selected_object_position, camera_position);
+
+                for (gizmo_object_id, _axis) in &self.gizmo_parts_drawn {
+                    if let Some(gizmo_object) = world.get_object_mut(*gizmo_object_id) {
+                        gizmo_object.set_scale(gizmo_scale);
+                    }
+                }
+            }
+        }
+    }
+
     fn restore_hovered_gizmo_material_if_any(&self, world: &mut World) {
         if let Some(hovered_gizmo_part_id) = self.hovered_gizmo_part_id {
             if let Some(object) = world.get_object_mut(hovered_gizmo_part_id) {
@@ -137,26 +166,35 @@ impl Gizmo {
 
     pub fn update_with_new_object_id(
         &mut self,
-        object_id: Option<u32>,
+        new_selected_object_id: Option<u32>,
         world: &mut World,
     ) -> GizmoUpdateResult {
         // Clean up old gizmo, if necessary. If a gizmo is selected, we don't want to remove it from the world
-        if object_id.is_none() || !self.gizmo_parts_drawn.contains_key(&object_id.unwrap()) {
-            match self.selected_object_id {
-                Some(id) => {
-                    if object_id.is_none() || object_id.unwrap() != id {
-                        for (gizmo_id, _) in self.gizmo_parts_drawn.drain() {
-                            world.remove_object(gizmo_id);
-                        }
-                        self.gizmo_position = None;
+        let removed_old_gizmo_now = if new_selected_object_id.is_none()
+            || !self
+                .gizmo_parts_drawn
+                .contains_key(&new_selected_object_id.unwrap())
+        {
+            if let Some(selected_object_id) = self.selected_object_id {
+                if new_selected_object_id.is_none()
+                    || new_selected_object_id.unwrap() != selected_object_id
+                {
+                    for (gizmo_id, _) in self.gizmo_parts_drawn.drain() {
+                        world.remove_object(gizmo_id);
                     }
+                    self.gizmo_position = None;
                 }
-                None => {}
+
+                true
+            } else {
+                false
             }
-        }
+        } else {
+            false
+        };
 
         // Add new gizmo
-        match object_id {
+        match new_selected_object_id {
             Some(object_id) => {
                 if let Some(axis) = self.get_axis_with_id(object_id) {
                     if let Some(gizmo_position) = self.gizmo_position {
@@ -183,7 +221,10 @@ impl Gizmo {
                         for (_axis, gizmo_description) in &self.gizmo_part_descriptions {
                             let gizmo_transform = TransformComponent {
                                 position: selected_object_transform.position,
-                                scale: Vec3::splat(1.0),
+                                scale: Vec3::splat(Self::calculate_gizmo_scale(
+                                    world.camera_controller.camera.get_position(),
+                                    selected_object_transform.position,
+                                )),
                                 rotation: gizmo_description.rotation,
                             };
                             let gizmo_id = world.add_object(WorldObject::new(
@@ -212,8 +253,12 @@ impl Gizmo {
                 }
             }
             None => {
-                self.selected_object_id = object_id;
-                GizmoUpdateResult::Nothing
+                self.selected_object_id = new_selected_object_id;
+                if removed_old_gizmo_now {
+                    GizmoUpdateResult::GizmoRemoved
+                } else {
+                    GizmoUpdateResult::Nothing
+                }
             }
         }
     }

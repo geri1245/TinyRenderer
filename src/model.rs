@@ -178,6 +178,11 @@ impl WorldObject {
         self.transform.position = new_position;
         self.is_transform_dirty = true;
     }
+
+    pub fn set_scale(&mut self, new_scale: f32) {
+        self.transform.scale = Vec3::splat(new_scale);
+        self.is_transform_dirty = true;
+    }
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, PartialOrd)]

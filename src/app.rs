@@ -279,6 +279,8 @@ impl App {
     pub fn update(&mut self, delta: Duration) {
         self.handle_events_received_from_gui();
 
+        self.player_controller.update(&mut self.world);
+
         self.light_controller.update(
             delta,
             &self.renderer.queue,

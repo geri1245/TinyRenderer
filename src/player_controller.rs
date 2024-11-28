@@ -29,6 +29,10 @@ impl PlayerController {
         }
     }
 
+    pub fn update(&mut self, world: &mut World) {
+        self.gizmo_handler.update(world);
+    }
+
     pub fn handle_window_event(
         &mut self,
         window_event: &WindowEvent,
@@ -53,8 +57,8 @@ impl PlayerController {
                 self.cursor_position = None;
                 WindowEventHandlingResult::Unhandled
             }
-            WindowEvent::MouseInput { state, button, .. } => {
-                if *button == MouseButton::Left {
+            WindowEvent::MouseInput { state, button, .. } => match button {
+                MouseButton::Left => {
                     match state {
                         ElementState::Pressed => {
                             self.is_left_button_pressed = true;
@@ -63,10 +67,9 @@ impl PlayerController {
                     }
 
                     return WindowEventHandlingResult::Handled;
-                } else {
-                    WindowEventHandlingResult::Unhandled
                 }
-            }
+                _ => WindowEventHandlingResult::Unhandled,
+            },
             WindowEvent::KeyboardInput { event, .. } => match event.physical_key {
                 PhysicalKey::Code(KeyCode::Delete) => {
                     if let Some(id) = self.gizmo_handler.get_active_onject_id() {

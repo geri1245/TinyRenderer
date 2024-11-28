@@ -1,4 +1,4 @@
-use std::{collections::HashMap, default, path::PathBuf, rc::Rc};
+use std::{collections::HashMap, path::PathBuf, rc::Rc};
 
 use glam::{Vec2, Vec3};
 use serde::{Deserialize, Serialize};
@@ -131,6 +131,10 @@ pub struct WorldObject {
 
     #[serde(skip_serializing)]
     #[serde(default)]
+    pub is_material_dirty: bool,
+
+    #[serde(skip_serializing)]
+    #[serde(default)]
     pub is_transient: bool,
 }
 
@@ -145,9 +149,15 @@ impl WorldObject {
             object,
             transform: transform.unwrap_or_default(),
             is_transform_dirty: false,
+            is_material_dirty: false,
             is_transient,
             rendering_options,
         }
+    }
+
+    pub fn update_material(&mut self, new_material: &PbrMaterialDescriptor) {
+        self.object.material_descriptor = new_material.clone();
+        self.is_material_dirty = true;
     }
 
     pub fn get_transform(&self) -> TransformComponent {
@@ -157,6 +167,11 @@ impl WorldObject {
     pub fn reset_transform_dirty(&mut self) -> TransformComponent {
         self.is_transform_dirty = false;
         self.get_transform()
+    }
+
+    pub fn reset_material_dirty(&mut self) -> PbrMaterialDescriptor {
+        self.is_material_dirty = false;
+        self.object.material_descriptor.clone()
     }
 
     pub fn set_location(&mut self, new_position: Vec3) {
@@ -207,6 +222,18 @@ impl Renderable {
             bytemuck::cast_slice(&[self.description.transform.to_raw(object_id)]),
         );
         self.instance_render_data.count = 1;
+    }
+
+    pub fn update_material_render_state(&mut self, device: &Device) {
+        match &self.description.mesh_descriptor.material_descriptor {
+            PbrMaterialDescriptor::Texture(_vec) => {
+                // todo!()
+            }
+            PbrMaterialDescriptor::Flat(pbr_parameters) => {
+                self.material_render_data =
+                    MaterialRenderData::from_flat_parameters(device, pbr_parameters);
+            }
+        }
     }
 }
 

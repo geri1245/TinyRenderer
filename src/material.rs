@@ -15,6 +15,12 @@ pub enum PbrMaterialDescriptor {
     Flat(PbrParameters),                   // The parameters are given as plain old numbers
 }
 
+impl PbrMaterialDescriptor {
+    pub fn from_color(color: [f32; 3]) -> Self {
+        Self::Flat(PbrParameters::new(color, 1.0, 0.0))
+    }
+}
+
 #[derive(Debug)]
 pub struct MaterialRenderData {
     pub bind_group: wgpu::BindGroup,

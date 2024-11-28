@@ -94,6 +94,13 @@ impl World {
             }
         }
 
+        for (id, mesh) in &mut self.meshes {
+            if mesh.is_material_dirty {
+                self.world_renderer
+                    .update_object_material(*id, mesh.reset_material_dirty());
+            }
+        }
+
         self.camera_controller.update(delta, queue);
         self.world_renderer.update(device, queue, resource_loader);
     }

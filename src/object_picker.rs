@@ -76,7 +76,17 @@ impl ObjectPickManager {
     }
 
     pub fn get_object_id_at_position(&self, x: u32, y: u32) -> Option<u32> {
-        self.latest_object_id_buffer.get(x, y)
+        // 0 is not a valid ID, so we return it as None - the rest of the application can handle it like that
+        match self.latest_object_id_buffer.get(x, y) {
+            Some(id) => {
+                if id == 0 {
+                    None
+                } else {
+                    Some(id)
+                }
+            }
+            None => None,
+        }
     }
 
     pub async fn try_recompile_shader(

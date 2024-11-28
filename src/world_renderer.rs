@@ -14,6 +14,7 @@ use crate::{
     gbuffer_geometry_renderer::GBufferGeometryRenderer,
     instance::TransformComponent,
     light_controller::LightController,
+    material::PbrMaterialDescriptor,
     model::{Renderable, RenderingPass, WorldObject},
     object_picker::ObjectPickManager,
     pipelines::{self, MainRP, ShaderCompilationSuccess},
@@ -38,7 +39,8 @@ pub struct WorldRenderer {
     actions_to_process: VecDeque<RenderingAction>,
 
     renderables: HashMap<u32, Renderable>,
-    dirty_objects: Vec<u32>,
+    objects_with_dirty_transform: Vec<u32>,
+    objects_with_dirty_material_data: Vec<u32>,
 
     /// These are waiting to be loaded
     pending_renderables: Vec<(u32, WorldObject)>,
@@ -113,7 +115,8 @@ impl WorldRenderer {
             actions_to_process: VecDeque::new(),
             renderables: HashMap::new(),
             pending_renderables: Vec::new(),
-            dirty_objects: Vec::new(),
+            objects_with_dirty_transform: Vec::new(),
+            objects_with_dirty_material_data: Vec::new(),
         }
     }
 
@@ -130,15 +133,23 @@ impl WorldRenderer {
         self.renderables.remove(&renderable_id_to_remove);
     }
 
+    // TODO: Some general method for checking dirty state and regenerating
+    // the render data for it would be nice
+
     pub fn update_object_transform(&mut self, id: u32, new_transform: TransformComponent) {
         if let Some(renderable) = self.renderables.get_mut(&id) {
+            // TODO: this should be set in world.rs
             renderable.description.transform = new_transform;
-            self.mark_object_dirty(id);
+            self.objects_with_dirty_transform.push(id);
         }
     }
 
-    fn mark_object_dirty(&mut self, id: u32) {
-        self.dirty_objects.push(id);
+    pub fn update_object_material(&mut self, id: u32, new_material: PbrMaterialDescriptor) {
+        if let Some(renderable) = self.renderables.get_mut(&id) {
+            // TODO: this should be set in world.rs
+            renderable.description.mesh_descriptor.material_descriptor = new_material;
+            self.objects_with_dirty_material_data.push(id);
+        }
     }
 
     pub fn update(
@@ -163,9 +174,15 @@ impl WorldRenderer {
             self.renderables.insert(object_id, new_renderable);
         }
 
-        for object_id in self.dirty_objects.drain(..) {
+        for object_id in self.objects_with_dirty_transform.drain(..) {
             if let Some(renderable) = self.renderables.get_mut(&object_id) {
                 renderable.update_transform_render_state(queue, object_id);
+            }
+        }
+
+        for object_id in self.objects_with_dirty_material_data.drain(..) {
+            if let Some(renderable) = self.renderables.get_mut(&object_id) {
+                renderable.update_material_render_state(device);
             }
         }
 

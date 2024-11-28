@@ -90,7 +90,13 @@ impl GizmoHandler {
                     GizmoInteractionState::Moving(gizmo_move_info) => {
                         self.perform_move(world, position, &gizmo_move_info);
                     }
-                    GizmoInteractionState::Idle => {}
+                    GizmoInteractionState::Idle => {
+                        if let Some(pos) = self.cursor_position {
+                            let hovered_object_id =
+                                world.get_object_id_at(pos.x as u32, pos.y as u32);
+                            self.gizmo.set_hovered_object_id(hovered_object_id, world);
+                        }
+                    }
                 }
 
                 // Pretend we didn't handle this event, so others will get it as well and can update the position
@@ -173,7 +179,7 @@ impl GizmoHandler {
             gizmo_move_info.gizmo_movement_axis.distance(&camera_ray);
 
         let object = world
-            .get_object_mut(self.gizmo.active_object_id.unwrap())
+            .get_object_mut(self.gizmo.selected_object_id.unwrap())
             .unwrap();
 
         let new_position =
@@ -184,6 +190,6 @@ impl GizmoHandler {
     }
 
     pub fn get_active_onject_id(&self) -> Option<u32> {
-        self.gizmo.active_object_id
+        self.gizmo.selected_object_id
     }
 }

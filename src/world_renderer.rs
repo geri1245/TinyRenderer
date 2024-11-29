@@ -312,12 +312,13 @@ impl WorldRenderer {
                 &mut compute_pass,
                 renderer.config.width,
                 renderer.config.height,
+                global_gpu_params_bind_group,
             );
         }
 
         encoder.copy_texture_to_texture(
             self.post_process_manager
-                .full_screen_render_target_ping_pong_textures[1]
+                .full_screen_render_target_ping_pong_textures[2]
                 .texture
                 .as_image_copy(),
             final_fbo_image_texture.texture.as_image_copy(),

@@ -3,11 +3,15 @@
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct GlobalGPUParams {
     pub random_param: f32,
+    pub tone_mapping_type: u32,
 }
 
 impl Default for GlobalGPUParams {
     fn default() -> Self {
-        Self { random_param: 1.0 }
+        Self {
+            random_param: 1.0,
+            tone_mapping_type: 1,
+        }
     }
 }
 

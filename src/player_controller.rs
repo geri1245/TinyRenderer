@@ -89,6 +89,13 @@ impl PlayerController {
                         WindowEventHandlingResult::Unhandled
                     }
                 }
+                PhysicalKey::Code(KeyCode::KeyW) => {
+                    if self.modifiers.contains(ModifiersState::CONTROL) {
+                        WindowEventHandlingResult::RequestAction(WindowEventHandlingAction::Exit)
+                    } else {
+                        WindowEventHandlingResult::Unhandled
+                    }
+                }
                 _ => WindowEventHandlingResult::Unhandled,
             },
             WindowEvent::ModifiersChanged(modifiers) => {

@@ -70,6 +70,7 @@ pub struct GuiParams {
     pub point_light_position: [f32; 3],
     gui_size: [f32; 2],
     pub random_parameter: f32,
+    pub tone_mapping_method: u32,
     pub scale_factor: f32,
 }
 
@@ -93,6 +94,7 @@ impl Gui {
             random_parameter: 1.0,
             scale_factor: 1.0,
             gui_size: [500.0, 300.0],
+            tone_mapping_method: 1,
         };
 
         Gui {
@@ -107,7 +109,7 @@ impl Gui {
         }
     }
 
-    fn add_slider_with_change_notification(
+    fn add_float_slider_with_change_notification(
         ui: &mut Ui,
         value: &mut f32,
         name: String,
@@ -122,6 +124,26 @@ impl Gui {
             if slider_response.changed() {
                 sender
                     .try_send(GuiEvent::FieldValueChanged(name, *value))
+                    .unwrap();
+            }
+        });
+    }
+
+    fn add_integer_slider_with_change_notification(
+        ui: &mut Ui,
+        value: &mut u32,
+        name: String,
+        range: RangeInclusive<u32>,
+        sender: &mut Sender<GuiEvent>,
+    ) {
+        ui.horizontal(|ui| {
+            ui.add(Label::new(&name));
+            ui.add(Separator::default().vertical());
+            let slider_response = ui.add(egui::Slider::new(value, range).integer());
+
+            if slider_response.changed() {
+                sender
+                    .try_send(GuiEvent::FieldValueChanged(name, *value as f32))
                     .unwrap();
             }
         });
@@ -196,11 +218,19 @@ impl Gui {
 
                     ui.add(Separator::default().horizontal());
 
-                    Self::add_slider_with_change_notification(
+                    Self::add_float_slider_with_change_notification(
                         ui,
                         &mut self.gui_params.random_parameter,
                         "random parameter".into(),
                         0.0..=5.0,
+                        &mut self.sender,
+                    );
+
+                    Self::add_integer_slider_with_change_notification(
+                        ui,
+                        &mut self.gui_params.tone_mapping_method,
+                        "tone mapping method".into(),
+                        0..=5,
                         &mut self.sender,
                     );
 

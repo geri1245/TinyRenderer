@@ -252,13 +252,6 @@ fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     let finalHdrColor = ambient + irradiance;
 
-    // Tone mapping
-    // var color = finalHdrColor / (finalHdrColor + vec3(1.0)); // Reinhard
-    var color = vec3(1.0) - exp(-finalHdrColor * 0.5); // Exposure-based
-
-    // // Gamma correction
-    color = pow(color, vec3(1.0 / 2.2));
-
     let pixel_coords = vec2(i32(id.x), i32(id.y));
-    textureStore(destination_texture, pixel_coords, vec4(color, 1));
+    textureStore(destination_texture, pixel_coords, vec4(finalHdrColor, 1));
 }

@@ -1,3 +1,8 @@
+struct GlobalGpuParams {
+    random_parameter: f32,
+    tone_mapping_type: u32,
+}
+
 @group(0)
 @binding(0)
 var destination_texture: texture_storage_2d<rgba16float, write>;
@@ -6,6 +11,9 @@ var destination_texture: texture_storage_2d<rgba16float, write>;
 var source_texture: texture_2d<f32>;
 @group(0) @binding(2)
 var source_texture_samp: sampler;
+
+@group(1) @binding(0)
+var<uniform> global_gpu_params: GlobalGpuParams;
 
 @compute
 @workgroup_size(8,8,1)

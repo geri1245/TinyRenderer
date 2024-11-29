@@ -3,6 +3,7 @@
 
 struct GlobalGpuParams {
     random_parameter: f32,
+    tone_mapping_type: u32,
 }
 
 struct CameraUniform {

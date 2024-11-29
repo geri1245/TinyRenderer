@@ -138,10 +138,7 @@ impl App {
         }
 
         match event {
-            WindowEvent::KeyboardInput { event, .. } => {
-                self.handle_keyboard_event(&event);
-                WindowEventHandlingResult::Handled
-            }
+            WindowEvent::KeyboardInput { event, .. } => self.handle_keyboard_event(&event),
             WindowEvent::Resized(new_size) => {
                 self.resize(*new_size);
                 WindowEventHandlingResult::Handled
@@ -176,17 +173,26 @@ impl App {
         }
     }
 
-    fn handle_keyboard_event(&mut self, key_event: &KeyEvent) {
+    fn handle_keyboard_event(&mut self, key_event: &KeyEvent) -> WindowEventHandlingResult {
         if key_event.state == ElementState::Pressed {
             if let PhysicalKey::Code(key) = key_event.physical_key {
                 match key {
-                    KeyCode::KeyF => self.toggle_should_draw_gui(),
-                    KeyCode::KeyI => self
-                        .world
-                        .add_action(RenderingAction::SaveDiffuseIrradianceMapToFile),
-                    _ => {}
+                    KeyCode::KeyF => {
+                        self.toggle_should_draw_gui();
+                        WindowEventHandlingResult::Handled
+                    }
+                    KeyCode::KeyI => {
+                        self.world
+                            .add_action(RenderingAction::SaveDiffuseIrradianceMapToFile);
+                        WindowEventHandlingResult::Handled
+                    }
+                    _ => WindowEventHandlingResult::Unhandled,
                 }
+            } else {
+                WindowEventHandlingResult::Unhandled
             }
+        } else {
+            WindowEventHandlingResult::Unhandled
         }
     }
 
@@ -253,6 +259,14 @@ impl App {
                             &self.renderer.queue,
                             GlobalGPUParams {
                                 random_param: new_value,
+                                ..data
+                            },
+                        );
+                    } else if name == "tone mapping method" {
+                        self.gpu_rendering_params.update_data(
+                            &self.renderer.queue,
+                            GlobalGPUParams {
+                                tone_mapping_type: new_value as u32,
                                 ..data
                             },
                         );

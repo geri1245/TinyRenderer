@@ -2,6 +2,7 @@ use glam::{Vec2, Vec3};
 use winit::{
     dpi::PhysicalPosition,
     event::{ElementState, MouseButton, WindowEvent},
+    keyboard::{KeyCode, PhysicalKey},
 };
 
 use crate::{
@@ -107,10 +108,6 @@ impl GizmoHandler {
                 false
             }
             WindowEvent::MouseInput { state, button, .. } => match button {
-                MouseButton::Right => {
-                    let result = self.gizmo.update_with_new_object_id(None, world);
-                    matches!(result, GizmoUpdateResult::GizmoRemoved)
-                }
                 MouseButton::Left => {
                     match state {
                         ElementState::Pressed => {
@@ -163,6 +160,14 @@ impl GizmoHandler {
                 }
                 _ => false,
             },
+            WindowEvent::KeyboardInput { event, .. } => {
+                if let PhysicalKey::Code(KeyCode::Escape) = event.physical_key {
+                    let result = self.gizmo.update_with_new_object_id(None, world);
+                    matches!(result, GizmoUpdateResult::GizmoRemoved)
+                } else {
+                    false
+                }
+            }
             _ => false,
         }
     }

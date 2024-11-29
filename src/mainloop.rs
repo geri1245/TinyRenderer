@@ -4,7 +4,6 @@ use winit::{
     dpi::PhysicalSize,
     event::{DeviceEvent, DeviceId, WindowEvent},
     event_loop::{ActiveEventLoop, EventLoop},
-    keyboard::{KeyCode, PhysicalKey},
     window::{Window, WindowAttributes, WindowId},
 };
 
@@ -12,9 +11,7 @@ use crate::app::{App, WindowEventHandlingAction, WindowEventHandlingResult};
 
 // This event can be posted from inside the app and can be handled in fn user_event
 // Add members later if needed
-enum CustomEvent {
-    RecompileShaders,
-}
+enum CustomEvent {}
 
 #[derive(Default)]
 struct MainApplicationState {
@@ -59,22 +56,17 @@ impl ApplicationHandler<CustomEvent> for MainApplicationState {
             event_loop.exit();
         }
     }
-    fn user_event(&mut self, _event_loop: &ActiveEventLoop, _event: CustomEvent) {
-        todo!()
-    }
+
+    fn user_event(&mut self, _event_loop: &ActiveEventLoop, _event: CustomEvent) {}
+
     fn device_event(
         &mut self,
-        event_loop: &ActiveEventLoop,
+        _event_loop: &ActiveEventLoop,
         _device_id: DeviceId,
-        event: DeviceEvent,
+        _event: DeviceEvent,
     ) {
-        if let DeviceEvent::Key(ref input) = event {
-            if input.physical_key == PhysicalKey::Code(KeyCode::Escape) {
-                event_loop.exit();
-                return;
-            }
-        }
     }
+
     fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
         if let Some(window) = self.window.as_ref() {
             window.request_redraw();

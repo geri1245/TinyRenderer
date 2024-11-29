@@ -316,6 +316,8 @@ pub const GBUFFER: wgpu::BindGroupLayoutDescriptor = wgpu::BindGroupLayoutDescri
     ],
 };
 
+/// This is the layout we are using when we are shading the GBuffer and fill up the post process ping-pong buffers
+/// and also when ping-ponging between the postprocess buffers
 pub const COMPUTE_PING_PONG: wgpu::BindGroupLayoutDescriptor = wgpu::BindGroupLayoutDescriptor {
     label: Some("ComputeRenderToFrameBuffer"),
     entries: &[
@@ -348,6 +350,8 @@ pub const COMPUTE_PING_PONG: wgpu::BindGroupLayoutDescriptor = wgpu::BindGroupLa
     ],
 };
 
+/// This is the layout we are using when we are doing the final post processing pass (which should be tone mapping and
+/// color correction) and copy into a texture that can be copied into the framebuffer
 pub const COMPUTE_FINAL_STAGE: wgpu::BindGroupLayoutDescriptor = wgpu::BindGroupLayoutDescriptor {
     label: Some("ComputeRenderToFrameBuffer"),
     entries: &[

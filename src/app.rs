@@ -6,6 +6,7 @@ use crate::global_params::{GlobalCPUParams, GlobalGPUParams};
 use crate::gpu_buffer::GpuBuffer;
 use crate::gui::{Gui, GuiButton, GuiEvent, GuiUpdateEvent};
 use crate::light_controller::LightController;
+use crate::mipmap_generator::MipMapGenerator;
 use crate::player_controller::PlayerController;
 use crate::resource_loader::ResourceLoader;
 use crate::world::World;
@@ -41,6 +42,7 @@ pub struct App {
     cpu_rendering_params: GlobalCPUParams,
 
     light_controller: LightController,
+    mip_map_generator: MipMapGenerator,
 
     pub world: World,
     should_draw_gui: bool,
@@ -85,6 +87,8 @@ impl App {
             },
         );
 
+        let mip_map_generator = MipMapGenerator::new(&renderer.device).await;
+
         Self {
             renderer,
             frame_timer,
@@ -97,6 +101,7 @@ impl App {
             player_controller,
             cpu_rendering_params: GlobalCPUParams::default(),
             gpu_rendering_params: global_gpu_params,
+            mip_map_generator,
         }
     }
 
@@ -307,6 +312,7 @@ impl App {
             &self.renderer.device,
             &self.renderer.queue,
             &self.resource_loader,
+            &self.mip_map_generator,
         );
 
         self.gui.update(delta);

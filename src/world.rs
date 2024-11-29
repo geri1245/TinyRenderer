@@ -4,8 +4,9 @@ use wgpu::{BindGroup, CommandEncoder, Device, SurfaceTexture};
 
 use crate::{
     actions::RenderingAction, camera::Camera, camera_controller::CameraController,
-    light_controller::LightController, lights::Light, model::WorldObject, renderer::Renderer,
-    resource_loader::ResourceLoader, world_renderer::WorldRenderer,
+    light_controller::LightController, lights::Light, mipmap_generator::MipMapGenerator,
+    model::WorldObject, renderer::Renderer, resource_loader::ResourceLoader,
+    world_renderer::WorldRenderer,
 };
 
 pub struct World {
@@ -86,6 +87,7 @@ impl World {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         resource_loader: &ResourceLoader,
+        mip_map_generator: &MipMapGenerator,
     ) {
         for (id, mesh) in &mut self.meshes {
             if mesh.is_transform_dirty {
@@ -102,7 +104,8 @@ impl World {
         }
 
         self.camera_controller.update(delta, queue);
-        self.world_renderer.update(device, queue, resource_loader);
+        self.world_renderer
+            .update(device, queue, resource_loader, mip_map_generator);
     }
 
     pub fn render(

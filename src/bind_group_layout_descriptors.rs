@@ -316,37 +316,58 @@ pub const GBUFFER: wgpu::BindGroupLayoutDescriptor = wgpu::BindGroupLayoutDescri
     ],
 };
 
+const COMPUTE_SHADER_HDR_DESTINATION_TEXTURE_LAYOUT_ENTRY: wgpu::BindGroupLayoutEntry =
+    wgpu::BindGroupLayoutEntry {
+        binding: 0,
+        visibility: wgpu::ShaderStages::COMPUTE,
+        ty: wgpu::BindingType::StorageTexture {
+            access: wgpu::StorageTextureAccess::WriteOnly,
+            format: wgpu::TextureFormat::Rgba16Float,
+            view_dimension: wgpu::TextureViewDimension::D2,
+        },
+        count: None,
+    };
+
+const COMPUTE_SHADER_SDR_DESTINATION_TEXTURE_LAYOUT_ENTRY: wgpu::BindGroupLayoutEntry =
+    wgpu::BindGroupLayoutEntry {
+        binding: 0,
+        visibility: wgpu::ShaderStages::COMPUTE,
+        ty: wgpu::BindingType::StorageTexture {
+            access: wgpu::StorageTextureAccess::WriteOnly,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            view_dimension: wgpu::TextureViewDimension::D2,
+        },
+        count: None,
+    };
+
+const COMPUTE_SHADER_SAMPLED_TEXTURE_LAYOUT_ENTRY: wgpu::BindGroupLayoutEntry =
+    wgpu::BindGroupLayoutEntry {
+        binding: 1,
+        visibility: wgpu::ShaderStages::COMPUTE,
+        ty: wgpu::BindingType::Texture {
+            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+            view_dimension: wgpu::TextureViewDimension::D2,
+            multisampled: false,
+        },
+        count: None,
+    };
+
+const COMPUTE_SHADER_SAMPLED_TEXTURE_SAMPLER_LAYOUT_ENTRY: wgpu::BindGroupLayoutEntry =
+    wgpu::BindGroupLayoutEntry {
+        binding: 2,
+        visibility: wgpu::ShaderStages::COMPUTE,
+        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+        count: None,
+    };
+
 /// This is the layout we are using when we are shading the GBuffer and fill up the post process ping-pong buffers
 /// and also when ping-ponging between the postprocess buffers
 pub const COMPUTE_PING_PONG: wgpu::BindGroupLayoutDescriptor = wgpu::BindGroupLayoutDescriptor {
     label: Some("ComputeRenderToFrameBuffer"),
     entries: &[
-        wgpu::BindGroupLayoutEntry {
-            binding: 0,
-            visibility: wgpu::ShaderStages::COMPUTE,
-            ty: wgpu::BindingType::StorageTexture {
-                access: wgpu::StorageTextureAccess::WriteOnly,
-                format: wgpu::TextureFormat::Rgba16Float,
-                view_dimension: wgpu::TextureViewDimension::D2,
-            },
-            count: None,
-        },
-        wgpu::BindGroupLayoutEntry {
-            binding: 1,
-            visibility: wgpu::ShaderStages::COMPUTE,
-            ty: wgpu::BindingType::Texture {
-                sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                view_dimension: wgpu::TextureViewDimension::D2,
-                multisampled: false,
-            },
-            count: None,
-        },
-        wgpu::BindGroupLayoutEntry {
-            binding: 2,
-            visibility: wgpu::ShaderStages::COMPUTE,
-            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-            count: None,
-        },
+        COMPUTE_SHADER_HDR_DESTINATION_TEXTURE_LAYOUT_ENTRY,
+        COMPUTE_SHADER_SAMPLED_TEXTURE_LAYOUT_ENTRY,
+        COMPUTE_SHADER_SAMPLED_TEXTURE_SAMPLER_LAYOUT_ENTRY,
     ],
 };
 
@@ -355,31 +376,37 @@ pub const COMPUTE_PING_PONG: wgpu::BindGroupLayoutDescriptor = wgpu::BindGroupLa
 pub const COMPUTE_FINAL_STAGE: wgpu::BindGroupLayoutDescriptor = wgpu::BindGroupLayoutDescriptor {
     label: Some("ComputeRenderToFrameBuffer"),
     entries: &[
-        wgpu::BindGroupLayoutEntry {
-            binding: 0,
-            visibility: wgpu::ShaderStages::COMPUTE,
-            ty: wgpu::BindingType::StorageTexture {
-                access: wgpu::StorageTextureAccess::WriteOnly,
-                format: wgpu::TextureFormat::Rgba8Unorm,
-                view_dimension: wgpu::TextureViewDimension::D2,
-            },
-            count: None,
-        },
-        wgpu::BindGroupLayoutEntry {
-            binding: 1,
-            visibility: wgpu::ShaderStages::COMPUTE,
-            ty: wgpu::BindingType::Texture {
-                sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                view_dimension: wgpu::TextureViewDimension::D2,
-                multisampled: false,
-            },
-            count: None,
-        },
-        wgpu::BindGroupLayoutEntry {
-            binding: 2,
-            visibility: wgpu::ShaderStages::COMPUTE,
-            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-            count: None,
-        },
+        COMPUTE_SHADER_SDR_DESTINATION_TEXTURE_LAYOUT_ENTRY,
+        COMPUTE_SHADER_SAMPLED_TEXTURE_LAYOUT_ENTRY,
+        COMPUTE_SHADER_SAMPLED_TEXTURE_SAMPLER_LAYOUT_ENTRY,
     ],
 };
+
+pub const COMPUTE_SHADER_TEXTURE_WITH_SAMPLER: wgpu::BindGroupLayoutDescriptor =
+    wgpu::BindGroupLayoutDescriptor {
+        label: Some("ComputeRenderToFrameBuffer"),
+        entries: &[
+            wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Texture {
+                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    multisampled: false,
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 1,
+                visibility: wgpu::ShaderStages::COMPUTE,
+                ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                count: None,
+            },
+        ],
+    };
+
+pub const COMPUTE_SHADER_SDR_TEXTURE_DESTINATION: wgpu::BindGroupLayoutDescriptor =
+    wgpu::BindGroupLayoutDescriptor {
+        label: Some("ComputeRenderToFrameBuffer"),
+        entries: &[COMPUTE_SHADER_SDR_DESTINATION_TEXTURE_LAYOUT_ENTRY],
+    };

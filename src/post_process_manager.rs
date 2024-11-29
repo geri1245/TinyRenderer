@@ -1,4 +1,6 @@
-use wgpu::{BindGroup, BindGroupDescriptor, ComputePass, Device, Extent3d, TextureFormat};
+use wgpu::{
+    BindGroup, BindGroupDescriptor, ComputePass, Device, Extent3d, TextureDimension, TextureFormat,
+};
 
 use crate::{
     bind_group_layout_descriptors::{self, COMPUTE_FINAL_STAGE, COMPUTE_PING_PONG},
@@ -133,6 +135,8 @@ impl PostProcessManager {
                             height,
                             depth_or_array_layers: 1,
                         },
+                        dimension: TextureDimension::D2,
+                        mip_count: 1,
                     },
                     &format!("PingPong texture for postprocessing {i}"),
                 );

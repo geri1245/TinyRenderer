@@ -2,7 +2,8 @@ use std::collections::VecDeque;
 
 use wgpu::{
     BindGroup, CommandEncoder, Device, Extent3d, ImageCopyTexture, RenderPassColorAttachment,
-    RenderPassDepthStencilAttachment, TextureAspect, TextureFormat, TextureUsages, TextureView,
+    RenderPassDepthStencilAttachment, TextureAspect, TextureDimension, TextureFormat,
+    TextureUsages, TextureView,
 };
 
 use crate::{
@@ -153,6 +154,8 @@ impl ObjectPickManager {
                 | TextureUsages::COPY_SRC
                 | wgpu::TextureUsages::STORAGE_BINDING,
             extents: texture_extents,
+            dimension: TextureDimension::D2,
+            mip_count: 1,
         };
 
         SampledTexture::new(device, descriptor, "Texture for object picking")

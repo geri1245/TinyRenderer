@@ -15,6 +15,7 @@ use crate::{
     instance::TransformComponent,
     light_controller::LightController,
     material::PbrMaterialDescriptor,
+    mipmap_generator::MipMapGenerator,
     model::{Renderable, RenderingPass, WorldObject},
     object_picker::ObjectPickManager,
     pipelines::{self, MainRP, ShaderCompilationSuccess},
@@ -157,10 +158,11 @@ impl WorldRenderer {
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         resource_loader: &ResourceLoader,
+        mip_map_generator: &MipMapGenerator,
     ) {
         for (object_id, object) in self.pending_renderables.drain(..) {
             let loaded_model = resource_loader
-                .load_model(&object.object, device, queue)
+                .load_model(&object.object, device, queue, mip_map_generator)
                 .unwrap();
             let new_renderable = Renderable::new(
                 object.object.clone(),

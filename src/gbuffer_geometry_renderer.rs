@@ -1,6 +1,6 @@
 use wgpu::{
     BindGroup, CommandEncoder, Device, Extent3d, RenderPass, RenderPassColorAttachment,
-    RenderPassDepthStencilAttachment, TextureFormat, TextureUsages,
+    RenderPassDepthStencilAttachment, TextureDimension, TextureFormat, TextureUsages,
 };
 
 use crate::{
@@ -86,6 +86,8 @@ impl GBufferGeometryRenderer {
                 | TextureUsages::TEXTURE_BINDING
                 | wgpu::TextureUsages::STORAGE_BINDING,
             extents: texture_extents,
+            dimension: TextureDimension::D2,
+            mip_count: 1,
         };
 
         let position_texture =

@@ -2,7 +2,7 @@ use std::{fs::File, io::BufReader};
 
 use anyhow::*;
 use serde::{Deserialize, Serialize};
-use wgpu::{Extent3d, TextureFormat, TextureUsages};
+use wgpu::{Extent3d, TextureDimension, TextureFormat, TextureUsages};
 
 const SKYBOX_TEXTURE_SIZE: u32 = 512;
 
@@ -32,6 +32,10 @@ pub struct SampledTextureDescriptor {
     pub format: TextureFormat,
     pub usages: TextureUsages,
     pub extents: Extent3d,
+    pub dimension: TextureDimension,
+    /// This is not the number of actual, existing mips. In most cases we create the texture with some mip count and
+    /// only later fill up those mip levels. But in most cases these mips should exist
+    pub mip_count: u32,
 }
 
 #[derive(Serialize, Deserialize, Hash, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -163,14 +167,18 @@ impl SampledTexture {
             }
         };
 
-        let gpu_usage = wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST;
+        let gpu_usage = wgpu::TextureUsages::TEXTURE_BINDING
+            | wgpu::TextureUsages::COPY_DST
+            | wgpu::TextureUsages::STORAGE_BINDING;
+        let dimension = TextureDimension::D2;
+        let mip_count = size.max_mips(dimension);
 
         let texture = device.create_texture(&wgpu::TextureDescriptor {
             label,
             size,
-            mip_level_count: 1,
+            mip_level_count: mip_count,
             sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
+            dimension,
             format,
             usage: gpu_usage,
             view_formats: &[],
@@ -204,6 +212,8 @@ impl SampledTexture {
                 format,
                 extents: size,
                 usages: gpu_usage,
+                dimension,
+                mip_count,
             },
         })
     }
@@ -215,12 +225,14 @@ impl SampledTexture {
     ) -> Self {
         let gpu_usage =
             wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING;
+        let mip_count = 1;
+        let dimension = TextureDimension::D2;
         let desc = wgpu::TextureDescriptor {
             label: Some(label),
             size: extent,
-            mip_level_count: 1,
+            mip_level_count: mip_count,
             sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
+            dimension,
             format: Self::DEPTH_FORMAT,
             usage: gpu_usage,
             view_formats: &[],
@@ -243,6 +255,8 @@ impl SampledTexture {
                 extents: extent,
                 format: Self::DEPTH_FORMAT,
                 usages: gpu_usage,
+                dimension,
+                mip_count,
             },
         }
     }
@@ -266,12 +280,14 @@ impl SampledTexture {
 
         let format = wgpu::TextureFormat::Rgba8UnormSrgb;
         let gpu_usage = wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST;
+        let dimension = TextureDimension::D2;
+        let mip_count = size.max_mips(dimension);
 
         let texture_descriptor = wgpu::TextureDescriptor {
             size,
-            mip_level_count: 1,
+            mip_level_count: mip_count,
             sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
+            dimension,
             format,
             usage: gpu_usage,
             label: None,
@@ -321,6 +337,8 @@ impl SampledTexture {
                 extents: size,
                 format,
                 usages: gpu_usage,
+                dimension,
+                mip_count,
             },
         }
     }

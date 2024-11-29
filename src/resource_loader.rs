@@ -6,10 +6,11 @@ use anyhow::anyhow;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use tobj::MTLLoadResult;
-use wgpu::{Device, Extent3d, Queue};
+use wgpu::{CommandEncoderDescriptor, Device, Extent3d, Queue};
 
 use glam::{Vec2, Vec3};
 
+use crate::mipmap_generator::MipMapGenerator;
 use crate::model::ObjectWithMaterial;
 use crate::primitive_shapes::square;
 use crate::texture::TextureSourceDescriptor;
@@ -159,6 +160,7 @@ impl ResourceLoader {
         mesh_descriptor: &ObjectWithMaterial,
         device: &Device,
         queue: &Queue,
+        mip_map_generator: &MipMapGenerator,
     ) -> anyhow::Result<LoadedModelWithMaterial> {
         let primitive = match &mesh_descriptor.mesh_source {
             MeshSource::PrimitiveInCode(shape) => self.primitive_shapes.get(shape).unwrap().clone(),
@@ -173,6 +175,24 @@ impl ResourceLoader {
                 let mut loaded_textures = HashMap::with_capacity(textures.len());
                 for texture_descriptor in textures {
                     let texture = self.load_texture(texture_descriptor, device, queue)?;
+                    match texture_descriptor.usage {
+                        TextureUsage::Albedo | TextureUsage::Normal => {
+                            let mut encoder =
+                                device.create_command_encoder(&CommandEncoderDescriptor {
+                                    label: Some("mipmap generator encoder"),
+                                });
+                            mip_map_generator.create_mips_for_texture(
+                                &mut encoder,
+                                &(*texture),
+                                None,
+                                device,
+                            );
+                            queue.submit(Some(encoder.finish()));
+                        }
+                        TextureUsage::Metalness
+                        | TextureUsage::Roughness
+                        | TextureUsage::HdrAlbedo => {}
+                    }
                     loaded_textures.insert(texture_descriptor.usage, texture);
                 }
                 for (usage, texture) in &self.default_textures {

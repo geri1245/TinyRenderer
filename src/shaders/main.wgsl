@@ -164,7 +164,7 @@ fn calculate_light_contribution(
     pixel_to_light: vec3<f32>, light_color: vec3<f32>, attenuation: f32, pixel_to_camera: vec3<f32>, pixel_position: vec3<f32>, normal: vec3<f32>, albedo: vec3<f32>, metalness: f32, roughness: f32
 ) -> vec3<f32> {
     let half_dir = normalize(pixel_to_camera + pixel_to_light);
-    let radiance = light_color * 10 * attenuation;
+    let radiance = light_color * attenuation;
 
     let F0 = mix(F0_NON_METALLIC, albedo, metalness);
     let F = fresnel_schlick(max(dot(half_dir, pixel_to_camera), 0.0), F0);
@@ -242,7 +242,7 @@ fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
         let shadow = fetch_shadow(i, light.view_proj * position);
         if shadow > 0.0 {
             irradiance += calculate_light_contribution(
-                -light.position_or_direction, light.color, 0.6, pixel_to_camera, position.xyz, normal, albedo, metalness, roughness
+                -light.position_or_direction, light.color, 1.0, pixel_to_camera, position.xyz, normal, albedo, metalness, roughness
             );
         }
     }

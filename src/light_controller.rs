@@ -291,6 +291,7 @@ impl LightController {
                 ..SHADOW_SIZE
             },
             "Directional shadow texture",
+            true,
         );
 
         let mut directional_light_render_datas = Vec::new();
@@ -343,6 +344,7 @@ impl LightController {
                 ..SHADOW_SIZE
             },
             "Point shadow texture",
+            true,
         );
 
         // Map through each light index and through each cube face for each light and create

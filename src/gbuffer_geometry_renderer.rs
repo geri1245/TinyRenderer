@@ -22,7 +22,8 @@ const GBUFFER_CLEAR_COLOR: wgpu::Color = wgpu::Color {
 };
 pub struct GBufferGeometryRenderer {
     pub textures: GBufferTextures,
-    pub bind_group: wgpu::BindGroup,
+    pub gbuffer_textures_bind_group: wgpu::BindGroup,
+    pub depth_texture_bind_group: wgpu::BindGroup,
     width: u32,
     height: u32,
     textured_gbuffer_rp: GBufferGeometryRP,
@@ -32,7 +33,7 @@ pub struct GBufferGeometryRenderer {
 impl GBufferGeometryRenderer {
     pub async fn new(device: &wgpu::Device, width: u32, height: u32) -> Self {
         let textures = Self::create_textures(device, width, height);
-        let bind_group = Self::create_bind_group(device, &textures);
+        let bind_group = Self::create_gbuffer_bind_group(device, &textures);
 
         let textured_gbuffer_rp =
             GBufferGeometryRP::new(device, &textures, PbrParameterVariation::Texture)
@@ -44,13 +45,17 @@ impl GBufferGeometryRenderer {
                 .await
                 .unwrap();
 
+        let depth_texture_bind_group =
+            Self::create_depth_bind_group(device, &textures.depth_texture);
+
         Self {
             textures,
-            bind_group,
+            gbuffer_textures_bind_group: bind_group,
             width,
             height,
             textured_gbuffer_rp,
             flat_parameter_gbuffer_rp,
+            depth_texture_bind_group,
         }
     }
 
@@ -69,7 +74,9 @@ impl GBufferGeometryRenderer {
 
     pub fn resize(&mut self, device: &wgpu::Device, width: u32, height: u32) {
         self.textures = Self::create_textures(device, width, height);
-        self.bind_group = Self::create_bind_group(device, &self.textures);
+        self.gbuffer_textures_bind_group = Self::create_gbuffer_bind_group(device, &self.textures);
+        self.depth_texture_bind_group =
+            Self::create_depth_bind_group(device, &self.textures.depth_texture);
         self.width = width;
         self.height = height;
     }
@@ -102,8 +109,12 @@ impl GBufferGeometryRenderer {
         let metal_rough_ao =
             SampledTexture::new(device, descriptor.clone(), "GBuffer metal+rough+ao texture");
 
-        let depth_texture =
-            SampledTexture::create_depth_texture(device, texture_extents, "GBuffer depth texture");
+        let depth_texture = SampledTexture::create_depth_texture(
+            device,
+            texture_extents,
+            "GBuffer depth texture",
+            false,
+        );
 
         GBufferTextures {
             position: position_texture,
@@ -114,7 +125,10 @@ impl GBufferGeometryRenderer {
         }
     }
 
-    fn create_bind_group(device: &wgpu::Device, textures: &GBufferTextures) -> wgpu::BindGroup {
+    fn create_gbuffer_bind_group(
+        device: &wgpu::Device,
+        textures: &GBufferTextures,
+    ) -> wgpu::BindGroup {
         device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &device.create_bind_group_layout(&bind_group_layout_descriptors::GBUFFER),
             entries: &[
@@ -128,6 +142,17 @@ impl GBufferGeometryRenderer {
                 textures.metal_rough_ao.get_sampler_bind_group_entry(7),
             ],
             label: Some("GBuffer bind group"),
+        })
+    }
+
+    fn create_depth_bind_group(device: &Device, depth_texture: &SampledTexture) -> wgpu::BindGroup {
+        device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &device.create_bind_group_layout(&bind_group_layout_descriptors::DEPTH_TEXTURE),
+            entries: &[
+                depth_texture.get_texture_bind_group_entry(0),
+                depth_texture.get_sampler_bind_group_entry(1),
+            ],
+            label: Some("Main frame depth bind group"),
         })
     }
 

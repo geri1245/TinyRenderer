@@ -67,6 +67,7 @@ impl WorldRenderer {
         )
         .await;
 
+        // TODO: extract the format from here and don't reference full_screen_render_target_ping_pong_textures directly
         let skybox = Skybox::new(
             &renderer.device,
             post_process_manager.full_screen_render_target_ping_pong_textures[0]
@@ -200,6 +201,8 @@ impl WorldRenderer {
         camera_controller: &CameraController,
         global_gpu_params_bind_group: &BindGroup,
     ) -> Result<(), wgpu::SurfaceError> {
+        self.post_process_manager.begin_frame();
+
         for action in self.actions_to_process.drain(..) {
             match action {
                 RenderingAction::GenerateCubeMapFromEquirectangular => {
@@ -252,10 +255,10 @@ impl WorldRenderer {
                 &mut main_shading_pass,
                 &camera_controller,
                 &light_controller,
-                &self.gbuffer_geometry_renderer.bind_group,
+                &self.gbuffer_geometry_renderer.gbuffer_textures_bind_group,
                 light_controller.get_shadow_bind_group(),
                 &self.diffuse_irradiance_renderer.diffuse_irradiance_cubemap,
-                &self.post_process_manager.compute_bind_group_1_to_0,
+                self.post_process_manager.get_next_ping_pong_bind_group(),
                 renderer.config.width,
                 renderer.config.height,
             );
@@ -263,7 +266,7 @@ impl WorldRenderer {
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("After GBuffer pass"),
+                label: Some("Skybox + forward rendering pass"),
                 timestamp_writes: None,
                 occlusion_query_set: None,
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -287,12 +290,6 @@ impl WorldRenderer {
                 }),
             });
 
-            self.skybox.render(
-                &mut render_pass,
-                &camera_controller,
-                &self.equirec_to_cubemap_renderer.cube_map_to_sample,
-            );
-
             self.forward_renderer.render(
                 &mut render_pass,
                 renderables.filter(|renderable| {
@@ -302,20 +299,60 @@ impl WorldRenderer {
                 &camera_controller.bind_group,
                 &light_controller.get_light_bind_group(),
             );
+            self.skybox.render(
+                &mut render_pass,
+                &camera_controller,
+                &self.equirec_to_cubemap_renderer.cube_map_to_sample,
+            );
         }
 
         {
-            let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                label: Some("Postprocessing"),
-                timestamp_writes: None,
-            });
+            // Unfortunately I can't do this in the same pass, because of the pass' and encoder's lifetime
+            {
+                let mut compute_pass = encoder
+                    .begin_compute_pass(&wgpu::ComputePassDescriptor {
+                        label: Some("Postprocessing"),
+                        timestamp_writes: None,
+                    })
+                    .forget_lifetime();
 
-            self.post_process_manager.render(
-                &mut compute_pass,
-                renderer.config.width,
-                renderer.config.height,
-                global_gpu_params_bind_group,
-            );
+                self.post_process_manager.render_dummy(
+                    &mut compute_pass,
+                    renderer.config.width,
+                    renderer.config.height,
+                    global_gpu_params_bind_group,
+                );
+            }
+
+            {
+                let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                    label: Some("Postprocessing"),
+                    timestamp_writes: None,
+                });
+                self.post_process_manager.render_screen_space_reflections(
+                    &mut compute_pass,
+                    renderer.config.width,
+                    renderer.config.height,
+                    global_gpu_params_bind_group,
+                    &camera_controller.bind_group,
+                    &self.equirec_to_cubemap_renderer.cube_map_to_sample,
+                    &self.gbuffer_geometry_renderer.gbuffer_textures_bind_group,
+                    &self.gbuffer_geometry_renderer.depth_texture_bind_group,
+                );
+            }
+
+            {
+                let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                    label: Some("Postprocessing"),
+                    timestamp_writes: None,
+                });
+                self.post_process_manager.apply_tone_mapping(
+                    &mut compute_pass,
+                    renderer.config.width,
+                    renderer.config.height,
+                    global_gpu_params_bind_group,
+                );
+            }
         }
 
         encoder.copy_texture_to_texture(

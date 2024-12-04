@@ -222,6 +222,7 @@ impl SampledTexture {
         device: &wgpu::Device,
         extent: wgpu::Extent3d,
         label: &str,
+        with_comparison_sampler: bool,
     ) -> Self {
         let gpu_usage =
             wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING;
@@ -243,7 +244,11 @@ impl SampledTexture {
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
-            compare: Some(wgpu::CompareFunction::LessEqual),
+            compare: if with_comparison_sampler {
+                Some(wgpu::CompareFunction::LessEqual)
+            } else {
+                None
+            },
             ..Default::default()
         });
 

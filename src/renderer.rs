@@ -15,8 +15,6 @@ pub struct Renderer {
     pub surface_texture_format: TextureFormat,
 
     surface: wgpu::Surface<'static>,
-
-    depth_texture: texture::SampledTexture,
 }
 
 impl Renderer {
@@ -102,15 +100,12 @@ impl Renderer {
         };
         surface.configure(&device, &config);
 
-        let depth_texture = Renderer::create_depth_texture(&device, config.width, config.height);
-
         Renderer {
             surface,
             device,
             queue,
             config,
             size,
-            depth_texture,
             surface_texture_format,
         }
     }
@@ -124,6 +119,7 @@ impl Renderer {
                 depth_or_array_layers: 1,
             },
             "Main depth texture",
+            false,
         )
     }
 
@@ -132,8 +128,6 @@ impl Renderer {
         self.config.width = new_size.width;
         self.config.height = new_size.height;
         self.surface.configure(&self.device, &self.config);
-        self.depth_texture =
-            Renderer::create_depth_texture(&self.device, self.config.width, self.config.height);
     }
 
     pub fn get_encoder(&self) -> CommandEncoder {

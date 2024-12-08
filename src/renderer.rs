@@ -78,7 +78,7 @@ impl Renderer {
         let surface_texture_format = TextureFormat::Rgba8Unorm;
         if !surface_capabilities
             .formats
-            .contains(&TextureFormat::Rgba8Unorm)
+            .contains(&surface_texture_format)
         {
             panic!(
                 "Format {:?} is not supported as the main render target",

@@ -171,7 +171,14 @@ impl SampledTexture {
             | wgpu::TextureUsages::COPY_DST
             | wgpu::TextureUsages::STORAGE_BINDING;
         let dimension = TextureDimension::D2;
-        let mip_count = size.max_mips(dimension);
+
+        let mip_count = match usage {
+            TextureUsage::Albedo
+            | TextureUsage::Normal
+            | TextureUsage::Metalness
+            | TextureUsage::Roughness => size.max_mips(dimension),
+            TextureUsage::HdrAlbedo => 1,
+        };
 
         let texture = device.create_texture(&wgpu::TextureDescriptor {
             label,

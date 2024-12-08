@@ -37,7 +37,8 @@ fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
     }
 
     // // Gamma correction
-    let gamma_corrected_color = vec4<f32>(pow(ldr_color, vec3(1.0 / 2.2)), 1.0);
+    // let gamma_corrected_color = vec4<f32>(pow(ldr_color, vec3(1.0 / 2.2)), 1.0);
+    let gamma_corrected_color = vec4(ldr_color, 1.0);
 
     textureStore(destination_texture, pixel_coords, gamma_corrected_color);
 }

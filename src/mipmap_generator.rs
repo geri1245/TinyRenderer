@@ -117,7 +117,7 @@ impl MipMapGenerator {
             .unwrap_or(texture.descriptor.extents.max_mips(TextureDimension::D2));
 
         // Don't go over the max allocated mip level in the texture
-        let mip_count = num_of_mips_to_generate.max(texture.descriptor.mip_count);
+        let mip_count = num_of_mips_to_generate.min(texture.descriptor.mip_count);
 
         let mip_configs = Self::create_mip_generator_bind_groups(
             device,

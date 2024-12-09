@@ -1,9 +1,10 @@
 use core::f32;
-use std::{ops::RangeInclusive, str::from_utf8, time::Duration};
+use std::{collections::HashMap, str::from_utf8, time::Duration};
 
 use crossbeam_channel::Sender;
 use egui::{Button, FontId, Label, Separator, Ui, Widget};
 use egui_wgpu::ScreenDescriptor;
+use ui_item::{SetPropertyFromUiParams, UiDisplayParam};
 use wgpu::{CommandEncoder, TextureFormat};
 
 use crate::gui_helpers::EguiRenderer;
@@ -21,7 +22,7 @@ pub enum GuiEvent {
     RecompileShaders,
     LightPositionChanged { new_position: [f32; 3] },
     ButtonClicked(GuiButton),
-    FieldValueChanged(String, f32),
+    PropertyValueChanged((String, SetPropertyFromUiParams)),
 }
 
 struct GuiNotification {
@@ -69,9 +70,6 @@ struct AppInfo {
 pub struct GuiParams {
     pub point_light_position: [f32; 3],
     gui_size: [f32; 2],
-    pub random_parameter: f32,
-    pub tone_mapping_method: u32,
-    pub scale_factor: f32,
 }
 
 pub struct Gui {
@@ -79,6 +77,7 @@ pub struct Gui {
     sender: Sender<GuiEvent>,
     gui_params: GuiParams,
     app_info: AppInfo,
+    registered_items: HashMap<String, Vec<UiDisplayParam>>,
 }
 
 impl Gui {
@@ -91,10 +90,7 @@ impl Gui {
 
         let gui_params = GuiParams {
             point_light_position: [10.0, 20.0, 0.0],
-            random_parameter: 1.0,
-            scale_factor: 1.0,
             gui_size: [500.0, 300.0],
-            tone_mapping_method: 1,
         };
 
         Gui {
@@ -106,45 +102,70 @@ impl Gui {
                 frame_time: 0.0,
                 fps_counter: 0,
             },
+            registered_items: HashMap::new(),
         }
     }
 
-    fn add_float_slider_with_change_notification(
-        ui: &mut Ui,
-        value: &mut f32,
-        name: String,
-        range: RangeInclusive<f32>,
-        sender: &mut Sender<GuiEvent>,
-    ) {
-        ui.horizontal(|ui| {
-            ui.add(Label::new(&name));
-            ui.add(Separator::default().vertical());
-            let slider_response = ui.add(egui::Slider::new(value, range).smart_aim(false));
-
-            if slider_response.changed() {
-                sender
-                    .try_send(GuiEvent::FieldValueChanged(name, *value))
-                    .unwrap();
-            }
-        });
+    pub fn register_item(&mut self, category: String, items: Vec<UiDisplayParam>) -> bool {
+        let insertion_result = self.registered_items.insert(category, items);
+        insertion_result.is_none()
     }
 
-    fn add_integer_slider_with_change_notification(
+    fn add_item_with_change_notification(
         ui: &mut Ui,
-        value: &mut u32,
-        name: String,
-        range: RangeInclusive<u32>,
+        category: &String,
+        display_param: &mut UiDisplayParam,
         sender: &mut Sender<GuiEvent>,
     ) {
         ui.horizontal(|ui| {
-            ui.add(Label::new(&name));
+            ui.add(Label::new(&display_param.name));
             ui.add(Separator::default().vertical());
-            let slider_response = ui.add(egui::Slider::new(value, range).integer());
 
-            if slider_response.changed() {
-                sender
-                    .try_send(GuiEvent::FieldValueChanged(name, *value as f32))
-                    .unwrap();
+            match &mut display_param.value {
+                ui_item::UiDisplayDescription::Float(float_desc) => {
+                    let slider_response = ui.add(
+                        egui::Slider::new(&mut float_desc.value, float_desc.min..=float_desc.max)
+                            .smart_aim(false),
+                    );
+
+                    if slider_response.changed() {
+                        sender
+                            .try_send(GuiEvent::PropertyValueChanged((
+                                category.clone(),
+                                SetPropertyFromUiParams {
+                                    name: display_param.name.clone(),
+                                    value: ui_item::SetPropertyFromUiDescription::Float(
+                                        ui_item::SetNumberFromUiDescription {
+                                            value: float_desc.value,
+                                        },
+                                    ),
+                                },
+                            )))
+                            .unwrap();
+                    }
+                }
+                ui_item::UiDisplayDescription::UInt(uint_desc) => {
+                    let slider_response = ui.add(
+                        egui::Slider::new(&mut uint_desc.value, uint_desc.min..=uint_desc.max)
+                            .smart_aim(false),
+                    );
+
+                    if slider_response.changed() {
+                        sender
+                            .try_send(GuiEvent::PropertyValueChanged((
+                                category.clone(),
+                                SetPropertyFromUiParams {
+                                    name: display_param.name.clone(),
+                                    value: ui_item::SetPropertyFromUiDescription::UInt(
+                                        ui_item::SetNumberFromUiDescription {
+                                            value: uint_desc.value,
+                                        },
+                                    ),
+                                },
+                            )))
+                            .unwrap();
+                    }
+                }
             }
         });
     }
@@ -216,23 +237,17 @@ impl Gui {
                         0.0..=2000.0,
                     ));
 
-                    ui.add(Separator::default().horizontal());
-
-                    Self::add_float_slider_with_change_notification(
-                        ui,
-                        &mut self.gui_params.random_parameter,
-                        "random parameter".into(),
-                        0.0..=5.0,
-                        &mut self.sender,
-                    );
-
-                    Self::add_integer_slider_with_change_notification(
-                        ui,
-                        &mut self.gui_params.tone_mapping_method,
-                        "tone mapping method".into(),
-                        0..=5,
-                        &mut self.sender,
-                    );
+                    for (category, items) in &mut self.registered_items {
+                        ui.add(Separator::default().horizontal());
+                        for item in items {
+                            Self::add_item_with_change_notification(
+                                ui,
+                                &category,
+                                item,
+                                &mut self.sender,
+                            );
+                        }
+                    }
 
                     ui.add(Separator::default().horizontal());
 

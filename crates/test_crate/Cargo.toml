@@ -1,0 +1,8 @@
+[package]
+name = "test_crate"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ui_item = { path = "../ui_item" }
+ui_item_derive = { path = "../ui_item_derive" }

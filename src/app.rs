@@ -16,6 +16,7 @@ use crate::{frame_timer::BasicTimer, renderer::Renderer};
 use crossbeam_channel::{unbounded, Receiver};
 use std::path::Path;
 use std::time::Duration;
+use ui_item::{UiDisplayable, UiSettable};
 use wgpu::TextureViewDescriptor;
 use winit::event::{ElementState, KeyEvent, WindowEvent};
 use winit::keyboard::{KeyCode, PhysicalKey};
@@ -55,7 +56,7 @@ impl App {
         let (gui_event_sender, gui_event_receiver) = unbounded::<GuiEvent>();
         let mut resource_loader = ResourceLoader::new(&renderer.device, &renderer.queue).await;
 
-        let gui = Gui::new(&window, &renderer.device, gui_event_sender);
+        let mut gui = Gui::new(&window, &renderer.device, gui_event_sender);
 
         let world_renderer: WorldRenderer =
             WorldRenderer::new(&renderer, &mut resource_loader).await;
@@ -85,6 +86,11 @@ impl App {
                 usages: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
                 label: "Global GPU params".into(),
             },
+        );
+
+        gui.register_item(
+            "gpu_params".to_string(),
+            global_gpu_params.get_ui_description(),
         );
 
         let mip_map_generator = MipMapGenerator::new(&renderer.device).await;
@@ -257,25 +263,16 @@ impl App {
                 GuiEvent::RecompileShaders => self.try_recompile_shaders(),
                 GuiEvent::ButtonClicked(button) => self.handle_gui_button_pressed(button),
                 GuiEvent::LightPositionChanged { .. } => {}
-                GuiEvent::FieldValueChanged(name, new_value) => {
-                    let data = self.gpu_rendering_params.get_data();
-                    if name == "random parameter" {
-                        self.gpu_rendering_params.update_data(
-                            &self.renderer.queue,
-                            GlobalGPUParams {
-                                random_param: new_value,
-                                ..data
-                            },
-                        );
-                    } else if name == "tone mapping method" {
-                        self.gpu_rendering_params.update_data(
-                            &self.renderer.queue,
-                            GlobalGPUParams {
-                                tone_mapping_type: new_value as u32,
-                                ..data
-                            },
-                        );
-                    }
+                GuiEvent::PropertyValueChanged((category, value_changed_params)) => {
+                    let handled = match category.as_str() {
+                        "gpu_params" => {
+                            self.gpu_rendering_params
+                                .get_mut_data(&self.renderer.queue)
+                                .try_set_value_from_ui(value_changed_params);
+                            true
+                        }
+                        _ => false,
+                    };
                 }
             }
         }

@@ -309,12 +309,10 @@ impl WorldRenderer {
         {
             // Unfortunately I can't do this in the same pass, because of the pass' and encoder's lifetime
             {
-                let mut compute_pass = encoder
-                    .begin_compute_pass(&wgpu::ComputePassDescriptor {
-                        label: Some("Postprocessing"),
-                        timestamp_writes: None,
-                    })
-                    .forget_lifetime();
+                let mut compute_pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                    label: Some("Postprocessing"),
+                    timestamp_writes: None,
+                });
 
                 self.post_process_manager.render_dummy(
                     &mut compute_pass,

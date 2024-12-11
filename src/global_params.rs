@@ -10,7 +10,7 @@ use ui_item_derive::{UiDisplayable, UiSettable};
 pub struct GlobalGPUParams {
     pub random_param: f32,
     pub tone_mapping_type: u32,
-    pub random_param2: f32,
+    pub ssr_thickness: f32,
 }
 
 impl Default for GlobalGPUParams {
@@ -18,7 +18,7 @@ impl Default for GlobalGPUParams {
         Self {
             random_param: 1.0,
             tone_mapping_type: 1,
-            random_param2: 2.0,
+            ssr_thickness: 0.01,
         }
     }
 }

@@ -200,12 +200,12 @@ fn get_diffuse_irradiance(normal: vec3<f32>, view: vec3<f32>, roughness: f32, al
 @compute
 @workgroup_size(8, 8, 1)
 fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
-    let destination_texture_size = vec2(textureDimensions(destination_texture).x, textureDimensions(destination_texture).y);
+    let destination_texture_size = textureDimensions(destination_texture);
     
     // Check if we are not indexing out of our textures
     if any(id.xy > destination_texture_size) { return; }
 
-    let uv = vec2(f32(id.x), f32(id.y)) / vec2<f32>(destination_texture_size);
+    let uv = (vec2<f32>(id.xy) + vec2(0.5)) / vec2<f32>(destination_texture_size);
 
     let normal = normalize(textureSampleLevel(t_normal, s_normal, uv, 0.0).xyz);
     let albedo_and_shininess = textureSampleLevel(t_albedo, s_albedo, uv, 0.0);

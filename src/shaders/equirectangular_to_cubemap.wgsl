@@ -34,6 +34,10 @@ fn vs_main(
     return output;
 }
 
+fn hdr_decode(original_color: vec3<f32>) -> vec3<f32> {
+    return pow(original_color, vec3(2.2));
+}
+
 @group(1)
 @binding(0)
 var t_equirectangular: texture_2d<f32>;
@@ -56,5 +60,5 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let uv = sample_spherical_map(normalize(input.local_position));
     let color = textureSample(t_equirectangular, s_equirectangular, uv).rgb;
 
-    return vec4(color, 1.0);
+    return vec4(hdr_decode(color), 1.0);
 }

@@ -252,7 +252,7 @@ impl SampledTexture {
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
             compare: if with_comparison_sampler {
-                Some(wgpu::CompareFunction::LessEqual)
+                Some(wgpu::CompareFunction::Greater)
             } else {
                 None
             },

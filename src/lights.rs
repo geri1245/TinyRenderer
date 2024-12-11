@@ -2,7 +2,7 @@ use std::f32::consts;
 
 use glam::{Mat4, Vec3, Vec3Swizzles};
 
-use crate::instance::TransformComponent;
+use crate::{instance::TransformComponent, math::reverse_z_matrix};
 
 const POINT_LIGHT_FAR_PLANE: f32 = 100.0;
 const DIRECTIONAL_LIGHT_FAR_PLANE: f32 = 250.0;
@@ -94,12 +94,13 @@ impl PointLightRenderData {
     }
 
     pub fn get_viewprojs_raw(&self) -> Vec<LightRawSmall> {
-        let proj = glam::Mat4::perspective_rh(
-            consts::FRAC_PI_2,
-            1.0,
-            self.light_params.near_plane,
-            self.light_params.far_plane,
-        );
+        let proj = reverse_z_matrix()
+            * glam::Mat4::perspective_rh(
+                consts::FRAC_PI_2,
+                1.0,
+                self.light_params.near_plane,
+                self.light_params.far_plane,
+            );
 
         const DIFF_AND_UP_VECTORS: [(Vec3, Vec3); 6] = [
             (Vec3::X, Vec3::Y),
@@ -137,12 +138,13 @@ impl PointLightRenderData {
             Vec3::ZERO,
             Vec3::new(0.0_f32, 1.0, 0.0),
         );
-        let proj = glam::Mat4::perspective_rh(
-            consts::FRAC_PI_3,
-            1.0,
-            self.light_params.near_plane,
-            self.light_params.far_plane,
-        );
+        let proj = reverse_z_matrix()
+            * glam::Mat4::perspective_rh(
+                consts::FRAC_PI_3,
+                1.0,
+                self.light_params.near_plane,
+                self.light_params.far_plane,
+            );
         let view_proj = proj * view;
         LightRaw {
             light_view_proj: view_proj.to_cols_array_2d(),

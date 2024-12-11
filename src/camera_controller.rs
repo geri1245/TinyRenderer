@@ -8,10 +8,9 @@ use winit::{
 
 use crate::{
     bind_group_layout_descriptors,
-    buffer::{
-        create_bind_group_from_buffer_entire_binding_init, GpuBufferCreationOptions,
-    },
+    buffer::{create_bind_group_from_buffer_entire_binding_init, GpuBufferCreationOptions},
     camera::{Camera, CameraEvent},
+    math::reverse_z_matrix,
 };
 
 /// Contains the rendering-related concepts of the camera
@@ -119,10 +118,10 @@ impl CameraController {
 
     fn get_raw(camera: &Camera) -> CameraRaw {
         let view = Mat4::look_at_rh(camera.position, camera.get_target(), camera.up);
-        let proj = Mat4::perspective_rh(camera.fov_y, camera.aspect, camera.znear, camera.zfar);
+        let proj = reverse_z_matrix()
+            * Mat4::perspective_rh(camera.fov_y, camera.aspect, camera.znear, camera.zfar);
 
         let pos = camera.get_position();
-        let pos_homogenous = Vec4::new(pos.x, pos.y, pos.z, 1.0_f32);
 
         CameraRaw {
             view_proj: (proj * view).to_cols_array_2d(),
@@ -130,7 +129,7 @@ impl CameraController {
             view_inv: view.transpose().to_cols_array_2d(),
             proj: proj.to_cols_array_2d(),
             proj_inv: proj.inverse().to_cols_array_2d(),
-            camera_pos: pos_homogenous.to_array(),
+            camera_pos: [pos.x, pos.y, pos.z, 1.0],
         }
     }
 

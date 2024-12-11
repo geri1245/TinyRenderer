@@ -120,7 +120,7 @@ impl GBufferGeometryRP {
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: texture::SampledTexture::DEPTH_FORMAT,
                 depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::LessEqual,
+                depth_compare: wgpu::CompareFunction::Greater,
                 stencil: wgpu::StencilState::default(),
                 bias: wgpu::DepthBiasState::default(),
             }),

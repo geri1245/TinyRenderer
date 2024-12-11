@@ -102,7 +102,7 @@ impl SkyboxRP {
             depth_stencil: Some(wgpu::DepthStencilState {
                 format: texture::SampledTexture::DEPTH_FORMAT,
                 depth_write_enabled: false,
-                depth_compare: wgpu::CompareFunction::LessEqual,
+                depth_compare: wgpu::CompareFunction::GreaterEqual,
                 stencil: wgpu::StencilState::default(),
                 bias: wgpu::DepthBiasState::default(),
             }),

@@ -27,7 +27,7 @@ fn vs_sky(@builtin(vertex_index) vertex_index: u32) -> SkyOutput {
     let pos = vec4<f32>(
         f32(tmp1) * 4.0 - 1.0,
         f32(tmp2) * 4.0 - 1.0,
-        1.0,
+        0.0,
         1.0
     );
 

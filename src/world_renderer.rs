@@ -36,7 +36,6 @@ pub struct WorldRenderer {
     equirec_to_cubemap_renderer: EquirectangularToCubemapRenderer,
     pub object_picker: ObjectPickManager,
 
-    first_render: bool,
     actions_to_process: VecDeque<RenderingAction>,
 
     renderables: HashMap<u32, Renderable>,
@@ -113,7 +112,6 @@ impl WorldRenderer {
             post_process_manager,
             equirec_to_cubemap_renderer,
             diffuse_irradiance_renderer,
-            first_render: true,
             actions_to_process: VecDeque::new(),
             renderables: HashMap::new(),
             pending_renderables: Vec::new(),
@@ -401,9 +399,6 @@ impl WorldRenderer {
                 self.add_action(RenderingAction::BakeDiffuseIrradianceMap);
             }
         }
-
-        // Force the single-shot renderers to render again
-        self.first_render = true;
 
         Ok(())
     }

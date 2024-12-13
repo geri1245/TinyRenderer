@@ -5,7 +5,7 @@ use wgpu::{
 use crate::{
     bind_group_layout_descriptors::{self, COMPUTE_FINAL_STAGE, COMPUTE_PING_PONG},
     pipelines::{ShaderCompilationSuccess, SimpleCP},
-    texture::{SampledTexture, SampledTextureDescriptor},
+    texture::{SampledTexture, SampledTextureDescriptor, SamplingType},
 };
 
 const POST_PROCESS_SHADER_SOURCE: &'static str = "src/shaders/post_process.wgsl";
@@ -146,6 +146,7 @@ impl PostProcessManager {
                         },
                         dimension: TextureDimension::D2,
                         mip_count: 1,
+                        sampling_type: SamplingType::Nearest,
                     },
                     &format!("PingPong texture for postprocessing {i}"),
                 );

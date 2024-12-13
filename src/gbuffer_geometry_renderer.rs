@@ -10,7 +10,7 @@ use crate::{
     pipelines::{
         GBufferGeometryRP, GBufferTextures, PbrParameterVariation, ShaderCompilationSuccess,
     },
-    texture::{SampledTexture, SampledTextureDescriptor},
+    texture::{SampledTexture, SampledTextureDescriptor, SamplingType},
 };
 
 const GBUFFER_TEXTURE_FORMAT: TextureFormat = TextureFormat::Rgba16Float;
@@ -95,6 +95,7 @@ impl GBufferGeometryRenderer {
             extents: texture_extents,
             dimension: TextureDimension::D2,
             mip_count: 1,
+            sampling_type: SamplingType::Nearest,
         };
 
         let position_texture =
@@ -112,8 +113,9 @@ impl GBufferGeometryRenderer {
         let depth_texture = SampledTexture::create_depth_texture(
             device,
             texture_extents,
-            "GBuffer depth texture",
             false,
+            SamplingType::Nearest,
+            "GBuffer depth texture",
         );
 
         GBufferTextures {

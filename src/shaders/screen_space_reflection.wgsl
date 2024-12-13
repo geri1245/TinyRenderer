@@ -129,8 +129,8 @@ fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
         color = source_color;
     }
 
-    // let color_overrid = textureSampleLevel(gbuffer_albedo_texture, gbuffer_albedo_sampler, texture_coords, 0.0).xyz;
-    let color_overrid = vec3(increment * 100.0);
+    // let color_override = textureSampleLevel(gbuffer_albedo_texture, gbuffer_albedo_sampler, texture_coords, 0.0).xyz;
+    let color_override = vec3(increment * 100.0);
 
     textureStore(destination_texture, id.xy, vec4<f32>(source_color, 1.0));
 }

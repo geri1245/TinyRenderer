@@ -17,8 +17,8 @@ use crate::{
         PointLightRenderData,
     },
     model::Renderable,
-    pipelines::ShadowRP,
-    texture::SampledTexture,
+    pipelines::{ShaderCompilationSuccess, ShadowRP},
+    texture::{SampledTexture, SamplingType},
     world::World,
 };
 
@@ -290,8 +290,9 @@ impl LightController {
                 depth_or_array_layers: lights.len() as u32,
                 ..SHADOW_SIZE
             },
-            "Directional shadow texture",
             true,
+            SamplingType::Nearest,
+            "Directional shadow texture",
         );
 
         let mut directional_light_render_datas = Vec::new();
@@ -343,8 +344,9 @@ impl LightController {
                 depth_or_array_layers: 6 * point_light_count,
                 ..SHADOW_SIZE
             },
-            "Point shadow texture",
             true,
+            SamplingType::Nearest,
+            "Point shadow texture",
         );
 
         // Map through each light index and through each cube face for each light and create
@@ -532,9 +534,10 @@ impl LightController {
         encoder.pop_debug_group();
     }
 
-    pub fn try_recompile_shaders(&mut self, device: &Device) -> anyhow::Result<()> {
-        block_on(self.shadow_rp.try_recompile_shader(device))?;
-
-        Ok(())
+    pub async fn try_recompile_shaders(
+        &mut self,
+        device: &Device,
+    ) -> anyhow::Result<ShaderCompilationSuccess> {
+        self.shadow_rp.try_recompile_shader(device).await
     }
 }

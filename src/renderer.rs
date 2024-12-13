@@ -1,9 +1,7 @@
 use wgpu::{
-    CommandEncoder, CommandEncoderDescriptor, Device, Extent3d, InstanceDescriptor, MemoryHints,
-    SurfaceTexture, TextureFormat,
+    CommandEncoder, CommandEncoderDescriptor, InstanceDescriptor, MemoryHints, SurfaceTexture,
+    TextureFormat,
 };
-
-use crate::texture::{self, SampledTexture};
 
 pub const MAX_LIGHTS: usize = 10;
 
@@ -108,19 +106,6 @@ impl Renderer {
             size,
             surface_texture_format,
         }
-    }
-
-    fn create_depth_texture(device: &Device, width: u32, height: u32) -> SampledTexture {
-        SampledTexture::create_depth_texture(
-            device,
-            Extent3d {
-                width,
-                height,
-                depth_or_array_layers: 1,
-            },
-            "Main depth texture",
-            false,
-        )
     }
 
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {

@@ -13,6 +13,7 @@ use crate::world::World;
 use crate::world_loader::{load_level, save_level};
 use crate::world_renderer::WorldRenderer;
 use crate::{frame_timer::BasicTimer, renderer::Renderer};
+use async_std::task::block_on;
 use crossbeam_channel::{unbounded, Receiver};
 use std::path::Path;
 use std::time::Duration;
@@ -138,7 +139,7 @@ impl App {
         {
             WindowEventHandlingResult::RequestAction(action) => {
                 if matches!(action, WindowEventHandlingAction::RecompileShaders) {
-                    self.try_recompile_shaders();
+                    self.recompile_shaders();
                     return WindowEventHandlingResult::Handled;
                 } else {
                     return WindowEventHandlingResult::RequestAction(action);
@@ -260,7 +261,7 @@ impl App {
     fn handle_events_received_from_gui(&mut self) {
         while let Ok(event) = self.gui_event_receiver.try_recv() {
             match event {
-                GuiEvent::RecompileShaders => self.try_recompile_shaders(),
+                GuiEvent::RecompileShaders => self.recompile_shaders(),
                 GuiEvent::ButtonClicked(button) => self.handle_gui_button_pressed(button),
                 GuiEvent::LightPositionChanged { .. } => {}
                 GuiEvent::PropertyValueChanged((category, value_changed_params)) => {
@@ -278,16 +279,21 @@ impl App {
         }
     }
 
-    fn try_recompile_shaders(&mut self) {
-        let result = match self
-            .light_controller
+    async fn recompile_shaders_internal(&mut self) -> anyhow::Result<()> {
+        self.light_controller
             .try_recompile_shaders(&self.renderer.device)
-        {
-            Ok(_) => self
-                .world
-                .recompile_shaders_if_needed(&self.renderer.device),
-            error => error,
-        };
+            .await?;
+
+        self.mip_map_generator
+            .try_recompile_shader(&self.renderer.device)
+            .await?;
+
+        self.world
+            .recompile_shaders_if_needed(&self.renderer.device)
+    }
+
+    fn recompile_shaders(&mut self) {
+        let result = block_on(self.recompile_shaders_internal());
         self.gui
             .push_update(GuiUpdateEvent::ShaderCompilationResult(result));
     }

@@ -6,6 +6,12 @@ use wgpu::{Extent3d, TextureDimension, TextureFormat, TextureUsages};
 
 const SKYBOX_TEXTURE_SIZE: u32 = 512;
 
+#[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize)]
+pub enum SamplingType {
+    Nearest,
+    Linear,
+}
+
 #[derive(Debug)]
 pub struct SampledTexture {
     pub texture: wgpu::Texture,
@@ -36,6 +42,7 @@ pub struct SampledTextureDescriptor {
     /// This is not the number of actual, existing mips. In most cases we create the texture with some mip count and
     /// only later fill up those mip levels. But in most cases these mips should exist
     pub mip_count: u32,
+    pub sampling_type: SamplingType,
 }
 
 #[derive(Serialize, Deserialize, Hash, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -98,13 +105,22 @@ impl SampledTexture {
                     bytemuck::cast_slice(&data),
                     size,
                     usage,
+                    SamplingType::Linear,
                     label,
                 )
             }
             TextureUsage::HdrAlbedo => panic!("Hdr not supported in this function"),
             TextureUsage::Albedo | TextureUsage::Normal => {
                 let data = &rgba.into_vec();
-                Self::from_image(device, queue, data, size, usage, label)
+                Self::from_image(
+                    device,
+                    queue,
+                    data,
+                    size,
+                    usage,
+                    SamplingType::Linear,
+                    label,
+                )
             }
         }
     }
@@ -138,6 +154,7 @@ impl SampledTexture {
             bytemuck::cast_slice(&bytes),
             texture_size,
             TextureUsage::HdrAlbedo,
+            SamplingType::Linear,
             label,
         )
     }
@@ -148,6 +165,7 @@ impl SampledTexture {
         bytes: &[u8],
         size: Extent3d,
         usage: TextureUsage,
+        sampling_type: SamplingType,
         label: Option<&str>,
     ) -> Result<Self> {
         let format = match usage {
@@ -204,12 +222,20 @@ impl SampledTexture {
 
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Linear,
-            ..Default::default()
-        });
+        let sampler = match sampling_type {
+            SamplingType::Nearest => device.create_sampler(&wgpu::SamplerDescriptor {
+                mag_filter: wgpu::FilterMode::Nearest,
+                min_filter: wgpu::FilterMode::Nearest,
+                mipmap_filter: wgpu::FilterMode::Nearest,
+                ..Default::default()
+            }),
+            SamplingType::Linear => device.create_sampler(&wgpu::SamplerDescriptor {
+                mag_filter: wgpu::FilterMode::Linear,
+                min_filter: wgpu::FilterMode::Linear,
+                mipmap_filter: wgpu::FilterMode::Linear,
+                ..Default::default()
+            }),
+        };
 
         Ok(Self {
             texture,
@@ -221,6 +247,7 @@ impl SampledTexture {
                 usages: gpu_usage,
                 dimension,
                 mip_count,
+                sampling_type,
             },
         })
     }
@@ -228,8 +255,9 @@ impl SampledTexture {
     pub fn create_depth_texture(
         device: &wgpu::Device,
         extent: wgpu::Extent3d,
-        label: &str,
         with_comparison_sampler: bool,
+        sampling_type: SamplingType,
+        label: &str,
     ) -> Self {
         let gpu_usage =
             wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING;
@@ -248,14 +276,22 @@ impl SampledTexture {
         let texture = device.create_texture(&desc);
 
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+        let compare_function = if with_comparison_sampler {
+            Some(wgpu::CompareFunction::Greater)
+        } else {
+            None
+        };
+
+        let filter_mode = match sampling_type {
+            SamplingType::Nearest => wgpu::FilterMode::Nearest,
+            SamplingType::Linear => wgpu::FilterMode::Linear,
+        };
+
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            compare: if with_comparison_sampler {
-                Some(wgpu::CompareFunction::Greater)
-            } else {
-                None
-            },
+            mag_filter: filter_mode,
+            min_filter: filter_mode,
+            compare: compare_function,
             ..Default::default()
         });
 
@@ -269,6 +305,7 @@ impl SampledTexture {
                 usages: gpu_usage,
                 dimension,
                 mip_count,
+                sampling_type,
             },
         }
     }
@@ -351,6 +388,7 @@ impl SampledTexture {
                 usages: gpu_usage,
                 dimension,
                 mip_count,
+                sampling_type: SamplingType::Linear,
             },
         }
     }

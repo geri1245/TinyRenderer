@@ -13,7 +13,7 @@ use glam::{Vec2, Vec3};
 use crate::mipmap_generator::MipMapGenerator;
 use crate::model::ObjectWithMaterial;
 use crate::primitive_shapes::square;
-use crate::texture::TextureSourceDescriptor;
+use crate::texture::{SamplingType, TextureSourceDescriptor};
 use crate::{
     file_loader::ImageLoader,
     material::{MaterialRenderData, PbrMaterialDescriptor},
@@ -142,6 +142,7 @@ impl ResourceLoader {
                         &image,
                         texture_size,
                         descriptor.usage,
+                        SamplingType::Linear,
                         Some(&path),
                     )
                     .unwrap(),

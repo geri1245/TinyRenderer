@@ -10,7 +10,7 @@ use crate::{
     model::Renderable,
     pipelines::{ObjectPickerRP, ShaderCompilationSuccess},
     pollable_gpu_buffer::PollableGpuBuffer,
-    texture::{SampledTexture, SampledTextureDescriptor},
+    texture::{SampledTexture, SampledTextureDescriptor, SamplingType},
 };
 
 const OBJECT_PICKER_TEXTURE_FORMAT: TextureFormat = TextureFormat::R32Uint;
@@ -156,6 +156,7 @@ impl ObjectPickManager {
             extents: texture_extents,
             dimension: TextureDimension::D2,
             mip_count: 1,
+            sampling_type: SamplingType::Nearest,
         };
 
         SampledTexture::new(device, descriptor, "Texture for object picking")

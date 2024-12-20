@@ -33,6 +33,7 @@ mod player_controller;
 mod pollable_gpu_buffer;
 mod post_process_manager;
 mod primitive_shapes;
+mod render_pipeline;
 mod render_pipeline_layout;
 mod renderer;
 mod resource_loader;

@@ -2,10 +2,7 @@ use wgpu::{Device, PipelineCompilationOptions, RenderPipeline, ShaderModule};
 
 use crate::{bind_group_layout_descriptors, camera_controller::CameraController, texture};
 
-use super::{
-    shader_compiler::{ShaderCompilationResult, ShaderCompiler},
-    ShaderCompilationSuccess,
-};
+use super::shader_compiler::{ShaderCompilationResult, ShaderCompilationSuccess, ShaderCompiler};
 
 const SHADER_SOURCE: &'static str = "src/shaders/skybox.wgsl";
 
@@ -19,7 +16,7 @@ impl SkyboxRP {
         device: &wgpu::Device,
         texture_format: wgpu::TextureFormat,
     ) -> anyhow::Result<Self> {
-        let mut shader_compiler = ShaderCompiler::new(SHADER_SOURCE);
+        let mut shader_compiler = ShaderCompiler::new(SHADER_SOURCE.to_string());
         let shader_compilation_result = shader_compiler.compile_shader_if_needed(device).await?;
 
         match shader_compilation_result {

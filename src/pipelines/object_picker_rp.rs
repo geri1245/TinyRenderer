@@ -8,10 +8,7 @@ use crate::{
     vertex,
 };
 
-use super::{
-    shader_compiler::{ShaderCompilationResult, ShaderCompiler},
-    ShaderCompilationSuccess,
-};
+use super::shader_compiler::{ShaderCompilationResult, ShaderCompilationSuccess, ShaderCompiler};
 
 const SHADER_SOURCE: &'static str = "src/shaders/pick.wgsl";
 
@@ -33,7 +30,7 @@ impl ObjectPickerRP {
         color_format: TextureFormat,
         depth_format: wgpu::TextureFormat,
     ) -> anyhow::Result<Self> {
-        let mut shader_compiler = ShaderCompiler::new(SHADER_SOURCE);
+        let mut shader_compiler = ShaderCompiler::new(SHADER_SOURCE.to_string());
         let shader_compilation_result = shader_compiler.compile_shader_if_needed(device).await?;
 
         match shader_compilation_result {
@@ -168,20 +165,18 @@ impl ObjectPickerRP {
 
         for renderable in renderables
             .clone()
-            .clone()
             .filter(|renderable| renderable.description.rendering_options.use_depth_test)
         {
-            renderable.render(render_pass, false, 0);
+            renderable.render(render_pass, None);
         }
 
         render_pass.set_pipeline(&self.render_pipeline_no_depth_test);
 
         for renderable in renderables
             .clone()
-            .clone()
             .filter(|renderable| !renderable.description.rendering_options.use_depth_test)
         {
-            renderable.render(render_pass, false, 0);
+            renderable.render(render_pass, None);
         }
     }
 }

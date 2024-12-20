@@ -3,10 +3,7 @@ use wgpu::{
     PipelineCompilationOptions, ShaderModule,
 };
 
-use super::{
-    shader_compiler::{ShaderCompilationResult, ShaderCompiler},
-    ShaderCompilationSuccess,
-};
+use super::shader_compiler::{ShaderCompilationResult, ShaderCompilationSuccess, ShaderCompiler};
 
 pub struct SimpleCP {
     pipeline: wgpu::ComputePipeline,
@@ -22,7 +19,7 @@ impl SimpleCP {
         shader_source: &'static str,
         label: &str,
     ) -> anyhow::Result<Self> {
-        let mut shader_compiler = ShaderCompiler::new(shader_source);
+        let mut shader_compiler = ShaderCompiler::new(shader_source.to_string());
         let shader_compilation_result = shader_compiler.compile_shader_if_needed(device).await?;
         let label = label.to_owned();
         let bind_group_layouts = bind_group_layout_descriptors

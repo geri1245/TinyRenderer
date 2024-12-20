@@ -16,11 +16,11 @@ pub enum ShaderCompilationSuccess {
 
 pub struct ShaderCompiler {
     last_compile_time: u64,
-    shader_source: &'static str,
+    shader_source: String,
 }
 
 impl ShaderCompiler {
-    pub fn new(source_path: &'static str) -> Self {
+    pub fn new(source_path: String) -> Self {
         Self {
             last_compile_time: 0,
             shader_source: source_path,

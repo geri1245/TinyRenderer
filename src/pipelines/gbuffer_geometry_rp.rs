@@ -11,10 +11,7 @@ use crate::{
     vertex,
 };
 
-use super::{
-    shader_compiler::{ShaderCompilationResult, ShaderCompiler},
-    ShaderCompilationSuccess,
-};
+use super::shader_compiler::{ShaderCompilationResult, ShaderCompilationSuccess, ShaderCompiler};
 
 const SHADER_SOURCE_TEXTURED: &'static str = "src/shaders/gbuffer_geometry.wgsl";
 const SHADER_SOURCE_FLAT_PARAMETER: &'static str =
@@ -141,7 +138,7 @@ impl GBufferGeometryRP {
             PbrParameterVariation::Texture => SHADER_SOURCE_TEXTURED,
             PbrParameterVariation::Flat => SHADER_SOURCE_FLAT_PARAMETER,
         };
-        let mut shader_compiler = ShaderCompiler::new(source);
+        let mut shader_compiler = ShaderCompiler::new(source.to_string());
         let shader_compilation_result = shader_compiler.compile_shader_if_needed(device).await?;
 
         match shader_compilation_result {
@@ -195,7 +192,7 @@ impl GBufferGeometryRP {
         render_pass.set_bind_group(2, &global_gpu_params_bind_group, &[]);
 
         for renderable in renderables {
-            renderable.render(render_pass, true, 0);
+            renderable.render(render_pass, Some(0));
         }
     }
 }

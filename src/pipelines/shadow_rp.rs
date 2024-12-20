@@ -8,10 +8,7 @@ use crate::{
     vertex,
 };
 
-use super::{
-    shader_compiler::{ShaderCompilationResult, ShaderCompiler},
-    ShaderCompilationSuccess,
-};
+use super::shader_compiler::{ShaderCompilationResult, ShaderCompilationSuccess, ShaderCompiler};
 
 const SHADER_SOURCE: &'static str = "src/shaders/shadow.wgsl";
 // TODO: share this with the shadow code, don't define this again
@@ -24,7 +21,7 @@ pub struct ShadowRP {
 
 impl ShadowRP {
     pub async fn new(device: &wgpu::Device) -> anyhow::Result<Self> {
-        let mut shader_compiler = ShaderCompiler::new(SHADER_SOURCE);
+        let mut shader_compiler = ShaderCompiler::new(SHADER_SOURCE.to_string());
         let shader_compilation_result = shader_compiler.compile_shader_if_needed(device).await?;
 
         match shader_compilation_result {
@@ -138,7 +135,7 @@ impl ShadowRP {
         for renderable in
             renderables.filter(|renderable| renderable.description.rendering_options.cast_shadows)
         {
-            renderable.render(&mut shadow_pass, false, 0);
+            renderable.render(&mut shadow_pass, None);
         }
     }
 }

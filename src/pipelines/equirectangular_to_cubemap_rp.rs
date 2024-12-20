@@ -8,10 +8,7 @@ use crate::{
     bind_group_layout_descriptors, buffer_content::BufferContent, model::Primitive, vertex,
 };
 
-use super::{
-    shader_compiler::{ShaderCompilationResult, ShaderCompiler},
-    ShaderCompilationSuccess,
-};
+use super::shader_compiler::{ShaderCompilationResult, ShaderCompilationSuccess, ShaderCompiler};
 
 const SHADER_SOURCE: &'static str = "src/shaders/equirectangular_to_cubemap.wgsl";
 
@@ -22,7 +19,7 @@ pub struct EquirectangularToCubemapRP {
 
 impl EquirectangularToCubemapRP {
     pub async fn new(device: &wgpu::Device, color_format: TextureFormat) -> anyhow::Result<Self> {
-        let mut shader_compiler = ShaderCompiler::new(SHADER_SOURCE);
+        let mut shader_compiler = ShaderCompiler::new(SHADER_SOURCE.to_string());
         let shader_compilation_result = shader_compiler.compile_shader_if_needed(device).await?;
 
         match shader_compilation_result {

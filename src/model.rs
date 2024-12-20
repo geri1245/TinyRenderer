@@ -288,10 +288,9 @@ impl Renderable {
     pub fn render<'a>(
         &'a self,
         render_pass: &mut RenderPass<'a>,
-        use_material: bool,
-        material_group_index: u32,
+        material_group_index: Option<u32>,
     ) {
-        if use_material {
+        if let Some(material_group_index) = material_group_index {
             self.material_render_data
                 .bind_render_pass(render_pass, material_group_index);
         }

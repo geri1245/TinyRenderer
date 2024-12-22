@@ -94,7 +94,7 @@ impl SimpleCP {
             compilation_options: PipelineCompilationOptions::default(),
             label: Some(&format!("{label} pipeline")),
             module: shader,
-            entry_point: "cs_main",
+            entry_point: Some("cs_main"),
             layout: Some(&pipeline_layout),
             cache: None,
         })
@@ -109,7 +109,7 @@ impl SimpleCP {
         compute_pass.set_pipeline(&self.pipeline);
 
         for (index, bind_group) in bind_groups.iter().enumerate() {
-            compute_pass.set_bind_group(index as u32, bind_group, &[]);
+            compute_pass.set_bind_group(index as u32, *bind_group, &[]);
         }
 
         compute_pass.dispatch_workgroups(

@@ -37,7 +37,7 @@ struct VertexPickOutput {
 };
 
 @vertex
-fn vs_pick_main(
+fn vs_main(
     model: VertexInput,
     instance: InstanceInput,
 ) -> VertexPickOutput {
@@ -64,6 +64,6 @@ fn vs_pick_main(
 }
 
 @fragment
-fn fs_pick_main(in: VertexPickOutput) -> @location(0) u32 {
+fn fs_main(in: VertexPickOutput) -> @location(0) u32 {
     return in.object_id;
 }

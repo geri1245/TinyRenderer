@@ -61,7 +61,7 @@ impl MainRP {
             compilation_options: PipelineCompilationOptions::default(),
             label: Some("Compute pipeline that does the lighting from the gbuffer"),
             layout: Some(&render_pipeline_layout),
-            entry_point: "cs_main",
+            entry_point: Some("cs_main"),
             module: shader,
             cache: None,
         })
@@ -102,7 +102,7 @@ impl MainRP {
     ) {
         render_pass.set_pipeline(&self.compute_pipeline);
 
-        render_pass.set_bind_group(0, &light_controller.get_light_bind_group(), &[]);
+        render_pass.set_bind_group(0, light_controller.get_light_bind_group(), &[]);
         render_pass.set_bind_group(1, &camera_controller.bind_group, &[]);
         render_pass.set_bind_group(2, gbuffer_bind_group, &[]);
         render_pass.set_bind_group(3, shadow_bind_group, &[]);

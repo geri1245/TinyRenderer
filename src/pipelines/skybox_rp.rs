@@ -76,13 +76,13 @@ impl SkyboxRP {
             vertex: wgpu::VertexState {
                 compilation_options: PipelineCompilationOptions::default(),
                 module: &shader,
-                entry_point: "vs_sky",
+                entry_point: Some("vs_main"),
                 buffers: &[],
             },
             fragment: Some(wgpu::FragmentState {
                 compilation_options: PipelineCompilationOptions::default(),
                 module: &shader,
-                entry_point: "fs_sky",
+                entry_point: Some("fs_main"),
                 targets: &[Some(wgpu::ColorTargetState {
                     format: texture_format,
                     blend: Some(wgpu::BlendState {

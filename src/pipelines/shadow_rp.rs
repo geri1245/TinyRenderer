@@ -71,7 +71,7 @@ impl ShadowRP {
             vertex: wgpu::VertexState {
                 compilation_options: PipelineCompilationOptions::default(),
                 module: shader,
-                entry_point: "vs_main",
+                entry_point: Some("vs_main"),
                 buffers: &[
                     vertex::VertexRawWithTangents::buffer_layout(),
                     instance::SceneComponentRaw::buffer_layout(),
@@ -130,7 +130,7 @@ impl ShadowRP {
         });
 
         shadow_pass.set_pipeline(&self.pipeline);
-        shadow_pass.set_bind_group(0, &light_bind_group, &[light_bind_group_offset]);
+        shadow_pass.set_bind_group(0, light_bind_group, &[light_bind_group_offset]);
 
         for renderable in
             renderables.filter(|renderable| renderable.description.rendering_options.cast_shadows)

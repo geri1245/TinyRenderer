@@ -58,13 +58,13 @@ impl EquirectangularToCubemapRP {
             vertex: wgpu::VertexState {
                 compilation_options: PipelineCompilationOptions::default(),
                 module: shader,
-                entry_point: "vs_main",
+                entry_point: Some("vs_main"),
                 buffers: &[vertex::VertexRawWithTangents::buffer_layout()],
             },
             fragment: Some(FragmentState {
                 compilation_options: PipelineCompilationOptions::default(),
                 module: shader,
-                entry_point: "fs_main",
+                entry_point: Some("fs_main"),
                 targets: &[Some(ColorTargetState {
                     format: color_format,
                     blend: Some(wgpu::BlendState {

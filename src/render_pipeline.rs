@@ -162,7 +162,7 @@ impl RenderPipeline {
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: shader,
-                entry_point: &desc.vertex.entry_point,
+                entry_point: Some(&desc.vertex.entry_point),
                 buffers: &desc
                     .vertex
                     .vertex_layouts
@@ -173,7 +173,7 @@ impl RenderPipeline {
             },
             fragment: Some(FragmentState {
                 module: shader,
-                entry_point: &desc.fragment.entry_point,
+                entry_point: Some(&desc.fragment.entry_point),
                 targets: &desc
                     .fragment
                     .color_targets
@@ -219,7 +219,7 @@ impl RenderPipeline {
         render_pass.set_pipeline(&self.render_pipeline);
 
         for (index, bind_group) in bind_groups.iter().enumerate() {
-            render_pass.set_bind_group(index as u32, bind_group, &[]);
+            render_pass.set_bind_group(index as u32, *bind_group, &[]);
         }
     }
 

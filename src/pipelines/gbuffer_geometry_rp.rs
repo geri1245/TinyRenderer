@@ -90,7 +90,7 @@ impl GBufferGeometryRP {
             vertex: wgpu::VertexState {
                 compilation_options: PipelineCompilationOptions::default(),
                 module: shader,
-                entry_point: "vs_main",
+                entry_point: Some("vs_main"),
                 buffers: &[
                     vertex::VertexRawWithTangents::buffer_layout(),
                     instance::SceneComponentRaw::buffer_layout(),
@@ -99,7 +99,7 @@ impl GBufferGeometryRP {
             fragment: Some(wgpu::FragmentState {
                 compilation_options: PipelineCompilationOptions::default(),
                 module: &shader,
-                entry_point: "fs_main",
+                entry_point: Some("fs_main"),
                 targets: &[
                     default_color_write_state(textures.position.texture.format()),
                     default_color_write_state(textures.normal.texture.format()),
@@ -188,8 +188,8 @@ impl GBufferGeometryRP {
         global_gpu_params_bind_group: &'a BindGroup,
     ) {
         render_pass.set_pipeline(&self.render_pipeline);
-        render_pass.set_bind_group(1, &camera_bind_group, &[]);
-        render_pass.set_bind_group(2, &global_gpu_params_bind_group, &[]);
+        render_pass.set_bind_group(1, camera_bind_group, &[]);
+        render_pass.set_bind_group(2, global_gpu_params_bind_group, &[]);
 
         for renderable in renderables {
             renderable.render(render_pass, Some(0));

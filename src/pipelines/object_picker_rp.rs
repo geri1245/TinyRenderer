@@ -80,7 +80,7 @@ impl ObjectPickerRP {
             vertex: wgpu::VertexState {
                 compilation_options: PipelineCompilationOptions::default(),
                 module: shader,
-                entry_point: "vs_pick_main",
+                entry_point: Some("vs_main"),
                 buffers: &[
                     vertex::VertexRawWithTangents::buffer_layout(),
                     instance::SceneComponentRaw::buffer_layout(),
@@ -89,7 +89,7 @@ impl ObjectPickerRP {
             fragment: Some(FragmentState {
                 compilation_options: PipelineCompilationOptions::default(),
                 module: shader,
-                entry_point: "fs_pick_main",
+                entry_point: Some("fs_main"),
                 targets: &[Some(ColorTargetState {
                     format: color_format,
                     blend: None,

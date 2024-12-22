@@ -20,7 +20,7 @@ fn to_mat3(m: mat4x4<f32>) -> mat3x3<f32> {
 }
 
 @vertex
-fn vs_sky(@builtin(vertex_index) vertex_index: u32) -> SkyOutput {
+fn vs_main(@builtin(vertex_index) vertex_index: u32) -> SkyOutput {
     // hacky way to draw a large triangle
     let tmp1 = i32(vertex_index) / 2;
     let tmp2 = i32(vertex_index) & 1;
@@ -48,6 +48,6 @@ var r_texture: texture_cube<f32>;
 var r_sampler: sampler;
 
 @fragment
-fn fs_sky(vertex: SkyOutput) -> @location(0) vec4<f32> {
+fn fs_main(vertex: SkyOutput) -> @location(0) vec4<f32> {
     return textureSample(r_texture, r_sampler, vertex.viewDirection);
 }

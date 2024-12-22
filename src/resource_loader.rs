@@ -3,8 +3,9 @@ use std::fs::File;
 use std::rc::Rc;
 
 use anyhow::anyhow;
-use std::io::{BufRead, BufReader};
-use std::path::{Path, PathBuf};
+use gltf::Gltf;
+use std::io::BufReader;
+use std::path::PathBuf;
 use tobj::MTLLoadResult;
 use wgpu::{CommandEncoderDescriptor, Device, Extent3d, Queue};
 
@@ -65,9 +66,7 @@ impl ResourceLoader {
     fn load_primitive_shapes(
         device: &Device,
     ) -> anyhow::Result<HashMap<PrimitiveShape, Rc<Primitive>>> {
-        let bytes: Vec<u8> = include_bytes!("../assets/models/cube/cube.obj").into();
-        let mut reader = BufReader::new(&bytes[..]);
-        let mesh = Rc::new(load_obj(&mut reader, device, "cube/cube.obj".into())?);
+        let mesh = Rc::new(load_obj(device, "assets/models/cube/cube.obj".into())?);
 
         let mut primitive_shapes = HashMap::new();
         primitive_shapes.insert(PrimitiveShape::Cube, mesh);
@@ -166,8 +165,19 @@ impl ResourceLoader {
         let primitive = match &mesh_descriptor.mesh_source {
             MeshSource::PrimitiveInCode(shape) => self.primitive_shapes.get(shape).unwrap().clone(),
             MeshSource::FromFile(path) => {
-                let mut file_buf_reader = open_file_for_reading(Path::new(path))?;
-                Rc::new(load_obj(&mut file_buf_reader, &device, path.clone())?)
+                if let Some(extension) = path.extension() {
+                    if extension == "obj" {
+                        Rc::new(load_obj(&device, path.clone())?)
+                    } else if extension == "gltf" {
+                        Rc::new(load_gltf(device, path.clone())?)
+                    } else {
+                        return Err(anyhow!(
+                            "Resource loading not yet implemented for file type {extension:?}"
+                        ));
+                    }
+                } else {
+                    return Err(anyhow!("Failed to get extension of file {path:?}"));
+                }
             }
         };
 
@@ -215,11 +225,6 @@ impl ResourceLoader {
     }
 }
 
-pub fn open_file_for_reading(file_path: &Path) -> anyhow::Result<BufReader<File>> {
-    let file = File::open(file_path)?;
-    Ok(BufReader::new(file))
-}
-
 fn vec_to_vec3s(values: Vec<f32>) -> Vec<Vec3> {
     values
         .chunks(3)
@@ -234,18 +239,75 @@ fn vec_to_vec2s(values: Vec<f32>) -> Vec<Vec2> {
         .collect()
 }
 
-pub fn load_obj<Reader>(
-    reader: &mut Reader,
-    device: &wgpu::Device,
-    asset_path: PathBuf,
-) -> anyhow::Result<Primitive>
-where
-    Reader: BufRead,
-{
-    let (models, _obj_materials) = tobj::load_obj_buf(reader, &tobj::GPU_LOAD_OPTIONS, |_| {
-        // We don't care about the mtl file, so this is just a dummy loader implementation
-        MTLLoadResult::Ok((Default::default(), Default::default()))
-    })?;
+pub fn load_gltf(device: &wgpu::Device, asset_path: PathBuf) -> anyhow::Result<Primitive> {
+    let gltf = Gltf::open(asset_path)?;
+    for scene in gltf.scenes() {
+        for node in scene.nodes() {
+            for child in node.children() {
+                for subchild in child.children() {
+                    println!(
+                        "child #{} has {} children",
+                        subchild.index(),
+                        subchild.children().count(),
+                    );
+                }
+                if let Some(mesh) = child.mesh() {
+                    let primitives = mesh
+                        .primitives()
+                        .map(|prim| prim.attributes())
+                        .collect::<Vec<_>>();
+
+                    println!("{primitives:?}");
+                }
+            }
+            println!(
+                "Node #{} has {} children",
+                node.index(),
+                node.children().count(),
+            );
+        }
+    }
+
+    Err(anyhow!("alma"))
+
+    // let mut positions = Vec::new();
+    // let mut normals = Vec::new();
+    // let mut tex_coords = Vec::new();
+    // let mut indices = Vec::new();
+
+    // // Each model loaded by tobj is a self-standing model, meaning that it will contain all the positions/normals
+    // // etc. that it needs, unlike in the obj format, where each model can reference prebious positions, etc. that
+    // // do not strictly belongs to them. Thus when combining the models into a single model, we need to increase the
+    // // index values by the number of position parameters that were before this one. We divide by 3, because
+    // // at this point the Vec3s are flattened out, but we will use the indices to index a Vec<Vec3>
+    // let mut index_offset = 0;
+
+    // for model in models {
+    //     positions.extend(&model.mesh.positions);
+    //     normals.extend(&model.mesh.normals);
+    //     tex_coords.extend(&model.mesh.texcoords);
+    //     indices.extend(model.mesh.indices.iter().map(|index| index + index_offset));
+
+    //     index_offset += (model.mesh.positions.len() / 3) as u32;
+    // }
+
+    // Ok(Primitive::new(
+    //     device,
+    //     asset_path,
+    //     &vec_to_vec3s(positions),
+    //     &vec_to_vec3s(normals),
+    //     &vec_to_vec2s(tex_coords),
+    //     &indices,
+    // ))
+}
+
+pub fn load_obj(device: &wgpu::Device, asset_path: PathBuf) -> anyhow::Result<Primitive> {
+    let mut file_reader = BufReader::new(File::open(&asset_path)?);
+    let (models, _obj_materials) =
+        tobj::load_obj_buf(&mut file_reader, &tobj::GPU_LOAD_OPTIONS, |_| {
+            // We don't care about the mtl file, so this is just a dummy loader implementation
+            MTLLoadResult::Ok((Default::default(), Default::default()))
+        })?;
 
     let mut positions = Vec::new();
     let mut normals = Vec::new();

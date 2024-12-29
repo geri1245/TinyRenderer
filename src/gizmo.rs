@@ -8,7 +8,7 @@ use crate::{
     material::PbrMaterialDescriptor,
     math::Line,
     model::{
-        MeshSource, ModelRenderingOptions, ObjectWithMaterial, PbrParameters, RenderingPass,
+        MeshDescriptor, ModelDescriptor, ModelRenderingOptions, PbrParameters, RenderingPass,
         WorldObject,
     },
     world::World,
@@ -212,7 +212,7 @@ impl Gizmo {
                     if let Some(object) = world.get_object(object_id) {
                         self.selected_object_id = Some(object_id);
                         let selected_object_transform = object.get_transform();
-                        let arrow_source = MeshSource::FromFile(
+                        let arrow_source = MeshDescriptor::FromFile(
                             PathBuf::from_str("./assets/models/arrow/arrow.obj").unwrap(),
                         );
 
@@ -228,9 +228,9 @@ impl Gizmo {
                                 rotation: gizmo_description.rotation,
                             };
                             let gizmo_id = world.add_object(WorldObject::new(
-                                ObjectWithMaterial {
+                                ModelDescriptor {
                                     material_descriptor: gizmo_description.material.clone(),
-                                    mesh_source: arrow_source.clone(),
+                                    mesh_descriptor: arrow_source.clone(),
                                 },
                                 Some(gizmo_transform),
                                 true,

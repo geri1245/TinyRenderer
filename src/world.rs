@@ -94,9 +94,6 @@ impl World {
                 self.world_renderer
                     .update_object_transform(*id, mesh.reset_transform_dirty());
             }
-        }
-
-        for (id, mesh) in &mut self.meshes {
             if mesh.is_material_dirty {
                 self.world_renderer
                     .update_object_material(*id, mesh.reset_material_dirty());

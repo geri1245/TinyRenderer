@@ -217,7 +217,7 @@ impl GBufferGeometryRenderer {
     ) {
         let textured_renderables = renderables.clone().filter(|renderable| {
             matches!(
-                renderable.description.mesh_descriptor.material_descriptor,
+                renderable.description.model_descriptor.material_descriptor,
                 PbrMaterialDescriptor::Texture(_)
             )
         });
@@ -230,7 +230,7 @@ impl GBufferGeometryRenderer {
 
         let flat_param_renderables = renderables.clone().filter(|renderable| {
             matches!(
-                renderable.description.mesh_descriptor.material_descriptor,
+                renderable.description.model_descriptor.material_descriptor,
                 PbrMaterialDescriptor::Flat(_)
             )
         });

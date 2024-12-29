@@ -147,7 +147,7 @@ impl WorldRenderer {
     pub fn update_object_material(&mut self, id: u32, new_material: PbrMaterialDescriptor) {
         if let Some(renderable) = self.renderables.get_mut(&id) {
             // TODO: this should be set in world.rs
-            renderable.description.mesh_descriptor.material_descriptor = new_material;
+            renderable.description.model_descriptor.material_descriptor = new_material;
             self.objects_with_dirty_material_data.push(id);
         }
     }
@@ -161,16 +161,21 @@ impl WorldRenderer {
     ) {
         for (object_id, object) in self.pending_renderables.drain(..) {
             let loaded_model = resource_loader
-                .load_model(&object.object, device, queue, mip_map_generator)
+                .load_model(
+                    &object.description.model_descriptor,
+                    device,
+                    queue,
+                    mip_map_generator,
+                )
                 .unwrap();
             let new_renderable = Renderable::new(
-                object.object.clone(),
+                object.description.model_descriptor.clone(),
                 object.get_transform(),
                 loaded_model.primitive,
                 loaded_model.material,
                 device,
                 object_id,
-                &object.rendering_options,
+                &object.description.rendering_options,
             );
             self.renderables.insert(object_id, new_renderable);
         }

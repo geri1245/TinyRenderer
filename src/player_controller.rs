@@ -8,7 +8,9 @@ use crate::{
     app::{WindowEventHandlingAction, WindowEventHandlingResult},
     gizmo_handler::GizmoHandler,
     material::PbrMaterialDescriptor,
-    model::{MeshSource, ModelRenderingOptions, ObjectWithMaterial, PbrParameters, WorldObject},
+    model::{
+        MeshDescriptor, ModelRenderingOptions, ModelDescriptor, PbrParameters, WorldObject,
+    },
     world::World,
 };
 
@@ -105,8 +107,8 @@ impl PlayerController {
             }
             WindowEvent::DroppedFile(path) => {
                 let object = WorldObject::new(
-                    ObjectWithMaterial {
-                        mesh_source: MeshSource::FromFile(path.clone()),
+                    ModelDescriptor {
+                        mesh_descriptor: MeshDescriptor::FromFile(path.clone()),
                         material_descriptor: PbrMaterialDescriptor::Flat(PbrParameters::default()),
                     },
                     None,

@@ -12,13 +12,13 @@ use wgpu::{CommandEncoderDescriptor, Device, Extent3d, Queue};
 use glam::{Vec2, Vec3};
 
 use crate::mipmap_generator::MipMapGenerator;
-use crate::model::ObjectWithMaterial;
+use crate::model::ModelDescriptor;
 use crate::primitive_shapes::square;
 use crate::texture::{SamplingType, TextureSourceDescriptor};
 use crate::{
     file_loader::ImageLoader,
     material::{MaterialRenderData, PbrMaterialDescriptor},
-    model::{MeshSource, Primitive},
+    model::{MeshDescriptor, Primitive},
     texture::{SampledTexture, TextureUsage},
 };
 
@@ -157,14 +157,16 @@ impl ResourceLoader {
 
     pub fn load_model(
         &self,
-        mesh_descriptor: &ObjectWithMaterial,
+        mesh_descriptor: &ModelDescriptor,
         device: &Device,
         queue: &Queue,
         mip_map_generator: &MipMapGenerator,
     ) -> anyhow::Result<LoadedModelWithMaterial> {
-        let primitive = match &mesh_descriptor.mesh_source {
-            MeshSource::PrimitiveInCode(shape) => self.primitive_shapes.get(shape).unwrap().clone(),
-            MeshSource::FromFile(path) => {
+        let primitive = match &mesh_descriptor.mesh_descriptor {
+            MeshDescriptor::PrimitiveInCode(shape) => {
+                self.primitive_shapes.get(shape).unwrap().clone()
+            }
+            MeshDescriptor::FromFile(path) => {
                 if let Some(extension) = path.extension() {
                     if extension == "obj" {
                         Rc::new(load_obj(&device, path.clone())?)

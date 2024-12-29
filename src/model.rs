@@ -119,11 +119,7 @@ impl Default for ModelRenderingOptions {
 /// The important thing is that from this info only, the world should be reconstructable
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct WorldObject {
-    pub object: ObjectWithMaterial,
-    transform: TransformComponent,
-
-    #[serde(default)]
-    pub rendering_options: ModelRenderingOptions,
+    pub description: RenderableDescription,
 
     #[serde(skip_serializing)]
     #[serde(default)]
@@ -140,28 +136,30 @@ pub struct WorldObject {
 
 impl WorldObject {
     pub fn new(
-        object: ObjectWithMaterial,
+        object: ModelDescriptor,
         transform: Option<TransformComponent>,
         is_transient: bool,
         rendering_options: ModelRenderingOptions,
     ) -> Self {
         Self {
-            object,
-            transform: transform.unwrap_or_default(),
+            description: RenderableDescription {
+                model_descriptor: object,
+                transform: transform.unwrap_or_default(),
+                rendering_options,
+            },
             is_transform_dirty: false,
             is_material_dirty: false,
             is_transient,
-            rendering_options,
         }
     }
 
     pub fn update_material(&mut self, new_material: &PbrMaterialDescriptor) {
-        self.object.material_descriptor = new_material.clone();
+        self.description.model_descriptor.material_descriptor = new_material.clone();
         self.is_material_dirty = true;
     }
 
     pub fn get_transform(&self) -> TransformComponent {
-        self.transform
+        self.description.transform
     }
 
     pub fn reset_transform_dirty(&mut self) -> TransformComponent {
@@ -171,29 +169,32 @@ impl WorldObject {
 
     pub fn reset_material_dirty(&mut self) -> PbrMaterialDescriptor {
         self.is_material_dirty = false;
-        self.object.material_descriptor.clone()
+        self.description
+            .model_descriptor
+            .material_descriptor
+            .clone()
     }
 
     pub fn set_location(&mut self, new_position: Vec3) {
-        self.transform.position = new_position;
+        self.description.transform.position = new_position;
         self.is_transform_dirty = true;
     }
 
     pub fn set_scale(&mut self, new_scale: f32) {
-        self.transform.scale = Vec3::splat(new_scale);
+        self.description.transform.scale = Vec3::splat(new_scale);
         self.is_transform_dirty = true;
     }
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, PartialOrd)]
-pub struct ObjectWithMaterial {
-    pub mesh_source: MeshSource,
+pub struct ModelDescriptor {
+    pub mesh_descriptor: MeshDescriptor,
     pub material_descriptor: PbrMaterialDescriptor,
 }
 
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct RenderableDescription {
-    pub mesh_descriptor: ObjectWithMaterial,
+    pub model_descriptor: ModelDescriptor,
     pub transform: TransformComponent,
     pub rendering_options: ModelRenderingOptions,
 }
@@ -208,7 +209,7 @@ pub struct Renderable {
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, PartialOrd, Ord)]
-pub enum MeshSource {
+pub enum MeshDescriptor {
     PrimitiveInCode(PrimitiveShape),
     FromFile(PathBuf),
 }
@@ -230,7 +231,7 @@ impl Renderable {
     }
 
     pub fn update_material_render_state(&mut self, device: &Device) {
-        match &self.description.mesh_descriptor.material_descriptor {
+        match &self.description.model_descriptor.material_descriptor {
             PbrMaterialDescriptor::Texture(_vec) => {
                 // todo!()
             }
@@ -263,7 +264,7 @@ pub struct InstanceData {
 
 impl Renderable {
     pub fn new(
-        mesh_descriptor: ObjectWithMaterial,
+        mesh_descriptor: ModelDescriptor,
         transform: TransformComponent,
         primitive: Rc<Primitive>,
         material_render_data: MaterialRenderData,
@@ -275,7 +276,7 @@ impl Renderable {
 
         Self {
             description: RenderableDescription {
-                mesh_descriptor,
+                model_descriptor: mesh_descriptor,
                 transform,
                 rendering_options: *rendering_options,
             },

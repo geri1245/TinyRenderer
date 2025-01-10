@@ -11,8 +11,9 @@ use wgpu::{CommandEncoderDescriptor, Device, Extent3d, Queue};
 
 use glam::{Vec2, Vec3};
 
+use crate::instance::TransformComponent;
 use crate::mipmap_generator::MipMapGenerator;
-use crate::model::ModelDescriptor;
+use crate::model::{ModelDescriptor, RenderablePart};
 use crate::primitive_shapes::square;
 use crate::texture::{SamplingType, TextureSourceDescriptor};
 use crate::{
@@ -21,11 +22,6 @@ use crate::{
     model::{MeshDescriptor, Primitive},
     texture::{SampledTexture, TextureUsage},
 };
-
-pub struct LoadedModelWithMaterial {
-    pub primitive: Rc<Primitive>,
-    pub material: MaterialRenderData,
-}
 
 #[derive(
     Debug, Hash, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, PartialOrd, Ord,
@@ -161,7 +157,7 @@ impl ResourceLoader {
         device: &Device,
         queue: &Queue,
         mip_map_generator: &MipMapGenerator,
-    ) -> anyhow::Result<LoadedModelWithMaterial> {
+    ) -> anyhow::Result<Vec<RenderablePart>> {
         let primitive = match &mesh_descriptor.mesh_descriptor {
             MeshDescriptor::PrimitiveInCode(shape) => {
                 self.primitive_shapes.get(shape).unwrap().clone()
@@ -183,7 +179,7 @@ impl ResourceLoader {
             }
         };
 
-        let material = match &mesh_descriptor.material_descriptor {
+        let material_render_data = match &mesh_descriptor.material_descriptor {
             PbrMaterialDescriptor::Texture(textures) => {
                 let mut loaded_textures = HashMap::with_capacity(textures.len());
                 for texture_descriptor in textures {
@@ -220,10 +216,11 @@ impl ResourceLoader {
             }
         };
 
-        Ok(LoadedModelWithMaterial {
+        Ok(vec![RenderablePart {
             primitive,
-            material,
-        })
+            material_render_data,
+            local_transform: TransformComponent::default(),
+        }])
     }
 }
 

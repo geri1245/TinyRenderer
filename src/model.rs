@@ -199,13 +199,27 @@ pub struct RenderableDescription {
     pub rendering_options: ModelRenderingOptions,
 }
 
+/// A part of a renderable object. If a renderable consists of multiple parts, then each part is described
+/// by this struct. Simple objects have only a single part
+#[derive(Debug)]
+pub struct RenderablePart {
+    /// The topology of the renderable, containing vertex and index data
+    pub primitive: Rc<Primitive>,
+    /// The material data, in the form of a bind group
+    pub material_render_data: MaterialRenderData,
+    /// Transformation relative to the parent renderable
+    pub local_transform: TransformComponent,
+}
+
 #[derive(Debug)]
 pub struct Renderable {
     pub description: RenderableDescription,
 
-    pub instance_render_data: BufferWithLength,
-    pub vertex_render_data: Rc<Primitive>,
-    pub material_render_data: MaterialRenderData,
+    pub renderable_parts: Vec<RenderablePart>,
+    pub world_transform: TransformComponent,
+    // Contains the data about the instances. The number of them and the transformation of each instance
+    // Currently no instancing is used, so this will always contain a single transform
+    pub instance_data: BufferWithLength,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, PartialOrd, Ord)]
@@ -223,21 +237,26 @@ pub struct BufferWithLength {
 impl Renderable {
     pub fn update_transform_render_state(&mut self, queue: &Queue, object_id: u32) {
         queue.write_buffer(
-            &self.instance_render_data.buffer,
+            &self.instance_data.buffer,
             0,
             bytemuck::cast_slice(&[self.description.transform.to_raw(object_id)]),
         );
-        self.instance_render_data.count = 1;
+        self.instance_data.count = 1;
     }
 
     pub fn update_material_render_state(&mut self, device: &Device) {
-        match &self.description.model_descriptor.material_descriptor {
-            PbrMaterialDescriptor::Texture(_vec) => {
-                // todo!()
-            }
-            PbrMaterialDescriptor::Flat(pbr_parameters) => {
-                self.material_render_data =
-                    MaterialRenderData::from_flat_parameters(device, pbr_parameters);
+        // TODO: this should only update a specific material, not all of them.
+        // As a first solution, it would be enough to just recreate the entire renderable state when something changes
+        // This is very much not optimal, but it would be an easy first version to implement
+        for part in &mut self.renderable_parts {
+            match &self.description.model_descriptor.material_descriptor {
+                PbrMaterialDescriptor::Texture(_vec) => {
+                    // todo!()
+                }
+                PbrMaterialDescriptor::Flat(pbr_parameters) => {
+                    part.material_render_data =
+                        MaterialRenderData::from_flat_parameters(device, pbr_parameters);
+                }
             }
         }
     }
@@ -265,24 +284,23 @@ pub struct InstanceData {
 impl Renderable {
     pub fn new(
         mesh_descriptor: ModelDescriptor,
-        transform: TransformComponent,
-        primitive: Rc<Primitive>,
-        material_render_data: MaterialRenderData,
+        world_transform: TransformComponent,
+        renderable_parts: Vec<RenderablePart>,
         device: &wgpu::Device,
         object_id: u32,
         rendering_options: &ModelRenderingOptions,
     ) -> Self {
-        let instance_data = create_instance_buffer(&transform, object_id, device);
+        let instance_data = create_instance_buffer(&world_transform, object_id, device);
 
         Self {
             description: RenderableDescription {
                 model_descriptor: mesh_descriptor,
-                transform,
+                transform: world_transform,
                 rendering_options: *rendering_options,
             },
-            vertex_render_data: primitive,
-            instance_render_data: instance_data,
-            material_render_data,
+            renderable_parts,
+            instance_data,
+            world_transform,
         }
     }
 
@@ -291,22 +309,24 @@ impl Renderable {
         render_pass: &mut RenderPass<'a>,
         material_group_index: Option<u32>,
     ) {
-        if let Some(material_group_index) = material_group_index {
-            self.material_render_data
-                .bind_render_pass(render_pass, material_group_index);
-        }
+        for part in &self.renderable_parts {
+            if let Some(material_group_index) = material_group_index {
+                part.material_render_data
+                    .bind_render_pass(render_pass, material_group_index);
+            }
 
-        render_pass.set_vertex_buffer(0, self.vertex_render_data.vertex_buffer.slice(..));
-        render_pass.set_vertex_buffer(1, self.instance_render_data.buffer.slice(..));
-        render_pass.set_index_buffer(
-            self.vertex_render_data.index_data.buffer.slice(..),
-            wgpu::IndexFormat::Uint32,
-        );
-        render_pass.draw_indexed(
-            0..self.vertex_render_data.index_data.count,
-            0,
-            0..self.instance_render_data.count,
-        );
+            render_pass.set_vertex_buffer(0, part.primitive.vertex_buffer.slice(..));
+            render_pass.set_vertex_buffer(1, self.instance_data.buffer.slice(..));
+            render_pass.set_index_buffer(
+                part.primitive.index_data.buffer.slice(..),
+                wgpu::IndexFormat::Uint32,
+            );
+            render_pass.draw_indexed(
+                0..part.primitive.index_data.count,
+                0,
+                0..self.instance_data.count,
+            );
+        }
     }
 }
 

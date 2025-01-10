@@ -160,7 +160,7 @@ impl WorldRenderer {
         mip_map_generator: &MipMapGenerator,
     ) {
         for (object_id, object) in self.pending_renderables.drain(..) {
-            let loaded_model = resource_loader
+            let renderable_parts = resource_loader
                 .load_model(
                     &object.description.model_descriptor,
                     device,
@@ -171,8 +171,7 @@ impl WorldRenderer {
             let new_renderable = Renderable::new(
                 object.description.model_descriptor.clone(),
                 object.get_transform(),
-                loaded_model.primitive,
-                loaded_model.material,
+                renderable_parts,
                 device,
                 object_id,
                 &object.description.rendering_options,

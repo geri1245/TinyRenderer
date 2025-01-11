@@ -78,10 +78,6 @@ where
         }
     }
 
-    pub fn get_data(&self) -> T {
-        self.data
-    }
-
     pub fn get_mut_data<'buffer>(
         &'buffer mut self,
         queue: &'buffer Queue,

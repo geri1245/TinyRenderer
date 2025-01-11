@@ -45,5 +45,5 @@ mod world_loader;
 mod world_renderer;
 
 fn main() {
-    async_std::task::block_on(mainloop::run_main_loop());
+    mainloop::run_main_loop();
 }

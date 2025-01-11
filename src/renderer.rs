@@ -1,3 +1,4 @@
+use async_std::task::block_on;
 use wgpu::{
     CommandEncoder, CommandEncoderDescriptor, InstanceDescriptor, MemoryHints, SurfaceTexture,
     TextureFormat,
@@ -16,7 +17,7 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    pub async fn new(window: &winit::window::Window) -> Renderer {
+    pub fn new(window: &winit::window::Window) -> Renderer {
         let size = window.inner_size();
 
         // Backends::all => Vulkan + Metal + DX12 + Browser WebGPU
@@ -29,14 +30,12 @@ impl Renderer {
                 .create_surface_unsafe(wgpu::SurfaceTargetUnsafe::from_window(window).unwrap())
                 .unwrap()
         };
-        let adapter = instance
-            .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::HighPerformance,
-                compatible_surface: Some(&surface),
-                force_fallback_adapter: false,
-            })
-            .await
-            .unwrap();
+        let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::HighPerformance,
+            compatible_surface: Some(&surface),
+            force_fallback_adapter: false,
+        }))
+        .unwrap();
 
         let supported_features = adapter.features();
         let required_features = wgpu::Features::DEPTH_CLIP_CONTROL
@@ -45,27 +44,25 @@ impl Renderer {
         if !supported_features.contains(required_features) {
             panic!("Not all required features are supported. \nRequired features: {:?}\nSupported features: {:?}", required_features, supported_features);
         }
-        let (device, queue) = adapter
-            .request_device(
-                &wgpu::DeviceDescriptor {
-                    required_features,
-                    // WebGL doesn't support all of wgpu's features, so if
-                    // we're building for the web we'll have to disable some.
-                    required_limits: if cfg!(target_arch = "wasm32") {
-                        wgpu::Limits::downlevel_webgl2_defaults()
-                    } else {
-                        wgpu::Limits {
-                            max_bind_groups: 8,
-                            ..Default::default()
-                        }
-                    },
-                    label: None,
-                    memory_hints: MemoryHints::Performance,
+        let (device, queue) = block_on(adapter.request_device(
+            &wgpu::DeviceDescriptor {
+                required_features,
+                // WebGL doesn't support all of wgpu's features, so if
+                // we're building for the web we'll have to disable some.
+                required_limits: if cfg!(target_arch = "wasm32") {
+                    wgpu::Limits::downlevel_webgl2_defaults()
+                } else {
+                    wgpu::Limits {
+                        max_bind_groups: 8,
+                        ..Default::default()
+                    }
                 },
-                None,
-            )
-            .await
-            .unwrap();
+                label: None,
+                memory_hints: MemoryHints::Performance,
+            },
+            None,
+        ))
+        .unwrap();
 
         let surface_capabilities = surface.get_capabilities(&adapter);
         // TODO: Unfortunately copying from an rgba to a bgra texture is not supported

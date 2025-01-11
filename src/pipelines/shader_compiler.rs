@@ -1,6 +1,6 @@
 use anyhow::anyhow;
-use async_std::fs;
-use std::{borrow::Cow, os::windows::fs::MetadataExt};
+use async_std::task::block_on;
+use std::{borrow::Cow, fs, os::windows::fs::MetadataExt};
 use wgpu::{Device, ShaderModule};
 
 pub enum ShaderCompilationResult {
@@ -27,11 +27,11 @@ impl ShaderCompiler {
         }
     }
 
-    pub async fn compile_shader_if_needed(
+    pub fn compile_shader_if_needed(
         &mut self,
         device: &Device,
     ) -> anyhow::Result<ShaderCompilationResult> {
-        let last_write_time = match fs::metadata(&self.shader_source).await {
+        let last_write_time = match fs::metadata(&self.shader_source) {
             Ok(metadata) => metadata.last_write_time(),
             // If we can't get the last write time, let's just recompile the shader
             Err(_) => 0u64,
@@ -41,21 +41,21 @@ impl ShaderCompiler {
             return Ok(ShaderCompilationResult::AlreadyUpToDate);
         }
 
-        let shader_contents = fs::read_to_string(&self.shader_source).await?;
+        let shader_contents = fs::read_to_string(&self.shader_source)?;
         let shader_desc = wgpu::ShaderModuleDescriptor {
             label: Some(self.shader_source.split("/").last().unwrap()),
             source: wgpu::ShaderSource::Wgsl(Cow::from(shader_contents)),
         };
         device.push_error_scope(wgpu::ErrorFilter::Validation);
         let shader = device.create_shader_module(shader_desc);
-        if let Some(error) = device.pop_error_scope().await {
+        if let Some(error) = block_on(device.pop_error_scope()) {
             match error {
                 wgpu::Error::OutOfMemory { .. } => Err(anyhow!("Out of memory")),
                 wgpu::Error::Validation { description, .. } => Err(anyhow!(description)),
                 wgpu::Error::Internal { description, .. } => Err(anyhow!(description)),
             }
         } else {
-            let last_write_time = match fs::metadata(&self.shader_source).await {
+            let last_write_time = match fs::metadata(&self.shader_source) {
                 Ok(metadata) => metadata.last_write_time(),
                 // If we can't get the last write time, not a big deal, the compilation is what matters
                 Err(_) => 0u64,

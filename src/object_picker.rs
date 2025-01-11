@@ -52,7 +52,7 @@ pub struct ObjectPickManager {
 }
 
 impl ObjectPickManager {
-    pub async fn new(device: &wgpu::Device, width: u32, height: u32) -> Self {
+    pub fn new(device: &wgpu::Device, width: u32, height: u32) -> Self {
         let texture = Self::create_texture(device, width, height);
 
         let render_pipeline = ObjectPickerRP::new(
@@ -60,7 +60,7 @@ impl ObjectPickManager {
             OBJECT_PICKER_TEXTURE_FORMAT,
             SampledTexture::DEPTH_FORMAT,
         )
-        .await
+        
         .unwrap();
 
         Self {
@@ -90,7 +90,7 @@ impl ObjectPickManager {
         }
     }
 
-    pub async fn try_recompile_shader(
+    pub fn try_recompile_shader(
         &mut self,
         device: &Device,
     ) -> anyhow::Result<ShaderCompilationSuccess> {
@@ -100,7 +100,7 @@ impl ObjectPickManager {
                 OBJECT_PICKER_TEXTURE_FORMAT,
                 SampledTexture::DEPTH_FORMAT,
             )
-            .await
+            
     }
 
     pub fn resize(&mut self, device: &wgpu::Device, width: u32, height: u32) {

@@ -1,4 +1,3 @@
-use async_std::task::block_on;
 use glam::Vec3;
 use wgpu::{
     util::align_to, BindGroup, CommandEncoder, Device, Extent3d, TextureView, TextureViewDimension,
@@ -78,7 +77,7 @@ pub struct LightController {
 }
 
 impl LightController {
-    pub async fn new(device: &wgpu::Device) -> LightController {
+    pub fn new(device: &wgpu::Device) -> LightController {
         // Make the `uniform_alignment` >= sizeof`LightRawSmall` and aligned to `min_uniform_buffer_offset_alignment`, as that is a requirement if we want to use dynamic offsets
         let matrix_size4x4 = core::mem::size_of::<LightRawSmall>() as u64;
         let uniform_alignment = {
@@ -87,7 +86,7 @@ impl LightController {
             align_to(matrix_size4x4, alignment)
         };
 
-        let shadow_rp = crate::pipelines::ShadowRP::new(&device).await.unwrap();
+        let shadow_rp = crate::pipelines::ShadowRP::new(&device).unwrap();
 
         // Here we just pass in some random lights, so the buffers and bind groups can be created
         // Providing 0 for the buffer size is a wgpu error, and this would happen in case of an empty vector,
@@ -534,10 +533,10 @@ impl LightController {
         encoder.pop_debug_group();
     }
 
-    pub async fn try_recompile_shaders(
+    pub fn try_recompile_shaders(
         &mut self,
         device: &Device,
     ) -> anyhow::Result<ShaderCompilationSuccess> {
-        self.shadow_rp.try_recompile_shader(device).await
+        self.shadow_rp.try_recompile_shader(device)
     }
 }

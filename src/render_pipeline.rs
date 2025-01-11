@@ -118,12 +118,12 @@ pub struct RenderPipeline {
 }
 
 impl RenderPipeline {
-    pub async fn new(
+    pub fn new(
         device: &wgpu::Device,
         descriptor: RenderPipelineDescriptor,
     ) -> anyhow::Result<Self> {
         let mut shader_compiler = ShaderCompiler::new(descriptor.shader_source_path.clone());
-        let shader_compilation_result = shader_compiler.compile_shader_if_needed(device).await?;
+        let shader_compilation_result = shader_compiler.compile_shader_if_needed(device)?;
 
         match shader_compilation_result {
             ShaderCompilationResult::AlreadyUpToDate => {
@@ -190,14 +190,14 @@ impl RenderPipeline {
         })
     }
 
-    pub async fn try_recompile_shader(
+    pub fn try_recompile_shader(
         &mut self,
         device: &Device,
     ) -> anyhow::Result<ShaderCompilationSuccess> {
         let result = self
             .shader_compiler
             .compile_shader_if_needed(device)
-            .await?;
+            ?;
 
         match result {
             ShaderCompilationResult::AlreadyUpToDate => {

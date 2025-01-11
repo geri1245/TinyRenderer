@@ -52,15 +52,14 @@ pub struct App {
 }
 
 impl App {
-    pub async fn new(window: &Window) -> Self {
-        let renderer = Renderer::new(window).await;
+    pub fn new(window: &Window) -> Self {
+        let renderer = Renderer::new(window);
         let (gui_event_sender, gui_event_receiver) = unbounded::<GuiEvent>();
-        let mut resource_loader = ResourceLoader::new(&renderer.device, &renderer.queue).await;
+        let mut resource_loader = ResourceLoader::new(&renderer.device, &renderer.queue);
 
         let mut gui = Gui::new(&window, &renderer.device, gui_event_sender);
 
-        let world_renderer: WorldRenderer =
-            WorldRenderer::new(&renderer, &mut resource_loader).await;
+        let world_renderer: WorldRenderer = WorldRenderer::new(&renderer, &mut resource_loader);
 
         let camera_controller = CameraController::new(
             &renderer.device,
@@ -74,7 +73,7 @@ impl App {
 
         let player_controller = PlayerController::new();
 
-        let light_controller = LightController::new(&renderer.device).await;
+        let light_controller = LightController::new(&renderer.device);
 
         let frame_timer = BasicTimer::new();
 
@@ -94,7 +93,7 @@ impl App {
             global_gpu_params.get_ui_description(),
         );
 
-        let mip_map_generator = MipMapGenerator::new(&renderer.device).await;
+        let mip_map_generator = MipMapGenerator::new(&renderer.device);
 
         Self {
             renderer,
@@ -281,11 +280,11 @@ impl App {
     async fn recompile_shaders_internal(&mut self) -> anyhow::Result<()> {
         self.light_controller
             .try_recompile_shaders(&self.renderer.device)
-            .await?;
+            ?;
 
         self.mip_map_generator
             .try_recompile_shader(&self.renderer.device)
-            .await?;
+            ?;
 
         self.world
             .recompile_shaders_if_needed(&self.renderer.device)

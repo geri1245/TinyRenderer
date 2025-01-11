@@ -18,7 +18,7 @@ pub struct ForwardRenderer {
 }
 
 impl ForwardRenderer {
-    pub async fn new(device: &wgpu::Device, texture_format: wgpu::TextureFormat) -> Self {
+    pub fn new(device: &wgpu::Device, texture_format: wgpu::TextureFormat) -> Self {
         let bind_group_layouts = vec![
             device.create_bind_group_layout(&bind_group_layout_descriptors::LIGHT),
             device.create_bind_group_layout(
@@ -63,17 +63,17 @@ impl ForwardRenderer {
                 material_bind_group_index: Some(2),
             },
         )
-        .await
+        
         .unwrap();
 
         Self { pipeline }
     }
 
-    pub async fn try_recompile_shader(
+    pub fn try_recompile_shader(
         &mut self,
         device: &Device,
     ) -> anyhow::Result<ShaderCompilationSuccess> {
-        self.pipeline.try_recompile_shader(device).await
+        self.pipeline.try_recompile_shader(device)
     }
 
     pub fn render<'a, T: Iterator<Item = &'a Renderable> + Clone>(

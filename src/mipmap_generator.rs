@@ -24,7 +24,7 @@ pub struct MipMapGenerator {
 }
 
 impl MipMapGenerator {
-    pub async fn new(device: &Device) -> Self {
+    pub fn new(device: &Device) -> Self {
         let mip_map_generator_pipeline = SimpleCP::new(
             device,
             &[
@@ -34,7 +34,7 @@ impl MipMapGenerator {
             MIP_MAP_GENERATOR_SHADER_SOURCE,
             "mipmap generator",
         )
-        .await
+        
         .unwrap();
 
         Self {
@@ -42,13 +42,13 @@ impl MipMapGenerator {
         }
     }
 
-    pub async fn try_recompile_shader(
+    pub fn try_recompile_shader(
         &mut self,
         device: &wgpu::Device,
     ) -> anyhow::Result<ShaderCompilationSuccess> {
         self.mip_map_generator_pipeline
             .try_recompile_shader(device)
-            .await
+            
     }
 
     fn create_mip_generator_bind_groups(

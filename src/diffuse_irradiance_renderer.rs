@@ -1,6 +1,5 @@
 use std::rc::Rc;
 
-use async_std::task::block_on;
 use wgpu::{
     CommandEncoder, Device, ImageCopyTexture, ImageDataLayout, SubmissionIndex, TextureAspect,
     TextureFormat,
@@ -34,13 +33,13 @@ pub struct DiffuseIrradianceRenderer {
 }
 
 impl DiffuseIrradianceRenderer {
-    pub async fn new(
+    pub fn new(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         color_format: TextureFormat,
         basic_mesh: Rc<Primitive>,
     ) -> anyhow::Result<Self> {
-        let pipeline = DiffuseIrradianceBakerRP::new(device, color_format).await?;
+        let pipeline = DiffuseIrradianceBakerRP::new(device, color_format)?;
 
         let texture_descriptor = wgpu::TextureDescriptor {
             size: IBL_MAP_EXTENT,
@@ -115,13 +114,12 @@ impl DiffuseIrradianceRenderer {
         })
     }
 
-    pub async fn try_recompile_shader(
+    pub fn try_recompile_shader(
         &mut self,
         device: &Device,
     ) -> anyhow::Result<ShaderCompilationSuccess> {
         self.pipeline
             .try_recompile_shader(device, self.color_format)
-            .await
     }
 
     pub fn render(&self, encoder: &mut CommandEncoder, hdr_environment_cube_map: &wgpu::BindGroup) {
@@ -159,10 +157,7 @@ impl DiffuseIrradianceRenderer {
         device: &Device,
         submission_index: Option<SubmissionIndex>,
     ) {
-        block_on(self.output_buffer.save_buffer_to_file(
-            "output_ibl.data",
-            submission_index,
-            device,
-        ))
+        self.output_buffer
+            .save_buffer_to_file("output_ibl.data", submission_index, device)
     }
 }

@@ -38,7 +38,7 @@ pub struct ResourceLoader {
 }
 
 impl ResourceLoader {
-    pub async fn new(device: &Device, queue: &Queue) -> Self {
+    pub fn new(device: &Device, queue: &Queue) -> Self {
         let (default_mat, default_textures) = Self::load_default_textures(device, queue);
         let primitive_shapes = Self::load_primitive_shapes(device).unwrap();
 

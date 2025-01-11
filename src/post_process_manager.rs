@@ -34,7 +34,7 @@ pub struct PostProcessManager {
 }
 
 impl PostProcessManager {
-    pub async fn new(device: &Device, width: u32, height: u32) -> Self {
+    pub fn new(device: &Device, width: u32, height: u32) -> Self {
         let dummy_pipeline = SimpleCP::new(
             device,
             &[
@@ -44,7 +44,7 @@ impl PostProcessManager {
             POST_PROCESS_SHADER_SOURCE,
             "dummy",
         )
-        .await
+        
         .unwrap();
 
         let screen_space_reflection_pipeline = SimpleCP::new(
@@ -60,7 +60,7 @@ impl PostProcessManager {
             SCREEN_SPACE_REFLECTION_SHADER_SOURCE,
             "screen space reflections",
         )
-        .await
+        
         .unwrap();
 
         let tone_mapping_pipeline = SimpleCP::new(
@@ -72,7 +72,7 @@ impl PostProcessManager {
             TONE_MAPPING_SHADER_SOURCE,
             "tone mapping",
         )
-        .await
+        
         .unwrap();
 
         let (textures, ping_pong_bind_groups, tone_mapping_bind_group) =
@@ -89,17 +89,17 @@ impl PostProcessManager {
         }
     }
 
-    pub async fn try_recompile_shader(
+    pub fn try_recompile_shader(
         &mut self,
         device: &wgpu::Device,
     ) -> anyhow::Result<ShaderCompilationSuccess> {
-        self.dummy_pipeline.try_recompile_shader(device).await?;
+        self.dummy_pipeline.try_recompile_shader(device)?;
         self.screen_space_reflection_pipeline
             .try_recompile_shader(device)
-            .await?;
+            ?;
         self.tone_mapping_pipeline
             .try_recompile_shader(device)
-            .await
+            
     }
 
     pub fn resize(&mut self, device: &wgpu::Device, width: u32, height: u32) {

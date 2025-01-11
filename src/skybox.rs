@@ -11,10 +11,8 @@ pub struct Skybox {
 }
 
 impl Skybox {
-    pub async fn new(device: &wgpu::Device, texture_format: TextureFormat) -> Self {
-        let skybox_rp = pipelines::SkyboxRP::new(device, texture_format)
-            .await
-            .unwrap();
+    pub fn new(device: &wgpu::Device, texture_format: TextureFormat) -> Self {
+        let skybox_rp = pipelines::SkyboxRP::new(device, texture_format).unwrap();
 
         Skybox {
             skybox_rp,
@@ -22,13 +20,12 @@ impl Skybox {
         }
     }
 
-    pub async fn try_recompile_shader(
+    pub fn try_recompile_shader(
         &mut self,
         device: &Device,
     ) -> anyhow::Result<ShaderCompilationSuccess> {
         self.skybox_rp
             .try_recompile_shader(device, self.texture_format)
-            .await
     }
 
     pub fn render<'a, 'b: 'a>(

@@ -1,4 +1,3 @@
-use async_std::task::block_on;
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
@@ -34,7 +33,7 @@ impl ApplicationHandler<CustomEvent> for MainApplicationState {
                     .with_title("Rendering is fun!"),
             )
             .unwrap();
-        let app = block_on(App::new(&new_window));
+        let app = App::new(&new_window);
         self.window = Some(new_window);
         self.app = Some(app);
     }
@@ -75,7 +74,7 @@ impl ApplicationHandler<CustomEvent> for MainApplicationState {
     }
 }
 
-pub async fn run_main_loop() {
+pub fn run_main_loop() {
     simple_logger::init_with_level(log::Level::Warn).unwrap();
     let event_loop = EventLoop::<CustomEvent>::with_user_event().build().unwrap();
     let mut app_state = MainApplicationState::default();

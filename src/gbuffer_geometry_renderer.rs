@@ -31,18 +31,18 @@ pub struct GBufferGeometryRenderer {
 }
 
 impl GBufferGeometryRenderer {
-    pub async fn new(device: &wgpu::Device, width: u32, height: u32) -> Self {
+    pub fn new(device: &wgpu::Device, width: u32, height: u32) -> Self {
         let textures = Self::create_textures(device, width, height);
         let bind_group = Self::create_gbuffer_bind_group(device, &textures);
 
         let textured_gbuffer_rp =
             GBufferGeometryRP::new(device, &textures, PbrParameterVariation::Texture)
-                .await
+                
                 .unwrap();
 
         let flat_parameter_gbuffer_rp =
             GBufferGeometryRP::new(device, &textures, PbrParameterVariation::Flat)
-                .await
+                
                 .unwrap();
 
         let depth_texture_bind_group =
@@ -59,17 +59,17 @@ impl GBufferGeometryRenderer {
         }
     }
 
-    pub async fn try_recompile_shader(
+    pub fn try_recompile_shader(
         &mut self,
         device: &Device,
     ) -> anyhow::Result<ShaderCompilationSuccess> {
         self.textured_gbuffer_rp
             .try_recompile_shader(device, &self.textures, PbrParameterVariation::Texture)
-            .await?;
+            ?;
 
         self.flat_parameter_gbuffer_rp
             .try_recompile_shader(device, &self.textures, PbrParameterVariation::Flat)
-            .await
+            
     }
 
     pub fn resize(&mut self, device: &wgpu::Device, width: u32, height: u32) {

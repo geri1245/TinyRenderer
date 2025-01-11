@@ -1,6 +1,5 @@
 use std::collections::{HashMap, VecDeque};
 
-use async_std::task::block_on;
 use wgpu::{
     BindGroup, CommandEncoder, Device, Extent3d, RenderPassDepthStencilAttachment, SurfaceTexture,
 };
@@ -47,24 +46,21 @@ pub struct WorldRenderer {
 }
 
 impl WorldRenderer {
-    pub async fn new(renderer: &Renderer, resource_loader: &mut ResourceLoader) -> Self {
-        let main_rp = pipelines::MainRP::new(&renderer.device).await.unwrap();
+    pub fn new(renderer: &Renderer, resource_loader: &mut ResourceLoader) -> Self {
+        let main_rp = pipelines::MainRP::new(&renderer.device).unwrap();
         let gbuffer_geometry_renderer = GBufferGeometryRenderer::new(
             &renderer.device,
             renderer.config.width,
             renderer.config.height,
-        )
-        .await;
+        );
 
-        let forward_rp =
-            ForwardRenderer::new(&renderer.device, wgpu::TextureFormat::Rgba16Float).await;
+        let forward_rp = ForwardRenderer::new(&renderer.device, wgpu::TextureFormat::Rgba16Float);
 
         let post_process_manager = PostProcessManager::new(
             &renderer.device,
             renderer.config.width,
             renderer.config.height,
-        )
-        .await;
+        );
 
         // TODO: extract the format from here and don't reference full_screen_render_target_ping_pong_textures directly
         let skybox = Skybox::new(
@@ -72,8 +68,7 @@ impl WorldRenderer {
             post_process_manager.full_screen_render_target_ping_pong_textures[0]
                 .texture
                 .format(),
-        )
-        .await;
+        );
 
         // TODO: change the format, or use some constant here
         let equirec_to_cubemap_renderer = EquirectangularToCubemapRenderer::new(
@@ -82,7 +77,6 @@ impl WorldRenderer {
             wgpu::TextureFormat::Rgba16Float,
             resource_loader.get_primitive_shape(PrimitiveShape::Cube),
         )
-        .await
         .unwrap();
 
         // TODO: change the format, or use some constant here
@@ -92,15 +86,13 @@ impl WorldRenderer {
             wgpu::TextureFormat::Rgba16Float,
             resource_loader.get_primitive_shape(PrimitiveShape::Cube),
         )
-        .await
         .unwrap();
 
         let object_picker = ObjectPickManager::new(
             &renderer.device,
             renderer.config.width,
             renderer.config.height,
-        )
-        .await;
+        );
 
         WorldRenderer {
             skybox,
@@ -381,24 +373,25 @@ impl WorldRenderer {
         // it's not a real limitation at this point
         // If later more heavyweight modifications are necessary, then this can be "fixed"
         {
-            block_on(self.main_rp.try_recompile_shader(device))?;
-            block_on(self.gbuffer_geometry_renderer.try_recompile_shader(device))?;
-            if block_on(
-                self.equirec_to_cubemap_renderer
-                    .try_recompile_shader(device),
-            )? == ShaderCompilationSuccess::Recompiled
+            self.main_rp.try_recompile_shader(device)?;
+            self.gbuffer_geometry_renderer
+                .try_recompile_shader(device)?;
+            if self
+                .equirec_to_cubemap_renderer
+                .try_recompile_shader(device)?
+                == ShaderCompilationSuccess::Recompiled
             {
                 self.add_action(RenderingAction::GenerateCubeMapFromEquirectangular);
             }
 
-            block_on(self.post_process_manager.try_recompile_shader(device))?;
-            block_on(self.skybox.try_recompile_shader(device))?;
-            block_on(self.forward_renderer.try_recompile_shader(device))?;
-            block_on(self.object_picker.try_recompile_shader(device))?;
-            if block_on(
-                self.diffuse_irradiance_renderer
-                    .try_recompile_shader(device),
-            )? == ShaderCompilationSuccess::Recompiled
+            self.post_process_manager.try_recompile_shader(device)?;
+            self.skybox.try_recompile_shader(device)?;
+            self.forward_renderer.try_recompile_shader(device)?;
+            self.object_picker.try_recompile_shader(device)?;
+            if self
+                .diffuse_irradiance_renderer
+                .try_recompile_shader(device)?
+                == ShaderCompilationSuccess::Recompiled
             {
                 self.add_action(RenderingAction::BakeDiffuseIrradianceMap);
             }

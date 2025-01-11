@@ -13,14 +13,14 @@ pub struct SimpleCP {
 }
 
 impl SimpleCP {
-    pub async fn new<'a>(
+    pub fn new<'a>(
         device: &wgpu::Device,
         bind_group_layout_descriptors: &[&BindGroupLayoutDescriptor<'static>],
         shader_source: &'static str,
         label: &str,
     ) -> anyhow::Result<Self> {
         let mut shader_compiler = ShaderCompiler::new(shader_source.to_string());
-        let shader_compilation_result = shader_compiler.compile_shader_if_needed(device).await?;
+        let shader_compilation_result = shader_compiler.compile_shader_if_needed(device)?;
         let label = label.to_owned();
         let bind_group_layouts = bind_group_layout_descriptors
             .iter()
@@ -46,14 +46,14 @@ impl SimpleCP {
         }
     }
 
-    pub async fn try_recompile_shader<'a>(
+    pub fn try_recompile_shader<'a>(
         &'a mut self,
         device: &'a Device,
     ) -> anyhow::Result<ShaderCompilationSuccess> {
         let result = self
             .shader_compiler
             .compile_shader_if_needed(device)
-            .await?;
+            ?;
 
         match result {
             ShaderCompilationResult::AlreadyUpToDate => {

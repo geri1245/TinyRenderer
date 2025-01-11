@@ -129,7 +129,7 @@ impl GBufferGeometryRP {
         gbuffer_pipeline
     }
 
-    pub async fn new(
+    pub fn new(
         device: &wgpu::Device,
         gbuffer_textures: &GBufferTextures,
         variation: PbrParameterVariation,
@@ -139,7 +139,7 @@ impl GBufferGeometryRP {
             PbrParameterVariation::Flat => SHADER_SOURCE_FLAT_PARAMETER,
         };
         let mut shader_compiler = ShaderCompiler::new(source.to_string());
-        let shader_compilation_result = shader_compiler.compile_shader_if_needed(device).await?;
+        let shader_compilation_result = shader_compiler.compile_shader_if_needed(device)?;
 
         match shader_compilation_result {
             ShaderCompilationResult::AlreadyUpToDate => {
@@ -157,16 +157,13 @@ impl GBufferGeometryRP {
         }
     }
 
-    pub async fn try_recompile_shader(
+    pub fn try_recompile_shader(
         &mut self,
         device: &Device,
         textures: &GBufferTextures,
         variation: PbrParameterVariation,
     ) -> anyhow::Result<ShaderCompilationSuccess> {
-        let result = self
-            .shader_compiler
-            .compile_shader_if_needed(device)
-            .await?;
+        let result = self.shader_compiler.compile_shader_if_needed(device)?;
 
         match result {
             ShaderCompilationResult::AlreadyUpToDate => {

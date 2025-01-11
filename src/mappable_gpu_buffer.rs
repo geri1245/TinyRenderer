@@ -1,5 +1,6 @@
 use std::{fs::File, io::Write};
 
+use async_std::task::block_on;
 use wgpu::{Device, Extent3d, SubmissionIndex, TextureFormat};
 
 fn get_bytes_per_pixel(format: &TextureFormat) -> u32 {
@@ -57,7 +58,7 @@ impl MapableGpuBuffer {
         }
     }
 
-    pub async fn save_buffer_to_file(
+    pub fn save_buffer_to_file(
         &self,
         output_path: &str,
         submission_index: Option<SubmissionIndex>,
@@ -72,7 +73,7 @@ impl MapableGpuBuffer {
             device.poll(wgpu::Maintain::WaitForSubmissionIndex(submission_index));
         }
 
-        if let Some(Ok(())) = receiver.receive().await {
+        if let Some(Ok(())) = block_on(receiver.receive()) {
             {
                 let padded_buffer = buffer_slice.get_mapped_range();
                 let mut file = File::create(output_path).unwrap();

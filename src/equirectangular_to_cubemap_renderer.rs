@@ -22,13 +22,13 @@ pub struct EquirectangularToCubemapRenderer {
 }
 
 impl EquirectangularToCubemapRenderer {
-    pub async fn new(
+    pub fn new(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         color_format: TextureFormat,
         basic_mesh: Rc<Primitive>,
     ) -> anyhow::Result<Self> {
-        let pipeline = EquirectangularToCubemapRP::new(device, color_format).await?;
+        let pipeline = EquirectangularToCubemapRP::new(device, color_format)?;
         let hdr_texture_path = "assets/textures/skybox/golf_course.hdr";
         let hdr_texture = SampledTexture::from_hdr_image(
             device,
@@ -111,13 +111,13 @@ impl EquirectangularToCubemapRenderer {
         })
     }
 
-    pub async fn try_recompile_shader(
+    pub fn try_recompile_shader(
         &mut self,
         device: &Device,
     ) -> anyhow::Result<ShaderCompilationSuccess> {
         self.pipeline
             .try_recompile_shader(device, self.color_format)
-            .await
+            
     }
 
     pub fn render(&self, encoder: &mut CommandEncoder) {

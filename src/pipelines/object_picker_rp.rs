@@ -25,13 +25,13 @@ pub struct ObjectPickerRP {
 }
 
 impl ObjectPickerRP {
-    pub async fn new(
+    pub fn new(
         device: &wgpu::Device,
         color_format: TextureFormat,
         depth_format: wgpu::TextureFormat,
     ) -> anyhow::Result<Self> {
         let mut shader_compiler = ShaderCompiler::new(SHADER_SOURCE.to_string());
-        let shader_compilation_result = shader_compiler.compile_shader_if_needed(device).await?;
+        let shader_compilation_result = shader_compiler.compile_shader_if_needed(device)?;
 
         match shader_compilation_result {
             ShaderCompilationResult::AlreadyUpToDate => {
@@ -119,7 +119,7 @@ impl ObjectPickerRP {
         })
     }
 
-    pub async fn try_recompile_shader(
+    pub fn try_recompile_shader(
         &mut self,
         device: &Device,
         color_format: wgpu::TextureFormat,
@@ -128,7 +128,7 @@ impl ObjectPickerRP {
         let result = self
             .shader_compiler
             .compile_shader_if_needed(device)
-            .await?;
+            ?;
 
         match result {
             ShaderCompilationResult::AlreadyUpToDate => {

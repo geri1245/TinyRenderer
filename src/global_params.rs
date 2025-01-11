@@ -1,5 +1,5 @@
 use ui_item::{
-    DisplayNumberToUiDescription, SetPropertyFromUiDescription, SetPropertyFromUiParams,
+    DisplayNumberOnUiDescription, SetPropertyFromUiDescription, SetPropertyFromUiParams,
     UiDisplayDescription, UiDisplayParam, UiDisplayable, UiSettable,
 };
 use ui_item_derive::{UiDisplayable, UiSettable};

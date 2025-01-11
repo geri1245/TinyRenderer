@@ -39,6 +39,7 @@ tobj = { version = "4.0", features = ["async"] }
 gltf = { version = "1.4", features = ["KHR_materials_pbrSpecularGlossiness"] }
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0"
+rfd = "0.15"
 
 [build-dependencies]
 anyhow = "1.0"

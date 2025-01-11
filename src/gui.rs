@@ -1,11 +1,18 @@
 use core::f32;
-use std::{collections::HashMap, str::from_utf8, time::Duration};
+use std::{
+    collections::HashMap,
+    path::PathBuf,
+    str::from_utf8,
+    time::{Duration, Instant},
+};
 
 use crossbeam_channel::Sender;
 use egui::{Button, FontId, Label, Separator, Ui, Widget};
 use egui_wgpu::ScreenDescriptor;
+use rfd::FileDialog;
 use ui_item::{SetPropertyFromUiParams, UiDisplayParam};
 use wgpu::{CommandEncoder, TextureFormat};
+use winit::event::WindowEvent;
 
 use crate::gui_helpers::EguiRenderer;
 
@@ -20,7 +27,6 @@ pub enum GuiUpdateEvent {
 
 pub enum GuiEvent {
     RecompileShaders,
-    LightPositionChanged { new_position: [f32; 3] },
     ButtonClicked(GuiButton),
     PropertyValueChanged((String, SetPropertyFromUiParams)),
 }
@@ -66,17 +72,41 @@ struct AppInfo {
     fps_counter: u32,
 }
 
-#[derive(Default)]
-pub struct GuiParams {
-    pub point_light_position: [f32; 3],
-    gui_size: [f32; 2],
+/// This is kind of a hacky solution.
+/// When dropping a file, we have to save it, so we can handle it in the next render loop (unfortunately we don't have
+/// both the file and the hovered element at one place, so we save the dropped file and when checking the hover, we
+/// also check the saved dropped file as well)
+/// The problem is that the hover even will sometimes happen a few frames after the drop, so we have to keep the dropped
+/// file alive for <i>a short</i> period of time after the drop event
+struct DroppedFileHandler {
+    dropped_file: Option<PathBuf>,
+    drop_time: Instant,
+    keepalive_time: Duration,
+}
+
+// Keep the dropped file alive for half a sec. It's highly unlikely that we will get another drop event in that time
+const DROPPED_FILE_KEEPALIVE_TIME_MS: u64 = 500;
+
+impl DroppedFileHandler {
+    fn update(&mut self) {
+        if self.dropped_file.is_some() {
+            if Instant::now() >= self.drop_time + self.keepalive_time {
+                self.dropped_file = None;
+            }
+        }
+    }
+
+    fn add_dropped_file(&mut self, file: &PathBuf) {
+        self.dropped_file = Some(file.clone());
+        self.drop_time = Instant::now();
+    }
 }
 
 pub struct Gui {
     renderer: EguiRenderer,
     sender: Sender<GuiEvent>,
-    gui_params: GuiParams,
     app_info: AppInfo,
+    dropped_file_handler: DroppedFileHandler,
     registered_items: HashMap<String, Vec<UiDisplayParam>>,
 }
 
@@ -87,15 +117,8 @@ impl Gui {
         sender: Sender<GuiEvent>,
     ) -> Self {
         let egui_renderer = EguiRenderer::new(&device, TextureFormat::Rgba8Unorm, None, 1, &window);
-
-        let gui_params = GuiParams {
-            point_light_position: [10.0, 20.0, 0.0],
-            gui_size: [500.0, 300.0],
-        };
-
         Gui {
             sender,
-            gui_params,
             renderer: egui_renderer,
             app_info: AppInfo {
                 recent_notification: None,
@@ -103,6 +126,11 @@ impl Gui {
                 fps_counter: 0,
             },
             registered_items: HashMap::new(),
+            dropped_file_handler: DroppedFileHandler {
+                dropped_file: None,
+                drop_time: std::time::Instant::now(),
+                keepalive_time: Duration::from_millis(DROPPED_FILE_KEEPALIVE_TIME_MS),
+            },
         }
     }
 
@@ -116,6 +144,7 @@ impl Gui {
         category: &String,
         display_param: &mut UiDisplayParam,
         sender: &mut Sender<GuiEvent>,
+        dropped_file: &mut Option<PathBuf>,
     ) {
         ui.horizontal(|ui| {
             ui.add(Label::new(&display_param.name));
@@ -166,6 +195,33 @@ impl Gui {
                             .unwrap();
                     }
                 }
+                ui_item::UiDisplayDescription::Path(path_desc) => {
+                    let button_response = Button::new(
+                        path_desc
+                            .path
+                            .as_os_str()
+                            .to_str()
+                            .unwrap_or("Failed to get path"),
+                    )
+                    .ui(ui);
+                    if button_response.clicked() {
+                        if let Some(file) = FileDialog::new()
+                            .add_filter(
+                                &path_desc.file_type_description,
+                                &path_desc.valid_extensions,
+                            )
+                            .pick_file()
+                        {
+                            println!("Some file was picked: {file:?}");
+                        }
+                    } else if button_response.hovered() && dropped_file.is_some() {
+                        {
+                            let file_path = dropped_file.as_ref().unwrap();
+                            println!("Some file was fropped: {file_path:?}");
+                        }
+                        *dropped_file = None;
+                    }
+                }
             }
         });
     }
@@ -183,8 +239,6 @@ impl Gui {
             size_in_pixels: [config.width, config.height],
             pixels_per_point: window.scale_factor() as f32,
         };
-
-        let light_position = self.gui_params.point_light_position;
 
         self.renderer.draw(
             device,
@@ -204,38 +258,8 @@ impl Gui {
                         let _ = self.sender.try_send(GuiEvent::RecompileShaders);
                     }
                     ui.style_mut().spacing.slider_width = 300.0;
-                    ui.add(
-                        egui::Slider::new(
-                            &mut self.gui_params.point_light_position[0],
-                            -30.0..=30.0,
-                        )
-                        .smart_aim(false),
-                    );
-                    ui.add(
-                        egui::Slider::new(
-                            &mut self.gui_params.point_light_position[1],
-                            -30_f32..=30.0,
-                        )
-                        .smart_aim(false),
-                    );
-                    ui.add(
-                        egui::Slider::new(
-                            &mut self.gui_params.point_light_position[2],
-                            -30.0..=30.0,
-                        )
-                        .smart_aim(false),
-                    );
 
                     ui.separator();
-                    ui.label("Gui size");
-                    ui.add(egui::Slider::new(
-                        &mut self.gui_params.gui_size[0],
-                        0_f32..=2000.0,
-                    ));
-                    ui.add(egui::Slider::new(
-                        &mut self.gui_params.gui_size[1],
-                        0.0..=2000.0,
-                    ));
 
                     for (category, items) in &mut self.registered_items {
                         ui.add(Separator::default().horizontal());
@@ -245,7 +269,26 @@ impl Gui {
                                 &category,
                                 item,
                                 &mut self.sender,
+                                &mut self.dropped_file_handler.dropped_file,
                             );
+                        }
+                    }
+
+                    ui.add(Separator::default().horizontal());
+
+                    let button_response = Button::new("Change skybox").ui(ui);
+                    if button_response.clicked() {
+                        if let Some(file) = FileDialog::new()
+                            .add_filter("hdr environment map", &["hdr"])
+                            .pick_file()
+                        {
+                            println!("Some file was picked: {file:?}");
+                        }
+                    } else if button_response.hovered() {
+                        if self.dropped_file_handler.dropped_file.is_some() {
+                            let file_path =
+                                self.dropped_file_handler.dropped_file.as_ref().unwrap();
+                            println!("Some file was fropped: {file_path:?}");
                         }
                     }
 
@@ -272,30 +315,16 @@ impl Gui {
                                 }),
                         );
                     }
-
-                    // ui.horizontal(|ui| {
-                    //     ui.label(format!("Pixels per point: {}", ctx.pixels_per_point()));
-                    //     if ui.button("-").clicked() {
-                    //         scale_factor = (scale_factor - 0.1).max(0.3);
-                    //     }
-                    //     if ui.button("+").clicked() {
-                    //         scale_factor = (scale_factor + 0.1).min(3.0);
-                    //     }
-                    // });
                 });
             },
         );
 
-        if light_position != self.gui_params.point_light_position {
-            self.sender
-                .try_send(GuiEvent::LightPositionChanged {
-                    new_position: self.gui_params.point_light_position,
-                })
-                .unwrap();
-        }
+        // We don't want to use the dropped file anymore, we only keep it alive for one frame
+        self.dropped_file_handler.dropped_file = None;
     }
 
     pub fn update(&mut self, delta: Duration) {
+        self.dropped_file_handler.update();
         if let Some(operation_result) = &mut self.app_info.recent_notification {
             operation_result.progress_screen_time(delta.as_secs_f32());
             if operation_result.should_remove_from_ui() {
@@ -304,7 +333,7 @@ impl Gui {
         }
     }
 
-    pub fn push_update(&mut self, update: GuiUpdateEvent) {
+    pub fn push_display_info_update(&mut self, update: GuiUpdateEvent) {
         match update {
             GuiUpdateEvent::ShaderCompilationResult(result) => {
                 self.app_info.recent_notification = Some(GuiNotification::from_result(
@@ -332,6 +361,14 @@ impl Gui {
         event: &winit::event::WindowEvent,
     ) -> bool {
         let response = self.renderer.handle_input(window, event);
-        response.consumed
+
+        if !response.consumed {
+            if let WindowEvent::DroppedFile(file_path) = &event {
+                self.dropped_file_handler.add_dropped_file(file_path);
+                return true;
+            }
+        }
+
+        false
     }
 }

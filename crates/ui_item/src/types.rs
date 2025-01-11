@@ -1,12 +1,23 @@
-pub struct DisplayNumberToUiDescription<NumberType> {
+use std::path::PathBuf;
+
+pub struct DisplayNumberOnUiDescription<NumberType> {
     pub value: NumberType,
     pub min: NumberType,
     pub max: NumberType,
 }
 
+pub struct DisplayPathOnUiDescription {
+    pub path: PathBuf,
+    /// This will be displayed in the type of the file picker dialog
+    pub file_type_description: String,
+    /// Files with these extensions are accepted when trying to update the item from the UI
+    pub valid_extensions: Vec<String>,
+}
+
 pub enum UiDisplayDescription {
-    Float(DisplayNumberToUiDescription<f32>),
-    UInt(DisplayNumberToUiDescription<u32>),
+    Float(DisplayNumberOnUiDescription<f32>),
+    UInt(DisplayNumberOnUiDescription<u32>),
+    Path(DisplayPathOnUiDescription),
 }
 
 pub struct SetNumberFromUiDescription<NumberType> {

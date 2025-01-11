@@ -25,7 +25,7 @@ pub fn derive_ui_displayable(item: TokenStream) -> TokenStream {
                             implementation.extend(quote! {
                                 ui_params.push(UiDisplayParam {
                                     name: stringify!(#identifier).to_string(),
-                                    value: UiDisplayDescription::UInt(DisplayNumberToUiDescription {
+                                    value: UiDisplayDescription::UInt(DisplayNumberOnUiDescription {
                                         value: self.#identifier,
                                         min: 0,
                                         max: 5,
@@ -37,7 +37,7 @@ pub fn derive_ui_displayable(item: TokenStream) -> TokenStream {
                             implementation.extend(quote!{
                         ui_params.push(UiDisplayParam {
                             name: stringify!(#identifier).to_string(),
-                            value: UiDisplayDescription::Float(DisplayNumberToUiDescription {
+                            value: UiDisplayDescription::Float(DisplayNumberOnUiDescription {
                                 value: self.#identifier,
                                 min: 0.0,
                                 max: 5.0,

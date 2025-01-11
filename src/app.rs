@@ -253,7 +253,7 @@ impl App {
             GuiButton::SaveLevel => {
                 let result = save_level(&self.world, "test.lvl");
                 self.gui
-                    .push_update(GuiUpdateEvent::LevelSaveResult(result));
+                    .push_display_info_update(GuiUpdateEvent::LevelSaveResult(result));
             }
         };
     }
@@ -263,7 +263,6 @@ impl App {
             match event {
                 GuiEvent::RecompileShaders => self.recompile_shaders(),
                 GuiEvent::ButtonClicked(button) => self.handle_gui_button_pressed(button),
-                GuiEvent::LightPositionChanged { .. } => {}
                 GuiEvent::PropertyValueChanged((category, value_changed_params)) => {
                     let handled = match category.as_str() {
                         "gpu_params" => {
@@ -295,7 +294,7 @@ impl App {
     fn recompile_shaders(&mut self) {
         let result = block_on(self.recompile_shaders_internal());
         self.gui
-            .push_update(GuiUpdateEvent::ShaderCompilationResult(result));
+            .push_display_info_update(GuiUpdateEvent::ShaderCompilationResult(result));
     }
 
     pub fn update(&mut self, delta: Duration) {

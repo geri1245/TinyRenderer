@@ -1,4 +1,4 @@
-use std::{collections::HashMap, time::Duration};
+use std::{collections::HashMap, path::PathBuf, time::Duration};
 
 use wgpu::{BindGroup, CommandEncoder, Device, SurfaceTexture};
 
@@ -9,12 +9,18 @@ use crate::{
     world_renderer::WorldRenderer,
 };
 
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct GlobalWorldSettings {
+    sykbox_path: Option<PathBuf>,
+}
+
 pub struct World {
     pub world_renderer: WorldRenderer,
     pub camera_controller: CameraController,
 
     meshes: HashMap<u32, WorldObject>,
     lights: Vec<Light>,
+    global_settings: GlobalWorldSettings,
 
     next_object_id: u32,
 }
@@ -30,6 +36,7 @@ impl World {
             next_object_id: 1, // 0 stands for the placeholder "no object"
             world_renderer,
             camera_controller,
+            global_settings: GlobalWorldSettings { sykbox_path: None },
         }
     }
 

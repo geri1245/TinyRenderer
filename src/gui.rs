@@ -28,7 +28,6 @@ pub enum GuiUpdateEvent {
 pub enum GuiEvent {
     RecompileShaders,
     ButtonClicked(GuiButton),
-    PropertyValueChanged((String, SetPropertyFromUiParams)),
 }
 
 struct GuiNotification {
@@ -107,7 +106,13 @@ pub struct Gui {
     sender: Sender<GuiEvent>,
     app_info: AppInfo,
     dropped_file_handler: DroppedFileHandler,
-    registered_items: HashMap<String, Vec<UiDisplayParam>>,
+    registered_items: HashMap<
+        String,
+        (
+            Vec<UiDisplayParam>,
+            Sender<(String, SetPropertyFromUiParams)>,
+        ),
+    >,
 }
 
 impl Gui {
@@ -134,16 +139,27 @@ impl Gui {
         }
     }
 
-    pub fn register_item(&mut self, category: String, items: Vec<UiDisplayParam>) -> bool {
-        let insertion_result = self.registered_items.insert(category, items);
+    pub fn register_item(
+        &mut self,
+        category: &String,
+        items: Vec<UiDisplayParam>,
+        sender: Sender<(String, SetPropertyFromUiParams)>,
+    ) -> bool {
+        let insertion_result = self
+            .registered_items
+            .insert(category.clone(), (items, sender));
         insertion_result.is_none()
+    }
+
+    pub fn deregister_item(&mut self, category: &String) -> bool {
+        self.registered_items.remove(category).is_some()
     }
 
     fn add_item_with_change_notification(
         ui: &mut Ui,
         category: &String,
         display_param: &mut UiDisplayParam,
-        sender: &mut Sender<GuiEvent>,
+        sender: &mut Sender<(String, SetPropertyFromUiParams)>,
         dropped_file: &mut Option<PathBuf>,
     ) {
         ui.horizontal(|ui| {
@@ -159,7 +175,7 @@ impl Gui {
 
                     if slider_response.changed() {
                         sender
-                            .try_send(GuiEvent::PropertyValueChanged((
+                            .try_send((
                                 category.clone(),
                                 SetPropertyFromUiParams {
                                     name: display_param.name.clone(),
@@ -169,7 +185,7 @@ impl Gui {
                                         },
                                     ),
                                 },
-                            )))
+                            ))
                             .unwrap();
                     }
                 }
@@ -181,7 +197,7 @@ impl Gui {
 
                     if slider_response.changed() {
                         sender
-                            .try_send(GuiEvent::PropertyValueChanged((
+                            .try_send((
                                 category.clone(),
                                 SetPropertyFromUiParams {
                                     name: display_param.name.clone(),
@@ -191,7 +207,7 @@ impl Gui {
                                         },
                                     ),
                                 },
-                            )))
+                            ))
                             .unwrap();
                     }
                 }
@@ -261,14 +277,14 @@ impl Gui {
 
                     ui.separator();
 
-                    for (category, items) in &mut self.registered_items {
+                    for (category, (items, sender)) in &mut self.registered_items {
                         ui.add(Separator::default().horizontal());
                         for item in items {
                             Self::add_item_with_change_notification(
                                 ui,
                                 &category,
                                 item,
-                                &mut self.sender,
+                                sender,
                                 &mut self.dropped_file_handler.dropped_file,
                             );
                         }
@@ -369,6 +385,6 @@ impl Gui {
             }
         }
 
-        false
+        response.consumed
     }
 }

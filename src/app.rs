@@ -2,9 +2,11 @@ use crate::actions::RenderingAction;
 use crate::bind_group_layout_descriptors;
 use crate::buffer::GpuBufferCreationOptions;
 use crate::camera_controller::CameraController;
+use crate::custom_event::CustomEvent;
 use crate::global_params::{GlobalCPUParams, GlobalGPUParams};
 use crate::gpu_buffer::GpuBuffer;
 use crate::gui::{Gui, GuiButton, GuiEvent, GuiUpdateEvent};
+use crate::gui_settable_value::GuiSettableValue;
 use crate::light_controller::LightController;
 use crate::mipmap_generator::MipMapGenerator;
 use crate::player_controller::PlayerController;
@@ -18,8 +20,9 @@ use crossbeam_channel::{unbounded, Receiver};
 use std::path::Path;
 use std::time::Duration;
 use ui_item::{UiDisplayable, UiSettable};
-use wgpu::TextureViewDescriptor;
+use wgpu::{Queue, TextureViewDescriptor};
 use winit::event::{ElementState, KeyEvent, WindowEvent};
+use winit::event_loop::EventLoopProxy;
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::Window;
 
@@ -40,7 +43,7 @@ pub struct App {
     frame_timer: BasicTimer,
     gui: Gui,
     player_controller: PlayerController,
-    gpu_rendering_params: GpuBuffer<GlobalGPUParams>,
+    gpu_params: GuiSettableValue<GpuBuffer<GlobalGPUParams>, Queue>,
     cpu_rendering_params: GlobalCPUParams,
 
     light_controller: LightController,
@@ -52,12 +55,12 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(window: &Window) -> Self {
+    pub fn new(window: &Window, event_loop_proxy: EventLoopProxy<CustomEvent>) -> Self {
         let renderer = Renderer::new(window);
         let (gui_event_sender, gui_event_receiver) = unbounded::<GuiEvent>();
         let mut resource_loader = ResourceLoader::new(&renderer.device, &renderer.queue);
 
-        let mut gui = Gui::new(&window, &renderer.device, gui_event_sender);
+        let gui = Gui::new(&window, &renderer.device, gui_event_sender);
 
         let world_renderer: WorldRenderer = WorldRenderer::new(&renderer, &mut resource_loader);
 
@@ -77,7 +80,7 @@ impl App {
 
         let frame_timer = BasicTimer::new();
 
-        let global_gpu_params = GpuBuffer::new(
+        let gpu_params = GpuBuffer::new(
             GlobalGPUParams::default(),
             &renderer.device,
             &GpuBufferCreationOptions {
@@ -88,9 +91,16 @@ impl App {
             },
         );
 
-        gui.register_item(
-            "gpu_params".to_string(),
-            global_gpu_params.get_ui_description(),
+        let ui_items = gpu_params.get_ui_description();
+        let gpu_params = GuiSettableValue::new(
+            gpu_params,
+            "gpu_params".to_owned(),
+            Box::new(|data, set_property_params, queue| {
+                data.get_mut_data(queue)
+                    .try_set_value_from_ui(set_property_params.clone());
+            }),
+            &event_loop_proxy,
+            ui_items,
         );
 
         let mip_map_generator = MipMapGenerator::new(&renderer.device);
@@ -106,7 +116,7 @@ impl App {
             resource_loader,
             player_controller,
             cpu_rendering_params: GlobalCPUParams::default(),
-            gpu_rendering_params: global_gpu_params,
+            gpu_params,
             mip_map_generator,
         }
     }
@@ -121,6 +131,20 @@ impl App {
         self.renderer.resize(new_size);
         self.world
             .handle_size_changed(&self.renderer, new_size.width, new_size.height);
+    }
+
+    pub fn handle_custom_event(&mut self, event: &CustomEvent) {
+        match event {
+            CustomEvent::GuiRegistration(gui_registration_event) => {
+                if gui_registration_event.register {
+                    self.gui.register_item(
+                        &gui_registration_event.category,
+                        gui_registration_event.items.clone(),
+                        gui_registration_event.sender.clone(),
+                    );
+                }
+            }
+        }
     }
 
     pub fn handle_window_event(
@@ -222,7 +246,7 @@ impl App {
             &mut encoder,
             &current_frame_texture,
             &self.light_controller,
-            &self.gpu_rendering_params.bind_group,
+            &self.gpu_params.bind_group,
         )?;
 
         if self.should_draw_gui {
@@ -257,34 +281,25 @@ impl App {
         };
     }
 
+    fn handle_gpu_params_changed_events(&mut self) {
+        self.gpu_params.handle_gui_changes(&self.renderer.queue);
+    }
+
     fn handle_events_received_from_gui(&mut self) {
         while let Ok(event) = self.gui_event_receiver.try_recv() {
             match event {
                 GuiEvent::RecompileShaders => self.recompile_shaders(),
                 GuiEvent::ButtonClicked(button) => self.handle_gui_button_pressed(button),
-                GuiEvent::PropertyValueChanged((category, value_changed_params)) => {
-                    let handled = match category.as_str() {
-                        "gpu_params" => {
-                            self.gpu_rendering_params
-                                .get_mut_data(&self.renderer.queue)
-                                .try_set_value_from_ui(value_changed_params);
-                            true
-                        }
-                        _ => false,
-                    };
-                }
             }
         }
     }
 
     async fn recompile_shaders_internal(&mut self) -> anyhow::Result<()> {
         self.light_controller
-            .try_recompile_shaders(&self.renderer.device)
-            ?;
+            .try_recompile_shaders(&self.renderer.device)?;
 
         self.mip_map_generator
-            .try_recompile_shader(&self.renderer.device)
-            ?;
+            .try_recompile_shader(&self.renderer.device)?;
 
         self.world
             .recompile_shaders_if_needed(&self.renderer.device)
@@ -298,6 +313,7 @@ impl App {
 
     pub fn update(&mut self, delta: Duration) {
         self.handle_events_received_from_gui();
+        self.handle_gpu_params_changed_events();
 
         self.player_controller.update(&mut self.world);
 

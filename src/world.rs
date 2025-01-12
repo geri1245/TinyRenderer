@@ -1,12 +1,13 @@
-use std::{collections::HashMap, path::PathBuf, time::Duration};
-
-use wgpu::{BindGroup, CommandEncoder, Device, SurfaceTexture};
+use std::{
+    collections::HashMap,
+    ops::{Deref, DerefMut},
+    path::PathBuf,
+    time::Duration,
+};
 
 use crate::{
-    actions::RenderingAction, camera::Camera, camera_controller::CameraController,
-    light_controller::LightController, lights::Light, mipmap_generator::MipMapGenerator,
-    model::WorldObject, renderer::Renderer, resource_loader::ResourceLoader,
-    world_renderer::WorldRenderer,
+    camera::Camera, camera_controller::CameraController, instance::TransformComponent,
+    lights::Light, material::PbrMaterialDescriptor, model::WorldObject, renderer::Renderer,
 };
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -14,9 +15,29 @@ pub struct GlobalWorldSettings {
     sykbox_path: Option<PathBuf>,
 }
 
+#[derive(Debug, Clone)]
+pub enum ModificationType {
+    Added,
+    Removed,
+    TransformModified(TransformComponent),
+    MaterialModified(PbrMaterialDescriptor),
+}
+
+#[derive(Debug, Clone)]
+pub enum ObjectModificationType {
+    Mesh(ModificationType),
+    Light(ModificationType),
+}
+
+#[derive(Debug, Clone)]
+pub struct DirtyObject {
+    pub id: u32,
+    pub modification_type: ObjectModificationType,
+}
+
 pub struct World {
-    pub world_renderer: WorldRenderer,
     pub camera_controller: CameraController,
+    pub dirty_objects: Vec<DirtyObject>,
 
     meshes: HashMap<u32, WorldObject>,
     lights: Vec<Light>,
@@ -25,16 +46,44 @@ pub struct World {
     next_object_id: u32,
 }
 
-impl World {
-    pub fn new(mut world_renderer: WorldRenderer, camera_controller: CameraController) -> Self {
-        // Initial environment cubemap generation from the equirectangular map
-        world_renderer.add_action(RenderingAction::GenerateCubeMapFromEquirectangular);
+pub struct ObjectSettingGuard<'a> {
+    world: &'a mut World,
+    id: u32,
+}
 
+impl<'a> ObjectSettingGuard<'a> {
+    fn new(world: &'a mut World, id: u32) -> Self {
+        Self { world, id }
+    }
+}
+
+impl<'a> Drop for ObjectSettingGuard<'a> {
+    fn drop(&mut self) {
+        self.world.mark_object_dirty(self.id);
+    }
+}
+
+impl<'a> Deref for ObjectSettingGuard<'a> {
+    type Target = WorldObject;
+
+    fn deref(&self) -> &Self::Target {
+        &self.world.get_object(self.id).unwrap()
+    }
+}
+
+impl<'a> DerefMut for ObjectSettingGuard<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.world.get_object_mut_internal(self.id)
+    }
+}
+
+impl World {
+    pub fn new(camera_controller: CameraController) -> Self {
         World {
             meshes: HashMap::new(),
             lights: vec![],
+            dirty_objects: vec![],
             next_object_id: 1, // 0 stands for the placeholder "no object"
-            world_renderer,
             camera_controller,
             global_settings: GlobalWorldSettings { sykbox_path: None },
         }
@@ -42,7 +91,10 @@ impl World {
 
     pub fn add_object(&mut self, object: WorldObject) -> u32 {
         self.meshes.insert(self.next_object_id, object.clone());
-        self.world_renderer.add_object(object, self.next_object_id);
+        self.dirty_objects.push(DirtyObject {
+            id: self.next_object_id,
+            modification_type: ObjectModificationType::Mesh(ModificationType::Added),
+        });
 
         let ret_val = self.next_object_id;
         self.next_object_id += 1;
@@ -52,21 +104,22 @@ impl World {
 
     pub fn remove_object(&mut self, object_id_to_remove: u32) {
         self.meshes.remove(&object_id_to_remove);
-        self.world_renderer.remove_object(object_id_to_remove);
+        self.dirty_objects.push(DirtyObject {
+            id: object_id_to_remove,
+            modification_type: ObjectModificationType::Mesh(ModificationType::Removed),
+        });
     }
 
     pub fn get_object(&self, id: u32) -> Option<&WorldObject> {
         self.meshes.get(&id)
     }
 
-    pub fn get_object_mut(&mut self, id: u32) -> Option<&mut WorldObject> {
-        self.meshes.get_mut(&id)
+    pub fn get_object_mut<'a>(&'a mut self, id: u32) -> Option<ObjectSettingGuard> {
+        Some(ObjectSettingGuard::new(self, id))
     }
 
-    pub fn get_object_id_at(&self, x: u32, y: u32) -> Option<u32> {
-        self.world_renderer
-            .object_picker
-            .get_object_id_at_position(x, y)
+    fn get_object_mut_internal(&mut self, id: u32) -> &mut WorldObject {
+        self.meshes.get_mut(&id).unwrap()
     }
 
     pub fn add_light(&mut self, light: Light) -> usize {
@@ -88,63 +141,15 @@ impl World {
         }
     }
 
-    pub fn update(
-        &mut self,
-        delta: Duration,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        resource_loader: &ResourceLoader,
-        mip_map_generator: &MipMapGenerator,
-    ) {
-        for (id, mesh) in &mut self.meshes {
-            if mesh.is_transform_dirty {
-                self.world_renderer
-                    .update_object_transform(*id, mesh.reset_transform_dirty());
-            }
-            if mesh.is_material_dirty {
-                self.world_renderer
-                    .update_object_material(*id, mesh.reset_material_dirty());
-            }
-        }
-
-        self.camera_controller.update(delta, queue);
-        self.world_renderer
-            .update(device, queue, resource_loader, mip_map_generator);
+    pub fn update(&mut self, delta: Duration, renderer: &Renderer) {
+        self.camera_controller.update(delta, &renderer.queue);
     }
 
-    pub fn render(
-        &mut self,
-        renderer: &Renderer,
-        encoder: &mut CommandEncoder,
-        final_fbo_image_texture: &SurfaceTexture,
-        light_controller: &LightController,
-        global_gpu_params_bind_group: &BindGroup,
-    ) -> Result<(), wgpu::SurfaceError> {
-        self.world_renderer.render(
-            renderer,
-            encoder,
-            final_fbo_image_texture,
-            light_controller,
-            &self.camera_controller,
-            global_gpu_params_bind_group,
-        )
+    pub fn on_end_frame(&mut self) {
+        self.dirty_objects.clear();
     }
 
-    pub fn post_render(&mut self) {
-        self.world_renderer.post_render();
-    }
-
-    pub fn recompile_shaders_if_needed(&mut self, device: &Device) -> anyhow::Result<()> {
-        self.world_renderer.recompile_shaders_if_needed(device)
-    }
-
-    pub fn add_action(&mut self, action: RenderingAction) {
-        self.world_renderer.add_action(action);
-    }
-
-    pub fn handle_size_changed(&mut self, renderer: &Renderer, width: u32, height: u32) {
-        self.world_renderer
-            .handle_size_changed(renderer, width, height);
+    pub fn handle_size_changed(&mut self, width: u32, height: u32) {
         self.camera_controller.resize(width, height);
     }
 
@@ -152,7 +157,51 @@ impl World {
         &self.lights
     }
 
-    pub fn get_meshes(&self) -> Vec<&WorldObject> {
+    pub fn get_world_objects(&self) -> Vec<&WorldObject> {
         self.meshes.values().collect::<Vec<_>>()
+    }
+
+    fn mark_object_dirty(&mut self, id: u32) {
+        let (maybe_new_mat, maybe_new_transform) = if let Some(object) = self.get_object(id) {
+            let new_material = if object.is_material_dirty {
+                Some(
+                    object
+                        .description
+                        .model_descriptor
+                        .material_descriptor
+                        .clone(),
+                )
+            } else {
+                None
+            };
+
+            let new_transform = if object.is_transform_dirty {
+                Some(object.description.transform.clone())
+            } else {
+                None
+            };
+
+            (new_material, new_transform)
+        } else {
+            (None, None)
+        };
+
+        if let Some(new_material) = maybe_new_mat {
+            self.dirty_objects.push(DirtyObject {
+                id,
+                modification_type: ObjectModificationType::Mesh(
+                    ModificationType::MaterialModified(new_material),
+                ),
+            });
+        }
+
+        if let Some(new_transform) = maybe_new_transform {
+            self.dirty_objects.push(DirtyObject {
+                id,
+                modification_type: ObjectModificationType::Mesh(
+                    ModificationType::TransformModified(new_transform),
+                ),
+            });
+        }
     }
 }

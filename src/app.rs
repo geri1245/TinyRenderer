@@ -8,7 +8,7 @@ use crate::gpu_buffer::GpuBuffer;
 use crate::gui::{Gui, GuiButton, GuiEvent, GuiUpdateEvent};
 use crate::gui_settable_value::GuiSettableValue;
 use crate::light_controller::LightController;
-use crate::mipmap_generator::MipMapGenerator;
+use crate::object_picker::ObjectPickManager;
 use crate::player_controller::PlayerController;
 use crate::resource_loader::ResourceLoader;
 use crate::world::World;
@@ -38,7 +38,11 @@ pub enum WindowEventHandlingResult {
 }
 
 pub struct App {
+    pub world: World,
+
     renderer: Renderer,
+    world_renderer: WorldRenderer,
+    object_picker: ObjectPickManager,
     resource_loader: ResourceLoader,
     frame_timer: BasicTimer,
     gui: Gui,
@@ -47,9 +51,7 @@ pub struct App {
     cpu_rendering_params: GlobalCPUParams,
 
     light_controller: LightController,
-    mip_map_generator: MipMapGenerator,
 
-    pub world: World,
     should_draw_gui: bool,
     gui_event_receiver: Receiver<GuiEvent>,
 }
@@ -58,11 +60,11 @@ impl App {
     pub fn new(window: &Window, event_loop_proxy: EventLoopProxy<CustomEvent>) -> Self {
         let renderer = Renderer::new(window);
         let (gui_event_sender, gui_event_receiver) = unbounded::<GuiEvent>();
-        let mut resource_loader = ResourceLoader::new(&renderer.device, &renderer.queue);
+        let mut resource_loader = ResourceLoader::new(&renderer);
 
         let gui = Gui::new(&window, &renderer.device, gui_event_sender);
 
-        let world_renderer: WorldRenderer = WorldRenderer::new(&renderer, &mut resource_loader);
+        let mut world_renderer: WorldRenderer = WorldRenderer::new(&renderer, &mut resource_loader);
 
         let camera_controller = CameraController::new(
             &renderer.device,
@@ -70,7 +72,7 @@ impl App {
             renderer.config.height,
         );
 
-        let mut world = World::new(world_renderer, camera_controller);
+        let mut world = World::new(camera_controller);
 
         load_level(&mut world, Path::new("levels/test.lvl")).unwrap();
 
@@ -103,10 +105,14 @@ impl App {
             ui_items,
         );
 
-        let mip_map_generator = MipMapGenerator::new(&renderer.device);
+        let object_picker = ObjectPickManager::new(&renderer);
+
+        // Initial environment cubemap generation from the equirectangular map
+        world_renderer.add_action(RenderingAction::GenerateCubeMapFromEquirectangular);
 
         Self {
             renderer,
+            world_renderer,
             frame_timer,
             gui,
             should_draw_gui: true,
@@ -117,7 +123,7 @@ impl App {
             player_controller,
             cpu_rendering_params: GlobalCPUParams::default(),
             gpu_params,
-            mip_map_generator,
+            object_picker,
         }
     }
 
@@ -129,8 +135,10 @@ impl App {
 
     fn resize_unchecked(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         self.renderer.resize(new_size);
+        self.world_renderer.handle_size_changed(&self.renderer);
         self.world
-            .handle_size_changed(&self.renderer, new_size.width, new_size.height);
+            .handle_size_changed(new_size.width, new_size.height);
+        self.object_picker.resize(&self.renderer);
     }
 
     pub fn handle_custom_event(&mut self, event: &CustomEvent) {
@@ -156,10 +164,11 @@ impl App {
             return WindowEventHandlingResult::Handled;
         }
 
-        match self
-            .player_controller
-            .handle_window_event(&event, &mut self.world)
-        {
+        match self.player_controller.handle_window_event(
+            &event,
+            &mut self.world,
+            &self.object_picker,
+        ) {
             WindowEventHandlingResult::RequestAction(action) => {
                 if matches!(action, WindowEventHandlingAction::RecompileShaders) {
                     self.recompile_shaders();
@@ -217,7 +226,7 @@ impl App {
                         WindowEventHandlingResult::Handled
                     }
                     KeyCode::KeyI => {
-                        self.world
+                        self.world_renderer
                             .add_action(RenderingAction::SaveDiffuseIrradianceMapToFile);
                         WindowEventHandlingResult::Handled
                     }
@@ -231,27 +240,24 @@ impl App {
         }
     }
 
-    pub fn run_frame(&mut self, window: &winit::window::Window) -> Result<(), wgpu::SurfaceError> {
-        let delta = self.frame_timer.get_delta_and_reset_timer();
-        self.update(delta);
-
+    pub fn render(&mut self, window: &winit::window::Window) -> Result<(), wgpu::SurfaceError> {
         let mut encoder = self.renderer.get_encoder();
         let current_frame_texture = self.renderer.get_current_frame_texture()?;
         let current_frame_texture_view = current_frame_texture
             .texture
             .create_view(&TextureViewDescriptor::default());
 
-        self.world.render(
+        self.world_renderer.render(
             &self.renderer,
             &mut encoder,
             &current_frame_texture,
             &self.light_controller,
+            &self.world.camera_controller,
             &self.gpu_params.bind_group,
+            &mut self.object_picker,
         )?;
 
         if self.should_draw_gui {
-            let frame_time = delta.as_secs_f32();
-            self.gui.update_frame_time(frame_time);
             self.gui.render(
                 &window,
                 &self.renderer.device,
@@ -266,7 +272,22 @@ impl App {
 
         current_frame_texture.present();
 
-        self.world.post_render();
+        Ok(())
+    }
+
+    pub fn on_end_frame(&mut self) {
+        self.world.on_end_frame();
+        self.object_picker.on_end_frame();
+    }
+
+    pub fn run_frame(&mut self, window: &winit::window::Window) -> Result<(), wgpu::SurfaceError> {
+        let delta = self.frame_timer.get_delta_and_reset_timer();
+
+        self.update(delta);
+
+        self.render(window)?;
+
+        self.on_end_frame();
 
         Ok(())
     }
@@ -298,11 +319,15 @@ impl App {
         self.light_controller
             .try_recompile_shaders(&self.renderer.device)?;
 
-        self.mip_map_generator
+        self.renderer.try_recompile_shaders()?;
+
+        self.world_renderer
+            .recompile_shaders_if_needed(&self.renderer.device)?;
+
+        self.object_picker
             .try_recompile_shader(&self.renderer.device)?;
 
-        self.world
-            .recompile_shaders_if_needed(&self.renderer.device)
+        Ok(())
     }
 
     fn recompile_shaders(&mut self) {
@@ -324,13 +349,12 @@ impl App {
             &self.world,
         );
 
-        self.world.update(
-            delta,
-            &self.renderer.device,
-            &self.renderer.queue,
-            &self.resource_loader,
-            &self.mip_map_generator,
-        );
+        self.world.update(delta, &self.renderer);
+
+        self.world_renderer
+            .update(&self.renderer, &self.world, &self.resource_loader);
+
+        self.object_picker.update();
 
         self.gui.update(delta);
     }

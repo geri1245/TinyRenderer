@@ -10,6 +10,7 @@ use crate::{
     model::Renderable,
     pipelines::{ObjectPickerRP, ShaderCompilationSuccess},
     pollable_gpu_buffer::PollableGpuBuffer,
+    renderer::Renderer,
     texture::{SampledTexture, SampledTextureDescriptor, SamplingType},
 };
 
@@ -52,21 +53,20 @@ pub struct ObjectPickManager {
 }
 
 impl ObjectPickManager {
-    pub fn new(device: &wgpu::Device, width: u32, height: u32) -> Self {
-        let texture = Self::create_texture(device, width, height);
+    pub fn new(renderer: &Renderer) -> Self {
+        let texture = Self::create_texture(renderer);
 
         let render_pipeline = ObjectPickerRP::new(
-            device,
+            &renderer.device,
             OBJECT_PICKER_TEXTURE_FORMAT,
             SampledTexture::DEPTH_FORMAT,
         )
-        
         .unwrap();
 
         Self {
             object_id_texture: texture,
-            width,
-            height,
+            width: renderer.config.width,
+            height: renderer.config.height,
             object_picker_rp: render_pipeline,
             output_buffers: VecDeque::with_capacity(NUM_OF_PICK_BUFFERS),
             latest_object_id_buffer: SingleDimensionPaddedImageBuffer {
@@ -76,7 +76,7 @@ impl ObjectPickManager {
         }
     }
 
-    pub fn get_object_id_at_position(&self, x: u32, y: u32) -> Option<u32> {
+    pub fn get_object_id_at(&self, x: u32, y: u32) -> Option<u32> {
         // 0 is not a valid ID, so we return it as None - the rest of the application can handle it like that
         match self.latest_object_id_buffer.get(x, y) {
             Some(id) => {
@@ -94,19 +94,17 @@ impl ObjectPickManager {
         &mut self,
         device: &Device,
     ) -> anyhow::Result<ShaderCompilationSuccess> {
-        self.object_picker_rp
-            .try_recompile_shader(
-                device,
-                OBJECT_PICKER_TEXTURE_FORMAT,
-                SampledTexture::DEPTH_FORMAT,
-            )
-            
+        self.object_picker_rp.try_recompile_shader(
+            device,
+            OBJECT_PICKER_TEXTURE_FORMAT,
+            SampledTexture::DEPTH_FORMAT,
+        )
     }
 
-    pub fn resize(&mut self, device: &wgpu::Device, width: u32, height: u32) {
-        self.object_id_texture = Self::create_texture(device, width, height);
-        self.width = width;
-        self.height = height;
+    pub fn resize(&mut self, renderer: &Renderer) {
+        self.object_id_texture = Self::create_texture(renderer);
+        self.width = renderer.config.width;
+        self.height = renderer.config.height;
     }
 
     pub fn update(&mut self) {
@@ -125,7 +123,7 @@ impl ObjectPickManager {
         }
     }
 
-    pub fn post_render(&mut self) {
+    pub fn on_end_frame(&mut self) {
         self.output_buffers.back().unwrap().post_render();
     }
 
@@ -141,10 +139,10 @@ impl ObjectPickManager {
         )
     }
 
-    fn create_texture(device: &wgpu::Device, width: u32, height: u32) -> SampledTexture {
+    fn create_texture(renderer: &Renderer) -> SampledTexture {
         let texture_extents = Extent3d {
-            width,
-            height,
+            width: renderer.config.width,
+            height: renderer.config.height,
             depth_or_array_layers: 1,
         };
         let descriptor = SampledTextureDescriptor {
@@ -159,7 +157,7 @@ impl ObjectPickManager {
             sampling_type: SamplingType::Nearest,
         };
 
-        SampledTexture::new(device, descriptor, "Texture for object picking")
+        SampledTexture::new(&renderer.device, descriptor, "Texture for object picking")
     }
 
     pub fn render<'a, T>(

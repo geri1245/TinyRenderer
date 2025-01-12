@@ -7,14 +7,14 @@ use gltf::Gltf;
 use std::io::BufReader;
 use std::path::PathBuf;
 use tobj::MTLLoadResult;
-use wgpu::{CommandEncoderDescriptor, Device, Extent3d, Queue};
+use wgpu::{CommandEncoderDescriptor, Device, Extent3d};
 
 use glam::{Vec2, Vec3};
 
 use crate::instance::TransformComponent;
-use crate::mipmap_generator::MipMapGenerator;
 use crate::model::{ModelDescriptor, RenderablePart};
 use crate::primitive_shapes::square;
+use crate::renderer::Renderer;
 use crate::texture::{SamplingType, TextureSourceDescriptor};
 use crate::{
     file_loader::ImageLoader,
@@ -38,9 +38,9 @@ pub struct ResourceLoader {
 }
 
 impl ResourceLoader {
-    pub fn new(device: &Device, queue: &Queue) -> Self {
-        let (default_mat, default_textures) = Self::load_default_textures(device, queue);
-        let primitive_shapes = Self::load_primitive_shapes(device).unwrap();
+    pub fn new(renderer: &Renderer) -> Self {
+        let (default_mat, default_textures) = Self::load_default_textures(renderer);
+        let primitive_shapes = Self::load_primitive_shapes(&renderer.device).unwrap();
 
         let loader = ResourceLoader {
             default_mat,
@@ -72,8 +72,7 @@ impl ResourceLoader {
     }
 
     fn load_default_textures(
-        device: &Device,
-        queue: &Queue,
+        renderer: &Renderer,
     ) -> (
         Rc<MaterialRenderData>,
         HashMap<TextureUsage, Rc<SampledTexture>>,
@@ -105,13 +104,16 @@ impl ResourceLoader {
 
         for (data, path, usage) in TEXTURES {
             let texture = Rc::new(
-                SampledTexture::from_image_bytes(device, queue, data, usage, Some(path)).unwrap(),
+                SampledTexture::from_image_bytes(renderer, data, usage, Some(path)).unwrap(),
             );
             default_material_textures.insert(usage, texture);
         }
 
         (
-            Rc::new(MaterialRenderData::new(device, &default_material_textures)),
+            Rc::new(MaterialRenderData::new(
+                &renderer.device,
+                &default_material_textures,
+            )),
             default_material_textures,
         )
     }
@@ -119,8 +121,7 @@ impl ResourceLoader {
     fn load_texture(
         &self,
         descriptor: &TextureSourceDescriptor,
-        device: &Device,
-        queue: &Queue,
+        renderer: &Renderer,
     ) -> anyhow::Result<Rc<SampledTexture>> {
         match &descriptor.source {
             crate::texture::MaterialSource::FromFile(path) => {
@@ -132,8 +133,7 @@ impl ResourceLoader {
                 };
                 Ok(Rc::new(
                     SampledTexture::from_image(
-                        &device,
-                        queue,
+                        renderer,
                         &image,
                         texture_size,
                         descriptor.usage,
@@ -154,9 +154,7 @@ impl ResourceLoader {
     pub fn load_model(
         &self,
         mesh_descriptor: &ModelDescriptor,
-        device: &Device,
-        queue: &Queue,
-        mip_map_generator: &MipMapGenerator,
+        renderer: &Renderer,
     ) -> anyhow::Result<Vec<RenderablePart>> {
         let primitive = match &mesh_descriptor.mesh_descriptor {
             MeshDescriptor::PrimitiveInCode(shape) => {
@@ -165,9 +163,9 @@ impl ResourceLoader {
             MeshDescriptor::FromFile(path) => {
                 if let Some(extension) = path.extension() {
                     if extension == "obj" {
-                        Rc::new(load_obj(&device, path.clone())?)
+                        Rc::new(load_obj(&renderer.device, path.clone())?)
                     } else if extension == "gltf" {
-                        Rc::new(load_gltf(device, path.clone())?)
+                        Rc::new(load_gltf(&renderer.device, path.clone())?)
                     } else {
                         return Err(anyhow!(
                             "Resource loading not yet implemented for file type {extension:?}"
@@ -183,20 +181,22 @@ impl ResourceLoader {
             PbrMaterialDescriptor::Texture(textures) => {
                 let mut loaded_textures = HashMap::with_capacity(textures.len());
                 for texture_descriptor in textures {
-                    let texture = self.load_texture(texture_descriptor, device, queue)?;
+                    let texture = self.load_texture(texture_descriptor, renderer)?;
                     match texture_descriptor.usage {
                         TextureUsage::Albedo | TextureUsage::Normal => {
                             let mut encoder =
-                                device.create_command_encoder(&CommandEncoderDescriptor {
-                                    label: Some("mipmap generator encoder"),
-                                });
-                            mip_map_generator.create_mips_for_texture(
+                                renderer
+                                    .device
+                                    .create_command_encoder(&CommandEncoderDescriptor {
+                                        label: Some("mipmap generator encoder"),
+                                    });
+                            renderer.mip_map_generator.create_mips_for_texture(
                                 &mut encoder,
                                 &(*texture),
                                 None,
-                                device,
+                                &renderer.device,
                             );
-                            queue.submit(Some(encoder.finish()));
+                            renderer.queue.submit(Some(encoder.finish()));
                         }
                         TextureUsage::Metalness
                         | TextureUsage::Roughness
@@ -209,10 +209,10 @@ impl ResourceLoader {
                         loaded_textures.insert(*usage, texture.clone());
                     }
                 }
-                MaterialRenderData::new(device, &loaded_textures)
+                MaterialRenderData::new(&renderer.device, &loaded_textures)
             }
             PbrMaterialDescriptor::Flat(pbr_parameters) => {
-                MaterialRenderData::from_flat_parameters(device, pbr_parameters)
+                MaterialRenderData::from_flat_parameters(&renderer.device, pbr_parameters)
             }
         };
 

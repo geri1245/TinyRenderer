@@ -7,6 +7,7 @@ use crate::{
     cubemap_helpers::{create_cubemap_face_rendering_parameters, RenderingIntoCubemapResources},
     model::Primitive,
     pipelines::{EquirectangularToCubemapRP, ShaderCompilationSuccess},
+    renderer::Renderer,
     texture::SampledTexture,
 };
 
@@ -23,16 +24,14 @@ pub struct EquirectangularToCubemapRenderer {
 
 impl EquirectangularToCubemapRenderer {
     pub fn new(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
+        renderer: &Renderer,
         color_format: TextureFormat,
         basic_mesh: Rc<Primitive>,
     ) -> anyhow::Result<Self> {
-        let pipeline = EquirectangularToCubemapRP::new(device, color_format)?;
+        let pipeline = EquirectangularToCubemapRP::new(&renderer.device, color_format)?;
         let hdr_texture_path = "assets/textures/skybox/golf_course.hdr";
         let hdr_texture = SampledTexture::from_hdr_image(
-            device,
-            queue,
+            renderer,
             hdr_texture_path,
             Some("HDR equirectangular map"),
         )
@@ -55,7 +54,7 @@ impl EquirectangularToCubemapRenderer {
             view_formats: &[],
         };
 
-        let cube_texture = device.create_texture(&texture_descriptor);
+        let cube_texture = renderer.device.create_texture(&texture_descriptor);
 
         let sampled_cube_view = cube_texture.create_view(&wgpu::TextureViewDescriptor {
             label: Some("HDR cubemap target view"),
@@ -63,7 +62,7 @@ impl EquirectangularToCubemapRenderer {
             ..Default::default()
         });
 
-        let cube_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+        let cube_sampler = renderer.device.create_sampler(&wgpu::SamplerDescriptor {
             label: Some("Equirectangular cube map sampler"),
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
@@ -71,35 +70,41 @@ impl EquirectangularToCubemapRenderer {
             ..Default::default()
         });
 
-        let sampled_cubemap_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &device.create_bind_group_layout(
-                &bind_group_layout_descriptors::TEXTURE_CUBE_FRAGMENT_COMPUTE_WITH_SAMPLER,
-            ),
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&sampled_cube_view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&cube_sampler),
-                },
-            ],
-            label: None,
-        });
+        let sampled_cubemap_bind_group =
+            renderer
+                .device
+                .create_bind_group(&wgpu::BindGroupDescriptor {
+                    layout: &renderer.device.create_bind_group_layout(
+                        &bind_group_layout_descriptors::TEXTURE_CUBE_FRAGMENT_COMPUTE_WITH_SAMPLER,
+                    ),
+                    entries: &[
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: wgpu::BindingResource::TextureView(&sampled_cube_view),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: wgpu::BindingResource::Sampler(&cube_sampler),
+                        },
+                    ],
+                    label: None,
+                });
 
-        let hdr_map_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &device.create_bind_group_layout(
-                &bind_group_layout_descriptors::TEXTURE_2D_FRAGMENT_WITH_SAMPLER,
-            ),
-            entries: &[
-                hdr_texture.get_texture_bind_group_entry(0),
-                hdr_texture.get_sampler_bind_group_entry(1),
-            ],
-            label: None,
-        });
+        let hdr_map_bind_group = renderer
+            .device
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                layout: &renderer.device.create_bind_group_layout(
+                    &bind_group_layout_descriptors::TEXTURE_2D_FRAGMENT_WITH_SAMPLER,
+                ),
+                entries: &[
+                    hdr_texture.get_texture_bind_group_entry(0),
+                    hdr_texture.get_sampler_bind_group_entry(1),
+                ],
+                label: None,
+            });
 
-        let render_params = create_cubemap_face_rendering_parameters(device, &cube_texture);
+        let render_params =
+            create_cubemap_face_rendering_parameters(&renderer.device, &cube_texture);
 
         Ok(Self {
             pipeline,
@@ -117,7 +122,6 @@ impl EquirectangularToCubemapRenderer {
     ) -> anyhow::Result<ShaderCompilationSuccess> {
         self.pipeline
             .try_recompile_shader(device, self.color_format)
-            
     }
 
     pub fn render(&self, encoder: &mut CommandEncoder) {

@@ -4,6 +4,8 @@ use anyhow::*;
 use serde::{Deserialize, Serialize};
 use wgpu::{Extent3d, TextureDimension, TextureFormat, TextureUsages};
 
+use crate::renderer::Renderer;
+
 const SKYBOX_TEXTURE_SIZE: u32 = 512;
 
 #[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize)]
@@ -78,8 +80,7 @@ impl SampledTexture {
     }
 
     pub fn from_image_bytes(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
+        renderer: &Renderer,
         bytes: &[u8],
         usage: TextureUsage,
         label: Option<&str>,
@@ -100,8 +101,7 @@ impl SampledTexture {
                     .map(|a| a[0] as f32 / 255.0)
                     .collect::<Vec<_>>();
                 Self::from_image(
-                    device,
-                    queue,
+                    &renderer,
                     bytemuck::cast_slice(&data),
                     size,
                     usage,
@@ -112,25 +112,12 @@ impl SampledTexture {
             TextureUsage::HdrAlbedo => panic!("Hdr not supported in this function"),
             TextureUsage::Albedo | TextureUsage::Normal => {
                 let data = &rgba.into_vec();
-                Self::from_image(
-                    device,
-                    queue,
-                    data,
-                    size,
-                    usage,
-                    SamplingType::Linear,
-                    label,
-                )
+                Self::from_image(&renderer, data, size, usage, SamplingType::Linear, label)
             }
         }
     }
 
-    pub fn from_hdr_image(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        path: &str,
-        label: Option<&str>,
-    ) -> Result<Self> {
+    pub fn from_hdr_image(renderer: &Renderer, path: &str, label: Option<&str>) -> Result<Self> {
         let f = File::open(path)?;
         let f = BufReader::new(f);
         let image = radiant::load(f)?;
@@ -149,8 +136,7 @@ impl SampledTexture {
         };
 
         Self::from_image(
-            device,
-            queue,
+            &renderer,
             bytemuck::cast_slice(&bytes),
             texture_size,
             TextureUsage::HdrAlbedo,
@@ -160,8 +146,7 @@ impl SampledTexture {
     }
 
     pub fn from_image(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
+        renderer: &Renderer,
         bytes: &[u8],
         size: Extent3d,
         usage: TextureUsage,
@@ -198,7 +183,7 @@ impl SampledTexture {
             TextureUsage::HdrAlbedo => 1,
         };
 
-        let texture = device.create_texture(&wgpu::TextureDescriptor {
+        let texture = renderer.device.create_texture(&wgpu::TextureDescriptor {
             label,
             size,
             mip_level_count: mip_count,
@@ -209,7 +194,7 @@ impl SampledTexture {
             view_formats: &[],
         });
 
-        queue.write_texture(
+        renderer.queue.write_texture(
             texture.as_image_copy(),
             bytes,
             wgpu::ImageDataLayout {
@@ -223,13 +208,13 @@ impl SampledTexture {
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
         let sampler = match sampling_type {
-            SamplingType::Nearest => device.create_sampler(&wgpu::SamplerDescriptor {
+            SamplingType::Nearest => renderer.device.create_sampler(&wgpu::SamplerDescriptor {
                 mag_filter: wgpu::FilterMode::Nearest,
                 min_filter: wgpu::FilterMode::Nearest,
                 mipmap_filter: wgpu::FilterMode::Nearest,
                 ..Default::default()
             }),
-            SamplingType::Linear => device.create_sampler(&wgpu::SamplerDescriptor {
+            SamplingType::Linear => renderer.device.create_sampler(&wgpu::SamplerDescriptor {
                 mag_filter: wgpu::FilterMode::Linear,
                 min_filter: wgpu::FilterMode::Linear,
                 mipmap_filter: wgpu::FilterMode::Linear,

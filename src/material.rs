@@ -9,7 +9,7 @@ use crate::{
     texture::{SampledTexture, TextureSourceDescriptor, TextureUsage},
 };
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, PartialOrd)]
 pub enum PbrMaterialDescriptor {
     Texture(Vec<TextureSourceDescriptor>), // All the parameters are given as textures
     Flat(PbrParameters),                   // The parameters are given as plain old numbers

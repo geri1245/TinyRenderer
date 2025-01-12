@@ -119,7 +119,7 @@ impl Gizmo {
                     Self::calculate_gizmo_scale(selected_object_position, camera_position);
 
                 for (gizmo_object_id, _axis) in &self.gizmo_parts_drawn {
-                    if let Some(gizmo_object) = world.get_object_mut(*gizmo_object_id) {
+                    if let Some(mut gizmo_object) = world.get_object_mut(*gizmo_object_id) {
                         gizmo_object.set_scale(gizmo_scale);
                     }
                 }
@@ -129,7 +129,7 @@ impl Gizmo {
 
     fn restore_hovered_gizmo_material_if_any(&self, world: &mut World) {
         if let Some(hovered_gizmo_part_id) = self.hovered_gizmo_part_id {
-            if let Some(object) = world.get_object_mut(hovered_gizmo_part_id) {
+            if let Some(mut object) = world.get_object_mut(hovered_gizmo_part_id) {
                 if let Some(axis) = self.gizmo_parts_drawn.get(&hovered_gizmo_part_id) {
                     let color = get_color_for_axis(*axis);
                     object.update_material(&PbrMaterialDescriptor::Flat(PbrParameters::new(
@@ -152,7 +152,7 @@ impl Gizmo {
         if let Some(hovered_gizmo_part_id) = hovered_object_id {
             if self.gizmo_parts_drawn.contains_key(&hovered_gizmo_part_id) {
                 self.hovered_gizmo_part_id = hovered_object_id;
-                if let Some(object) = world.get_object_mut(hovered_gizmo_part_id) {
+                if let Some(mut object) = world.get_object_mut(hovered_gizmo_part_id) {
                     object.update_material(&PbrMaterialDescriptor::from_color(HOVERED_GIZMO_COLOR));
                 }
             } else {
@@ -266,7 +266,7 @@ impl Gizmo {
     pub fn update_position(&mut self, new_position: Vec3, world: &mut World) {
         self.gizmo_position = Some(new_position);
         for (id, _axis) in &self.gizmo_parts_drawn {
-            let object = world.get_object_mut(*id).unwrap();
+            let mut object = world.get_object_mut(*id).unwrap();
             object.set_location(new_position);
         }
     }

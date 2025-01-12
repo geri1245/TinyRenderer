@@ -9,6 +9,7 @@ use crate::{
     camera_controller::CameraController,
     gizmo::{Gizmo, GizmoUpdateResult},
     math::Line,
+    object_picker::ObjectPickManager,
     world::World,
 };
 
@@ -71,7 +72,12 @@ impl GizmoHandler {
         self.gizmo.update(world);
     }
 
-    pub fn handle_window_event(&mut self, event: &WindowEvent, world: &mut World) -> bool {
+    pub fn handle_window_event(
+        &mut self,
+        event: &WindowEvent,
+        world: &mut World,
+        object_picker: &ObjectPickManager,
+    ) -> bool {
         match event {
             WindowEvent::CursorMoved { position, .. } => {
                 self.cursor_position = Some(*position);
@@ -98,7 +104,7 @@ impl GizmoHandler {
                     GizmoInteractionState::Idle => {
                         if let Some(pos) = self.cursor_position {
                             let hovered_object_id =
-                                world.get_object_id_at(pos.x as u32, pos.y as u32);
+                                object_picker.get_object_id_at(pos.x as u32, pos.y as u32);
                             self.gizmo.set_hovered_object_id(hovered_object_id, world);
                         }
                     }
@@ -113,7 +119,7 @@ impl GizmoHandler {
                         ElementState::Pressed => {
                             if let Some(pos) = self.cursor_position {
                                 let selected_object_id =
-                                    world.get_object_id_at(pos.x as u32, pos.y as u32);
+                                    object_picker.get_object_id_at(pos.x as u32, pos.y as u32);
 
                                 match self
                                     .gizmo
@@ -190,13 +196,16 @@ impl GizmoHandler {
         let (gizmo_axis_point, _camera_axis_point) =
             gizmo_move_info.gizmo_movement_axis.distance(&camera_ray);
 
-        let object = world
-            .get_object_mut(self.gizmo.selected_object_id.unwrap())
-            .unwrap();
-
         let new_position =
             gizmo_axis_point + gizmo_move_info.gizmo_interaction_and_object_position_difference;
-        object.set_location(new_position);
+
+        {
+            let mut object = world
+                .get_object_mut(self.gizmo.selected_object_id.unwrap())
+                .unwrap();
+
+            object.set_location(new_position);
+        }
 
         self.gizmo.update_position(new_position, world);
     }

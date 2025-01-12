@@ -6,7 +6,3 @@ pub enum RenderingAction {
     BakeDiffuseIrradianceMap,
     SaveDiffuseIrradianceMapToFile,
 }
-
-pub enum UserInputAction {
-    SelectObject(u32),
-}

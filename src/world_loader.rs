@@ -47,7 +47,7 @@ pub fn save_level(world: &World, level_file_name: &str) -> anyhow::Result<()> {
         .open(target_file)?;
 
     let lights = world.get_lights();
-    let meshes = world.get_meshes();
+    let meshes = world.get_world_objects();
     let meshes_to_save = meshes
         .iter()
         .filter(|object| !object.is_transient)

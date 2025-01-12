@@ -235,21 +235,30 @@ pub struct BufferWithLength {
 }
 
 impl Renderable {
-    pub fn update_transform_render_state(&mut self, queue: &Queue, object_id: u32) {
+    pub fn update_transform_render_state(
+        &mut self,
+        queue: &Queue,
+        new_transform: &TransformComponent,
+        object_id: u32,
+    ) {
         queue.write_buffer(
             &self.instance_data.buffer,
             0,
-            bytemuck::cast_slice(&[self.description.transform.to_raw(object_id)]),
+            bytemuck::cast_slice(&[new_transform.to_raw(object_id)]),
         );
         self.instance_data.count = 1;
     }
 
-    pub fn update_material_render_state(&mut self, device: &Device) {
+    pub fn update_material_render_state(
+        &mut self,
+        device: &Device,
+        new_material: &PbrMaterialDescriptor,
+    ) {
         // TODO: this should only update a specific material, not all of them.
         // As a first solution, it would be enough to just recreate the entire renderable state when something changes
         // This is very much not optimal, but it would be an easy first version to implement
         for part in &mut self.renderable_parts {
-            match &self.description.model_descriptor.material_descriptor {
+            match new_material {
                 PbrMaterialDescriptor::Texture(_vec) => {
                     // todo!()
                 }

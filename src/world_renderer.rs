@@ -11,10 +11,7 @@ use crate::{
     equirectangular_to_cubemap_renderer::EquirectangularToCubemapRenderer,
     forward_renderer::ForwardRenderer,
     gbuffer_geometry_renderer::GBufferGeometryRenderer,
-    instance::TransformComponent,
     light_controller::LightController,
-    material::PbrMaterialDescriptor,
-    mipmap_generator::MipMapGenerator,
     model::{Renderable, RenderingPass, WorldObject},
     object_picker::ObjectPickManager,
     pipelines::{self, MainRP, ShaderCompilationSuccess},
@@ -22,27 +19,21 @@ use crate::{
     renderer::Renderer,
     resource_loader::{PrimitiveShape, ResourceLoader},
     skybox::Skybox,
+    world::{ModificationType, ObjectModificationType, World},
 };
 
 pub struct WorldRenderer {
-    pub diffuse_irradiance_renderer: DiffuseIrradianceRenderer,
-
+    diffuse_irradiance_renderer: DiffuseIrradianceRenderer,
     skybox: Skybox,
     main_rp: MainRP,
     post_process_manager: PostProcessManager,
     forward_renderer: ForwardRenderer,
     gbuffer_geometry_renderer: GBufferGeometryRenderer,
     equirec_to_cubemap_renderer: EquirectangularToCubemapRenderer,
-    pub object_picker: ObjectPickManager,
 
     actions_to_process: VecDeque<RenderingAction>,
 
     renderables: HashMap<u32, Renderable>,
-    objects_with_dirty_transform: Vec<u32>,
-    objects_with_dirty_material_data: Vec<u32>,
-
-    /// These are waiting to be loaded
-    pending_renderables: Vec<(u32, WorldObject)>,
 }
 
 impl WorldRenderer {
@@ -72,8 +63,7 @@ impl WorldRenderer {
 
         // TODO: change the format, or use some constant here
         let equirec_to_cubemap_renderer = EquirectangularToCubemapRenderer::new(
-            &renderer.device,
-            &renderer.queue,
+            renderer,
             wgpu::TextureFormat::Rgba16Float,
             resource_loader.get_primitive_shape(PrimitiveShape::Cube),
         )
@@ -88,27 +78,17 @@ impl WorldRenderer {
         )
         .unwrap();
 
-        let object_picker = ObjectPickManager::new(
-            &renderer.device,
-            renderer.config.width,
-            renderer.config.height,
-        );
-
         WorldRenderer {
             skybox,
             main_rp,
             gbuffer_geometry_renderer,
             forward_renderer: forward_rp,
-            object_picker,
 
             post_process_manager,
             equirec_to_cubemap_renderer,
             diffuse_irradiance_renderer,
             actions_to_process: VecDeque::new(),
             renderables: HashMap::new(),
-            pending_renderables: Vec::new(),
-            objects_with_dirty_transform: Vec::new(),
-            objects_with_dirty_material_data: Vec::new(),
         }
     }
 
@@ -116,74 +96,63 @@ impl WorldRenderer {
         self.actions_to_process.push_back(action);
     }
 
-    pub fn add_object(&mut self, new_renderable_descriptor: WorldObject, new_renderable_id: u32) {
-        self.pending_renderables
-            .push((new_renderable_id, new_renderable_descriptor));
-    }
-
-    pub fn remove_object(&mut self, renderable_id_to_remove: u32) {
-        self.renderables.remove(&renderable_id_to_remove);
-    }
-
-    // TODO: Some general method for checking dirty state and regenerating
-    // the render data for it would be nice
-
-    pub fn update_object_transform(&mut self, id: u32, new_transform: TransformComponent) {
-        if let Some(renderable) = self.renderables.get_mut(&id) {
-            // TODO: this should be set in world.rs
-            renderable.description.transform = new_transform;
-            self.objects_with_dirty_transform.push(id);
-        }
-    }
-
-    pub fn update_object_material(&mut self, id: u32, new_material: PbrMaterialDescriptor) {
-        if let Some(renderable) = self.renderables.get_mut(&id) {
-            // TODO: this should be set in world.rs
-            renderable.description.model_descriptor.material_descriptor = new_material;
-            self.objects_with_dirty_material_data.push(id);
-        }
-    }
-
-    pub fn update(
+    fn add_object(
         &mut self,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
+        world_object: &WorldObject,
+        new_renderable_id: u32,
         resource_loader: &ResourceLoader,
-        mip_map_generator: &MipMapGenerator,
+        renderer: &Renderer,
     ) {
-        for (object_id, object) in self.pending_renderables.drain(..) {
-            let renderable_parts = resource_loader
-                .load_model(
-                    &object.description.model_descriptor,
-                    device,
-                    queue,
-                    mip_map_generator,
-                )
-                .unwrap();
-            let new_renderable = Renderable::new(
-                object.description.model_descriptor.clone(),
-                object.get_transform(),
-                renderable_parts,
-                device,
-                object_id,
-                &object.description.rendering_options,
-            );
-            self.renderables.insert(object_id, new_renderable);
-        }
+        let renderable_parts = resource_loader
+            .load_model(&world_object.description.model_descriptor, renderer)
+            .unwrap();
+        let new_renderable = Renderable::new(
+            world_object.description.model_descriptor.clone(),
+            world_object.get_transform(),
+            renderable_parts,
+            &renderer.device,
+            new_renderable_id,
+            &world_object.description.rendering_options,
+        );
+        self.renderables.insert(new_renderable_id, new_renderable);
+    }
 
-        for object_id in self.objects_with_dirty_transform.drain(..) {
-            if let Some(renderable) = self.renderables.get_mut(&object_id) {
-                renderable.update_transform_render_state(queue, object_id);
+    pub fn update(&mut self, renderer: &Renderer, world: &World, resource_loader: &ResourceLoader) {
+        for modification in &world.dirty_objects {
+            match &modification.modification_type {
+                ObjectModificationType::Mesh(modification_type) => match &modification_type {
+                    ModificationType::Added => {
+                        if let Some(world_object) = world.get_object(modification.id) {
+                            self.add_object(
+                                world_object,
+                                modification.id,
+                                resource_loader,
+                                renderer,
+                            );
+                        }
+                    }
+                    ModificationType::Removed => {
+                        let _ = self.renderables.remove(&modification.id);
+                    }
+                    ModificationType::TransformModified(new_transform) => {
+                        if let Some(renderable) = self.renderables.get_mut(&modification.id) {
+                            renderable.update_transform_render_state(
+                                &renderer.queue,
+                                new_transform,
+                                modification.id,
+                            );
+                        }
+                    }
+                    ModificationType::MaterialModified(new_material) => {
+                        if let Some(renderable) = self.renderables.get_mut(&modification.id) {
+                            renderable
+                                .update_material_render_state(&renderer.device, &new_material);
+                        }
+                    }
+                },
+                ObjectModificationType::Light(_modification_type) => todo!(),
             }
         }
-
-        for object_id in self.objects_with_dirty_material_data.drain(..) {
-            if let Some(renderable) = self.renderables.get_mut(&object_id) {
-                renderable.update_material_render_state(device);
-            }
-        }
-
-        self.object_picker.update();
     }
 
     pub fn render(
@@ -194,6 +163,7 @@ impl WorldRenderer {
         light_controller: &LightController,
         camera_controller: &CameraController,
         global_gpu_params_bind_group: &BindGroup,
+        object_picker: &mut ObjectPickManager,
     ) -> Result<(), wgpu::SurfaceError> {
         self.post_process_manager.begin_frame();
 
@@ -231,7 +201,7 @@ impl WorldRenderer {
             );
         }
 
-        self.object_picker.render(
+        object_picker.render(
             encoder,
             &renderer.device,
             renderables.clone(),
@@ -363,10 +333,6 @@ impl WorldRenderer {
         Ok(())
     }
 
-    pub fn post_render(&mut self) {
-        self.object_picker.post_render();
-    }
-
     pub fn recompile_shaders_if_needed(&mut self, device: &Device) -> anyhow::Result<()> {
         // Note, that we stop at the first error and don't process the other shaders if something goes wrong.
         // This is a conscious decision, as for now one usually touches one shader at a time, so
@@ -387,7 +353,6 @@ impl WorldRenderer {
             self.post_process_manager.try_recompile_shader(device)?;
             self.skybox.try_recompile_shader(device)?;
             self.forward_renderer.try_recompile_shader(device)?;
-            self.object_picker.try_recompile_shader(device)?;
             if self
                 .diffuse_irradiance_renderer
                 .try_recompile_shader(device)?
@@ -400,11 +365,13 @@ impl WorldRenderer {
         Ok(())
     }
 
-    pub fn handle_size_changed(&mut self, renderer: &Renderer, width: u32, height: u32) {
+    pub fn handle_size_changed(&mut self, renderer: &Renderer) {
+        let width = renderer.config.width;
+        let height = renderer.config.height;
+
         self.gbuffer_geometry_renderer
             .resize(&renderer.device, width, height);
         self.post_process_manager
             .resize(&renderer.device, width, height);
-        self.object_picker.resize(&renderer.device, width, height);
     }
 }

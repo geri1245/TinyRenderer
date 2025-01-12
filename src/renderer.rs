@@ -4,6 +4,8 @@ use wgpu::{
     TextureFormat,
 };
 
+use crate::{mipmap_generator::MipMapGenerator, pipelines::ShaderCompilationSuccess};
+
 pub const MAX_LIGHTS: usize = 10;
 
 pub struct Renderer {
@@ -12,6 +14,8 @@ pub struct Renderer {
     pub config: wgpu::SurfaceConfiguration,
     pub size: winit::dpi::PhysicalSize<u32>,
     pub surface_texture_format: TextureFormat,
+
+    pub mip_map_generator: MipMapGenerator,
 
     surface: wgpu::Surface<'static>,
 }
@@ -95,6 +99,8 @@ impl Renderer {
         };
         surface.configure(&device, &config);
 
+        let mip_map_generator = MipMapGenerator::new(&device);
+
         Renderer {
             surface,
             device,
@@ -102,6 +108,7 @@ impl Renderer {
             config,
             size,
             surface_texture_format,
+            mip_map_generator,
         }
     }
 
@@ -121,5 +128,9 @@ impl Renderer {
 
     pub fn get_current_frame_texture(&self) -> Result<SurfaceTexture, wgpu::SurfaceError> {
         self.surface.get_current_texture()
+    }
+
+    pub fn try_recompile_shaders(&mut self) -> anyhow::Result<ShaderCompilationSuccess> {
+        self.mip_map_generator.try_recompile_shader(&self.device)
     }
 }

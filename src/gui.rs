@@ -341,12 +341,16 @@ impl Gui {
 
     pub fn update(&mut self, delta: Duration) {
         self.dropped_file_handler.update();
+
         if let Some(operation_result) = &mut self.app_info.recent_notification {
             operation_result.progress_screen_time(delta.as_secs_f32());
             if operation_result.should_remove_from_ui() {
                 self.app_info.recent_notification = None;
             }
         }
+
+        self.app_info.frame_time = delta.as_secs_f32();
+        self.app_info.fps_counter = self.app_info.frame_time.recip() as u32;
     }
 
     pub fn push_display_info_update(&mut self, update: GuiUpdateEvent) {
@@ -364,11 +368,6 @@ impl Gui {
                 ));
             }
         };
-    }
-
-    pub fn update_frame_time(&mut self, frame_time: f32) {
-        self.app_info.frame_time = frame_time;
-        self.app_info.fps_counter = frame_time.recip() as u32;
     }
 
     pub fn handle_event(

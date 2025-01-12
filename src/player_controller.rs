@@ -8,9 +8,8 @@ use crate::{
     app::{WindowEventHandlingAction, WindowEventHandlingResult},
     gizmo_handler::GizmoHandler,
     material::PbrMaterialDescriptor,
-    model::{
-        MeshDescriptor, ModelRenderingOptions, ModelDescriptor, PbrParameters, WorldObject,
-    },
+    model::{MeshDescriptor, ModelDescriptor, ModelRenderingOptions, PbrParameters, WorldObject},
+    object_picker::ObjectPickManager,
     world::World,
 };
 
@@ -39,8 +38,12 @@ impl PlayerController {
         &mut self,
         window_event: &WindowEvent,
         world: &mut World,
+        object_picker: &ObjectPickManager,
     ) -> WindowEventHandlingResult {
-        if self.gizmo_handler.handle_window_event(window_event, world) {
+        if self
+            .gizmo_handler
+            .handle_window_event(window_event, world, object_picker)
+        {
             return WindowEventHandlingResult::Handled;
         }
 

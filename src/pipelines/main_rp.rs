@@ -42,7 +42,10 @@ impl MainRP {
                     ),
                     &device.create_bind_group_layout(&bind_group_layout_descriptors::GBUFFER),
                     &device.create_bind_group_layout(
-                        &bind_group_layout_descriptors::SHADOW_DEPTH_TEXTURE,
+                        &bind_group_layout_descriptors::DEPTH_TEXTURE_ARRAY,
+                    ),
+                    &device.create_bind_group_layout(
+                        &bind_group_layout_descriptors::DEPTH_TEXTURE_CUBE_ARRAY,
                     ),
                     &device.create_bind_group_layout(
                         &bind_group_layout_descriptors::COMPUTE_PING_PONG,
@@ -91,21 +94,22 @@ impl MainRP {
         camera_controller: &'a CameraController,
         light_controller: &'a LightController,
         gbuffer_bind_group: &'a wgpu::BindGroup,
-        shadow_bind_group: &'a wgpu::BindGroup,
+        directional_lights_depth_texture_bg: &'a wgpu::BindGroup,
+        point_lights_depth_texture_bg: &'a wgpu::BindGroup,
         diffuse_irradiance_map_bind_group: &'a wgpu::BindGroup,
         copmute_pass_textures_bind_group: &'a wgpu::BindGroup,
         render_target_width: u32,
         render_target_height: u32,
     ) {
         render_pass.set_pipeline(&self.compute_pipeline);
-
         render_pass.set_bind_group(0, light_controller.get_light_bind_group(), &[]);
         render_pass.set_bind_group(1, &camera_controller.bind_group, &[]);
         render_pass.set_bind_group(2, gbuffer_bind_group, &[]);
-        render_pass.set_bind_group(3, shadow_bind_group, &[]);
-        render_pass.set_bind_group(4, copmute_pass_textures_bind_group, &[]);
-        render_pass.set_bind_group(5, diffuse_irradiance_map_bind_group, &[]);
-        render_pass.set_bind_group(6, light_controller.get_light_parameters_bind_group(), &[]);
+        render_pass.set_bind_group(3, directional_lights_depth_texture_bg, &[]);
+        render_pass.set_bind_group(4, point_lights_depth_texture_bg, &[]);
+        render_pass.set_bind_group(5, copmute_pass_textures_bind_group, &[]);
+        render_pass.set_bind_group(6, diffuse_irradiance_map_bind_group, &[]);
+        render_pass.set_bind_group(7, light_controller.get_light_parameters_bind_group(), &[]);
 
         let num_dispatches_x = render_target_width.div_ceil(WORKGROUP_SIZE_PER_DIMENSION);
         let num_dispatches_y = render_target_height.div_ceil(WORKGROUP_SIZE_PER_DIMENSION);

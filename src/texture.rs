@@ -240,7 +240,7 @@ impl SampledTexture {
     pub fn create_depth_texture(
         device: &wgpu::Device,
         extent: wgpu::Extent3d,
-        with_comparison_sampler: bool,
+        comparison_function: Option<wgpu::CompareFunction>,
         sampling_type: SamplingType,
         label: &str,
     ) -> Self {
@@ -262,12 +262,6 @@ impl SampledTexture {
 
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        let compare_function = if with_comparison_sampler {
-            Some(wgpu::CompareFunction::Greater)
-        } else {
-            None
-        };
-
         let filter_mode = match sampling_type {
             SamplingType::Nearest => wgpu::FilterMode::Nearest,
             SamplingType::Linear => wgpu::FilterMode::Linear,
@@ -276,7 +270,7 @@ impl SampledTexture {
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             mag_filter: filter_mode,
             min_filter: filter_mode,
-            compare: compare_function,
+            compare: comparison_function,
             ..Default::default()
         });
 

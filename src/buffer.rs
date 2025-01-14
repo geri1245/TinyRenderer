@@ -9,7 +9,7 @@ use crate::bind_group_layout_descriptors;
 
 pub struct BufferBindGroupCreationOptions<'a> {
     pub bind_group_layout_descriptor: &'a wgpu::BindGroupLayoutDescriptor<'a>,
-    pub num_of_items: u64,
+    pub num_of_items: usize,
     pub usages: wgpu::BufferUsages,
     pub label: &'a str,
     /// If None, then uses the entire buffer, else the given size
@@ -41,7 +41,7 @@ pub fn create_bind_group_from_buffer_entire_binding_fixed_size(
 
     let buffer = device.create_buffer(&BufferDescriptor {
         label: Some(&buffer_label),
-        size: size * options.num_of_items,
+        size: size * options.num_of_items as u64,
         usage: options.usages,
         mapped_at_creation: false,
     });

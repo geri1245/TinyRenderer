@@ -47,34 +47,33 @@ var s_rough_metal_ao: sampler;
 var t_shadow: texture_depth_2d_array;
 @group(3) @binding(1)
 var sampler_shadow: sampler_comparison;
-@group(3) @binding(2)
+@group(4) @binding(0)
 var t_shadow_cube: texture_depth_cube_array;
-@group(3) @binding(3)
+@group(4) @binding(1)
 var sampler_cube: sampler_comparison;
 
-@group(4)
-@binding(0)
+@group(5) @binding(0)
 var destination_texture: texture_storage_2d<rgba16float, write>;
-
-@group(4) @binding(1)
+@group(5) @binding(1)
 var screen_texture: texture_2d<f32>;
-@group(4) @binding(2)
+@group(5) @binding(2)
 var screen_texture_samp: sampler;
 
-@group(5) @binding(0)
+@group(6) @binding(0)
 var diffuse_irradiance_map: texture_cube<f32>;
-@group(5) @binding(1)
+@group(6) @binding(1)
 var diffuse_irradiance_sampler: sampler;
 
-@group(6) @binding(0)
+@group(7) @binding(0)
 var<uniform> light_params: LightParams;
 
 fn is_valid_tex_coord(tex_coord: vec2<f32>) -> bool {
     return tex_coord.x >= 0.0 && tex_coord.x <= 1.0 && tex_coord.y >= 0.0 && tex_coord.y <= 1.0;
 }
 
-fn fetch_shadow(light_id: u32, fragment_pos2: vec4<f32>) -> f32 {
+fn get_directional_light_shadow_value(light_id: u32, fragment_pos2: vec4<f32>) -> f32 {
     var fragment_pos = fragment_pos2;
+    // Reverse what we are doing in the shadow shader
     fragment_pos.x *= -1.0;
     if fragment_pos.w <= 0.0 {
         return 1.0;
@@ -94,24 +93,25 @@ fn fetch_shadow(light_id: u32, fragment_pos2: vec4<f32>) -> f32 {
     }
 }
 
-fn vector_to_depth_value(light_to_fragment: vec3<f32>) -> f32 {
+fn vector_to_depth_value_reverse_z(light_to_fragment: vec3<f32>) -> f32 {
     let abs_light_to_fragment = abs(light_to_fragment);
     let local_z = max(abs_light_to_fragment.x, max(abs_light_to_fragment.y, abs_light_to_fragment.z));
 
-    let f = 100.0;
-    let n = 0.1;
+    // We reverse the roles of the near and far plane, as we are using reverse z
+    let n = 100.0;
+    let f = 0.1;
     let norm_z = (f + n) / (f - n) - (2 * f * n) / (f - n) / local_z;
     return (norm_z + 1.0) * 0.5;
 }
 
-fn get_shadow_value(light_id: u32, fragment_pos: vec3<f32>) -> f32 {
+fn get_point_light_shadow_value(light_id: u32, fragment_pos: vec3<f32>) -> f32 {
     let light = lights[light_id];
     let light_pos = light.position_or_direction;
     let tex_coord = fragment_pos.xyz - light_pos;
     let far_distance = light.far_plane_distance;
 
     // Compare the shadow map sample against "the depth of the current fragment from the light's perspective"
-    return textureSampleCompareLevel(t_shadow_cube, sampler_cube, tex_coord, 0, vector_to_depth_value(tex_coord));
+    return textureSampleCompareLevel(t_shadow_cube, sampler_cube, tex_coord, 0, vector_to_depth_value_reverse_z(tex_coord));
 }
 
 const c_ambient_strength: f32 = 0.0;
@@ -223,7 +223,7 @@ fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
     for (var i = 0u; i < light_params.point_light_count; i += 1u) {
         let light = lights[i];
 
-        let shadow = get_shadow_value(i, position.xyz);
+        let shadow = get_point_light_shadow_value(i, position.xyz);
         if shadow > 0.0 {
             let pixel_to_light = light.position_or_direction - position.xyz;
             let pixel_to_light_distance = length(pixel_to_light);
@@ -239,7 +239,7 @@ fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
     for (var i = 0u; i < light_params.directional_light_count; i += 1u) {
         let light = lights[i + light_params.point_light_count];
 
-        let shadow = fetch_shadow(i, light.view_proj * position);
+        let shadow = get_directional_light_shadow_value(i, light.view_proj * vec4(position.xyz, 1.0));
         if shadow > 0.0 {
             irradiance += calculate_light_contribution(
                 -light.position_or_direction, light.color, 1.0, pixel_to_camera, position.xyz, normal, albedo, metalness, roughness

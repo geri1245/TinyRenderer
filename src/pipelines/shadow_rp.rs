@@ -39,10 +39,7 @@ impl ShadowRP {
         &mut self,
         device: &Device,
     ) -> anyhow::Result<ShaderCompilationSuccess> {
-        let result = self
-            .shader_compiler
-            .compile_shader_if_needed(device)
-            ?;
+        let result = self.shader_compiler.compile_shader_if_needed(device)?;
 
         match result {
             ShaderCompilationResult::AlreadyUpToDate => {
@@ -82,7 +79,7 @@ impl ShadowRP {
                 topology: wgpu::PrimitiveTopology::TriangleList,
                 front_face: wgpu::FrontFace::Ccw,
                 // IMPORTANT: The face culling is set to Back faces here, but because there is a negative multiplier
-                // in the shader, this will actually mean front face culling (so we are actually drawing back faces here)
+                // in the shader (shadow.wgsl), this will mean front face culling (so in reality, we are drawing back faces here)
                 cull_mode: Some(wgpu::Face::Back),
                 unclipped_depth: device
                     .features()

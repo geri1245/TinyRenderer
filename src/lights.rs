@@ -7,9 +7,10 @@ use crate::{instance::TransformComponent, math::reverse_z_matrix};
 const POINT_LIGHT_FAR_PLANE: f32 = 100.0;
 const DIRECTIONAL_LIGHT_FAR_PLANE: f32 = 250.0;
 const NEAR_PLANE: f32 = 0.1;
-const DIRECTIONAL_LIGHT_PROJECTION_CUBE_SCALE: f32 = 100.0;
-const DIRECTIONAL_LIGHT_PROJECTION_CUBE_OFFSET: f32 =
-    -DIRECTIONAL_LIGHT_PROJECTION_CUBE_SCALE / 2.0;
+/// The width and the depth of the orthographic projection used by the directional lights
+const DIRECTIONAL_LIGHT_PROJECTION_CUBE_SIZE: f32 = 100.0;
+/// How much to offset the directional light ortographic projection
+const DIRECTIONAL_LIGHT_PROJECTION_CUBE_OFFSET: f32 = -DIRECTIONAL_LIGHT_PROJECTION_CUBE_SIZE / 2.0;
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy)]
 pub enum Light {
@@ -180,10 +181,10 @@ impl DirectionalLightRenderData {
         );
         let proj: Mat4 = Mat4::orthographic_rh(
             DIRECTIONAL_LIGHT_PROJECTION_CUBE_OFFSET,
-            DIRECTIONAL_LIGHT_PROJECTION_CUBE_SCALE,
+            DIRECTIONAL_LIGHT_PROJECTION_CUBE_SIZE,
             DIRECTIONAL_LIGHT_PROJECTION_CUBE_OFFSET,
-            DIRECTIONAL_LIGHT_PROJECTION_CUBE_SCALE,
-            NEAR_PLANE,
+            DIRECTIONAL_LIGHT_PROJECTION_CUBE_SIZE,
+            self.light_params.near_plane,
             self.light_params.far_plane,
         );
         let view_proj = proj * view;
@@ -208,9 +209,9 @@ impl DirectionalLightRenderData {
         );
         let proj: Mat4 = Mat4::orthographic_rh(
             DIRECTIONAL_LIGHT_PROJECTION_CUBE_OFFSET,
-            DIRECTIONAL_LIGHT_PROJECTION_CUBE_SCALE,
+            DIRECTIONAL_LIGHT_PROJECTION_CUBE_SIZE,
             DIRECTIONAL_LIGHT_PROJECTION_CUBE_OFFSET,
-            DIRECTIONAL_LIGHT_PROJECTION_CUBE_SCALE,
+            DIRECTIONAL_LIGHT_PROJECTION_CUBE_SIZE,
             NEAR_PLANE,
             self.light_params.far_plane,
         );

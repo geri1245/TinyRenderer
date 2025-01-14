@@ -4,8 +4,7 @@
     {
       "label": "build rust project",
       "args": [
-        "build",
-        "-v"
+        "build"
       ],
       "command": "cargo",
       "group": "build",

@@ -36,14 +36,10 @@ impl GBufferGeometryRenderer {
         let bind_group = Self::create_gbuffer_bind_group(device, &textures);
 
         let textured_gbuffer_rp =
-            GBufferGeometryRP::new(device, &textures, PbrParameterVariation::Texture)
-                
-                .unwrap();
+            GBufferGeometryRP::new(device, &textures, PbrParameterVariation::Texture).unwrap();
 
         let flat_parameter_gbuffer_rp =
-            GBufferGeometryRP::new(device, &textures, PbrParameterVariation::Flat)
-                
-                .unwrap();
+            GBufferGeometryRP::new(device, &textures, PbrParameterVariation::Flat).unwrap();
 
         let depth_texture_bind_group =
             Self::create_depth_bind_group(device, &textures.depth_texture);
@@ -63,13 +59,17 @@ impl GBufferGeometryRenderer {
         &mut self,
         device: &Device,
     ) -> anyhow::Result<ShaderCompilationSuccess> {
-        self.textured_gbuffer_rp
-            .try_recompile_shader(device, &self.textures, PbrParameterVariation::Texture)
-            ?;
+        self.textured_gbuffer_rp.try_recompile_shader(
+            device,
+            &self.textures,
+            PbrParameterVariation::Texture,
+        )?;
 
-        self.flat_parameter_gbuffer_rp
-            .try_recompile_shader(device, &self.textures, PbrParameterVariation::Flat)
-            
+        self.flat_parameter_gbuffer_rp.try_recompile_shader(
+            device,
+            &self.textures,
+            PbrParameterVariation::Flat,
+        )
     }
 
     pub fn resize(&mut self, device: &wgpu::Device, width: u32, height: u32) {
@@ -113,7 +113,7 @@ impl GBufferGeometryRenderer {
         let depth_texture = SampledTexture::create_depth_texture(
             device,
             texture_extents,
-            false,
+            None,
             SamplingType::Nearest,
             "GBuffer depth texture",
         );

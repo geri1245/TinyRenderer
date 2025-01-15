@@ -40,7 +40,7 @@ pub struct World {
     pub dirty_objects: Vec<DirtyObject>,
 
     meshes: HashMap<u32, WorldObject>,
-    lights: Vec<Light>,
+    lights: HashMap<u32, Light>,
     global_settings: GlobalWorldSettings,
 
     next_object_id: u32,
@@ -81,7 +81,7 @@ impl World {
     pub fn new(camera_controller: CameraController) -> Self {
         World {
             meshes: HashMap::new(),
-            lights: vec![],
+            lights: HashMap::new(),
             dirty_objects: vec![],
             next_object_id: 1, // 0 stands for the placeholder "no object"
             camera_controller,
@@ -122,23 +122,28 @@ impl World {
         self.meshes.get_mut(&id).unwrap()
     }
 
-    pub fn add_light(&mut self, light: Light) -> usize {
-        self.lights.push(light);
+    pub fn add_light(&mut self, light: Light) {
+        let new_light_id = self.next_object_id;
+        self.lights.insert(new_light_id, light);
 
-        self.lights.len()
+        self.dirty_objects.push(DirtyObject {
+            id: new_light_id,
+            modification_type: ObjectModificationType::Light(ModificationType::Added),
+        });
+
+        self.next_object_id += 1;
     }
 
     pub fn set_camera(&mut self, camera: &Camera) {
         self.camera_controller.camera = camera.clone();
     }
 
-    pub fn get_light(&mut self, handle: &u32) -> Option<&mut Light> {
-        let id = *handle as usize;
-        if id < self.lights.len() {
-            Some(&mut self.lights[id])
-        } else {
-            None
-        }
+    pub fn get_light(&self, handle: &u32) -> Option<&Light> {
+        self.lights.get(handle)
+    }
+
+    pub fn get_light_mut(&mut self, handle: &u32) -> Option<&mut Light> {
+        self.lights.get_mut(handle)
     }
 
     pub fn update(&mut self, delta: Duration, renderer: &Renderer) {
@@ -153,8 +158,8 @@ impl World {
         self.camera_controller.resize(width, height);
     }
 
-    pub fn get_lights(&self) -> &Vec<Light> {
-        &self.lights
+    pub fn get_lights(&self) -> Vec<&Light> {
+        self.lights.values().collect::<Vec<_>>()
     }
 
     pub fn get_world_objects(&self) -> Vec<&WorldObject> {

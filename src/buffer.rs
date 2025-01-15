@@ -35,13 +35,13 @@ impl<'a> Default for GpuBufferCreationOptions<'a> {
 pub fn create_bind_group_from_buffer_entire_binding_fixed_size(
     device: &wgpu::Device,
     options: &BufferBindGroupCreationOptions,
-    size: u64,
+    single_item_size: u64,
 ) -> (Buffer, BindGroup) {
     let buffer_label = options.label.to_string() + " buffer";
 
     let buffer = device.create_buffer(&BufferDescriptor {
         label: Some(&buffer_label),
-        size: size * options.num_of_items as u64,
+        size: single_item_size * options.num_of_items as u64,
         usage: options.usages,
         mapped_at_creation: false,
     });

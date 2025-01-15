@@ -22,6 +22,8 @@ mod gui_helpers;
 mod gui_settable_value;
 mod instance;
 mod light_controller;
+mod light_render_data;
+mod light_rendering_gpu_data;
 mod lights;
 mod mainloop;
 mod mappable_gpu_buffer;

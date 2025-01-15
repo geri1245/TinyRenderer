@@ -4,6 +4,10 @@ use glam::{Mat4, Vec3, Vec3Swizzles};
 
 use crate::{instance::TransformComponent, math::reverse_z_matrix};
 
+/// These are used on the shader side
+const POINT_LIGHT_TYPE_RAW: u32 = 1;
+const DIRECTIONAL_LIGHT_TYPE_RAW: u32 = 2;
+
 const POINT_LIGHT_FAR_PLANE: f32 = 100.0;
 const DIRECTIONAL_LIGHT_FAR_PLANE: f32 = 250.0;
 const NEAR_PLANE: f32 = 0.1;
@@ -30,8 +34,10 @@ pub struct PointLight {
     pub color: Vec3,
 }
 
-pub struct PointLightRenderData {
+pub struct PointLightData {
+    /// Standard parameters for the light
     pub light: PointLight,
+    /// Which depth texture view to render into from the texture array
     pub depth_texture_index: usize,
     light_params: CommonLightParams,
 }
@@ -43,9 +49,9 @@ pub struct DirectionalLight {
     pub color: Vec3,
 }
 
-pub struct DirectionalLightRenderData {
+pub struct DirectionalLightData {
     pub light: DirectionalLight,
-    pub depth_texture: wgpu::TextureView,
+    pub depth_texture_index: usize,
     light_params: CommonLightParams,
 }
 
@@ -58,8 +64,10 @@ pub struct LightRaw {
     // 2 means directional light
     pub light_type: u32,
     pub color: [f32; 3],
-    // Due to uniforms requiring 16 byte (4 float) spacing, we need to use a padding field here
+    // Due to uniforms requiring 16 byte spacing, we need to use a padding field here
     far_plane_distance: f32,
+    depth_texture_index: u32,
+    padding: [f32; 3],
 }
 
 #[repr(C)]
@@ -82,9 +90,9 @@ impl PointLight {
     }
 }
 
-impl PointLightRenderData {
+impl PointLightData {
     pub fn new(point_light: PointLight, depth_texture_index: usize) -> Self {
-        PointLightRenderData {
+        PointLightData {
             light: point_light,
             depth_texture_index,
             light_params: CommonLightParams {
@@ -150,17 +158,19 @@ impl PointLightRenderData {
         LightRaw {
             light_view_proj: view_proj.to_cols_array_2d(),
             position_or_direction: self.light.transform.position.into(),
-            light_type: 1,
+            light_type: POINT_LIGHT_TYPE_RAW,
             color: self.light.color.into(),
             far_plane_distance: 100.0,
+            depth_texture_index: self.depth_texture_index as u32,
+            padding: [0.0; 3],
         }
     }
 }
 
-impl DirectionalLightRenderData {
-    pub fn new(light: &DirectionalLight, depth_texture: wgpu::TextureView) -> Self {
+impl DirectionalLightData {
+    pub fn new(light: &DirectionalLight, depth_texture_index: usize) -> Self {
         Self {
-            depth_texture: depth_texture,
+            depth_texture_index,
             light: light.clone(),
             light_params: CommonLightParams {
                 far_plane: DIRECTIONAL_LIGHT_FAR_PLANE,
@@ -191,13 +201,15 @@ impl DirectionalLightRenderData {
         LightRaw {
             light_view_proj: view_proj.to_cols_array_2d(),
             position_or_direction: self.light.direction.into(),
-            light_type: 2,
+            light_type: DIRECTIONAL_LIGHT_TYPE_RAW,
             color: self.light.color.into(),
             far_plane_distance: self.light_params.far_plane,
+            depth_texture_index: self.depth_texture_index as u32,
+            padding: [0.0; 3],
         }
     }
 
-    pub fn to_raw_small(&self) -> LightRawSmall {
+    pub fn get_viewprojs_raw(&self) -> LightRawSmall {
         let direction_vec = Vec3::from(self.light.direction);
         let right = direction_vec.cross(Vec3::new(1.0, 0.0, 0.0));
         // In case of directional lights, the eye is set to a number, so that when we are rendering shadows

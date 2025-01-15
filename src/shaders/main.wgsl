@@ -1,9 +1,10 @@
 struct Light {
     view_proj: mat4x4<f32>,
     position_or_direction: vec3<f32>,
-    light_type: i32,
+    light_type: u32,
     color: vec3<f32>,
     far_plane_distance: f32,
+    depth_texture_index: u32,
 }
 
 struct CameraUniform {
@@ -71,7 +72,8 @@ fn is_valid_tex_coord(tex_coord: vec2<f32>) -> bool {
     return tex_coord.x >= 0.0 && tex_coord.x <= 1.0 && tex_coord.y >= 0.0 && tex_coord.y <= 1.0;
 }
 
-fn get_directional_light_shadow_value(light_id: u32, fragment_pos2: vec4<f32>) -> f32 {
+fn get_directional_light_shadow_value(light_index: u32, fragment_pos2: vec4<f32>) -> f32 {
+    let light = lights[light_index];
     var fragment_pos = fragment_pos2;
     // Reverse what we are doing in the shadow shader
     fragment_pos.x *= -1.0;
@@ -87,7 +89,7 @@ fn get_directional_light_shadow_value(light_id: u32, fragment_pos2: vec4<f32>) -
 
     if is_valid_tex_coord(tex_coord) {
         // Compare the shadow map sample against "the depth of the current fragment from the light's perspective"
-        return textureSampleCompareLevel(t_shadow, sampler_shadow, tex_coord, 0, fragment_pos_ndc.z);
+        return textureSampleCompareLevel(t_shadow, sampler_shadow, tex_coord, light.depth_texture_index, fragment_pos_ndc.z);
     } else {
         return 1.0;
     }
@@ -111,7 +113,7 @@ fn get_point_light_shadow_value(light_id: u32, fragment_pos: vec3<f32>) -> f32 {
     let far_distance = light.far_plane_distance;
 
     // Compare the shadow map sample against "the depth of the current fragment from the light's perspective"
-    return textureSampleCompareLevel(t_shadow_cube, sampler_cube, tex_coord, 0, vector_to_depth_value_reverse_z(tex_coord));
+    return textureSampleCompareLevel(t_shadow_cube, sampler_cube, tex_coord, light.depth_texture_index, vector_to_depth_value_reverse_z(tex_coord));
 }
 
 const c_ambient_strength: f32 = 0.0;

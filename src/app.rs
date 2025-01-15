@@ -342,12 +342,8 @@ impl App {
 
         self.player_controller.update(&mut self.world);
 
-        self.light_controller.update(
-            delta,
-            &self.renderer.queue,
-            &self.renderer.device,
-            &self.world,
-        );
+        self.light_controller
+            .update(delta, &self.renderer, &self.world);
 
         self.world.update(delta, &self.renderer);
 

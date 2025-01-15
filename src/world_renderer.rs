@@ -150,7 +150,7 @@ impl WorldRenderer {
                         }
                     }
                 },
-                ObjectModificationType::Light(_modification_type) => todo!(),
+                ObjectModificationType::Light(_modification_type) => {}
             }
         }
     }
@@ -186,7 +186,7 @@ impl WorldRenderer {
 
         let renderables = self.renderables.values();
 
-        light_controller.render_shadows(encoder, renderables.clone());
+        light_controller.render(encoder, renderables.clone());
 
         {
             let deferred_pass_items = renderables.clone().filter(|renderable| {

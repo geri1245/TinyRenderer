@@ -342,8 +342,9 @@ impl App {
 
         self.player_controller.update(&mut self.world);
 
+        // Light controller might add light debug objects to the world, so we update it before the world
         self.light_controller
-            .update(delta, &self.renderer, &self.world);
+            .update(delta, &self.renderer, &mut self.world);
 
         self.world.update(delta, &self.renderer);
 

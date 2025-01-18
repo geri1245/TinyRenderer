@@ -2,7 +2,11 @@ use std::f32::consts;
 
 use glam::{Mat4, Vec3, Vec3Swizzles};
 
-use crate::{instance::TransformComponent, math::reverse_z_matrix};
+use crate::{
+    components::TransformComponent,
+    math::reverse_z_matrix,
+    world_object::{OmnipresentObject, WorldObject},
+};
 
 /// These are used on the shader side
 const POINT_LIGHT_TYPE_RAW: u32 = 1;
@@ -18,6 +22,35 @@ const DIRECTIONAL_LIGHT_PROJECTION_CUBE_OFFSET: f32 = -DIRECTIONAL_LIGHT_PROJECT
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy)]
 pub enum Light {
+    Point(PointLightRenderData),
+    Directional(DirectionalLight),
+}
+
+impl Light {
+    pub fn from_world_object(world_object: &WorldObject) -> Option<Self> {
+        if let Some(light_component) = world_object.get_light_component() {
+            let light = Light::Point(PointLightRenderData {
+                transform: world_object.transform,
+                color: light_component.light.color,
+            });
+            Some(light)
+        } else {
+            None
+        }
+    }
+
+    pub fn from_omnipresent_object(omnipresent_object: &OmnipresentObject) -> Option<Self> {
+        if let Some(directional_light) = omnipresent_object.get_light_component() {
+            let light = Light::Directional(directional_light.clone());
+            Some(light)
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Copy)]
+pub enum LightNew {
     Point(PointLight),
     Directional(DirectionalLight),
 }
@@ -30,13 +63,18 @@ pub struct CommonLightParams {
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Copy, Clone)]
 pub struct PointLight {
+    pub color: Vec3,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Copy, Clone)]
+pub struct PointLightRenderData {
     pub transform: TransformComponent,
     pub color: Vec3,
 }
 
 pub struct PointLightData {
     /// Standard parameters for the light
-    pub light: PointLight,
+    pub light: PointLightRenderData,
     /// Which depth texture view to render into from the texture array
     pub depth_texture_index: usize,
     light_params: CommonLightParams,
@@ -77,21 +115,17 @@ pub struct LightRawSmall {
     position_and_far_plane_distance: [f32; 4],
 }
 
-impl PointLight {
+impl PointLightRenderData {
     pub fn new(position: Vec3, color: Vec3) -> Self {
         Self {
             color,
-            transform: TransformComponent {
-                position,
-                scale: Vec3::splat(0.2),
-                ..Default::default()
-            },
+            transform: TransformComponent::from_position(position),
         }
     }
 }
 
 impl PointLightData {
-    pub fn new(point_light: PointLight, depth_texture_index: usize) -> Self {
+    pub fn new(point_light: PointLightRenderData, depth_texture_index: usize) -> Self {
         PointLightData {
             light: point_light,
             depth_texture_index,
@@ -124,14 +158,15 @@ impl PointLightData {
             .iter()
             .map(|&(diff, up)| {
                 let view = Mat4::look_at_rh(
-                    self.light.transform.position.into(),
-                    (self.light.transform.position + diff).into(),
+                    self.light.transform.get_position().into(),
+                    (self.light.transform.get_position() + diff).into(),
                     up,
                 );
                 proj * view
             })
             .map(|view_proj| {
-                let mut position_and_far_plane_distance = self.light.transform.position.xyzz();
+                let mut position_and_far_plane_distance =
+                    self.light.transform.get_position().xyzz();
                 position_and_far_plane_distance.w = self.light_params.far_plane;
                 LightRawSmall {
                     light_view_proj: view_proj.to_cols_array_2d(),
@@ -143,7 +178,7 @@ impl PointLightData {
 
     pub fn to_raw(&self) -> LightRaw {
         let view = Mat4::look_at_rh(
-            self.light.transform.position.into(),
+            self.light.transform.get_position().into(),
             Vec3::ZERO,
             Vec3::new(0.0_f32, 1.0, 0.0),
         );
@@ -157,7 +192,7 @@ impl PointLightData {
         let view_proj = proj * view;
         LightRaw {
             light_view_proj: view_proj.to_cols_array_2d(),
-            position_or_direction: self.light.transform.position.into(),
+            position_or_direction: self.light.transform.get_position().into(),
             light_type: POINT_LIGHT_TYPE_RAW,
             color: self.light.color.into(),
             far_plane_distance: 100.0,

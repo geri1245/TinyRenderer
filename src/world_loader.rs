@@ -7,24 +7,30 @@ use std::{
 
 use serde_json::json;
 
-use crate::{camera::Camera, lights::Light, model::WorldObject, world::World};
+use crate::{
+    camera::Camera,
+    world::World,
+    world_object::{OmnipresentObject, WorldObject},
+};
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct LevelFileContent {
-    objects: Vec<WorldObject>,
-    lights: Vec<Light>,
+    world_objects: Vec<WorldObject>,
+    omnipresent_objects: Vec<OmnipresentObject>,
     camera: Camera,
 }
 
 pub fn load_level(world: &mut World, level_file_path: &Path) -> anyhow::Result<()> {
     let file_contents = fs::read_to_string(level_file_path)?;
     let mut level_contents = serde_json::from_str::<LevelFileContent>(&file_contents)?;
-    for object in level_contents.objects.drain(..) {
-        world.add_object(object);
+    for object in level_contents.world_objects.drain(..) {
+        world.add_world_object(object);
     }
-    for light in level_contents.lights.drain(..) {
-        world.add_light(light);
+
+    for omnipresent_object in level_contents.omnipresent_objects.drain(..) {
+        world.add_omnipresent_object(omnipresent_object);
     }
+
     world.set_camera(&level_contents.camera);
 
     Ok(())
@@ -46,14 +52,24 @@ pub fn save_level(world: &World, level_file_name: &str) -> anyhow::Result<()> {
         .truncate(true)
         .open(target_file)?;
 
-    let lights = world.get_lights();
+    let omnipresent_objects = world.get_omnipresent_objects();
     let meshes = world.get_world_objects();
-    let meshes_to_save = meshes
-        .iter()
-        .filter(|object| !object.is_transient)
-        .collect::<Vec<_>>();
 
-    let json = json!({"objects": meshes_to_save, "lights": lights, "camera": world.camera_controller.camera});
+    let mut meshes_to_save = vec![];
+    for mut world_object in meshes.into_iter().cloned().into_iter() {
+        let non_transient_components = world_object
+            .components
+            .into_iter()
+            .filter(|component| !component.is_transient())
+            .collect::<Vec<_>>();
+
+        if !non_transient_components.is_empty() {
+            world_object.components = non_transient_components;
+            meshes_to_save.push(world_object.clone());
+        }
+    }
+
+    let json = json!({"world_objects": meshes_to_save, "omnipresent_objects": omnipresent_objects, "camera": world.camera_controller.camera});
     let contents = serde_json::to_string_pretty(&json)?;
     file.write(contents.as_bytes())?;
 

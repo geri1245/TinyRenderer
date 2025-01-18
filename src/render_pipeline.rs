@@ -6,7 +6,7 @@ use wgpu::{
 
 use crate::{
     buffer_content::BufferContent,
-    instance::SceneComponentRaw,
+    components::TransformComponentRaw,
     model::Renderable,
     pipelines::{ShaderCompilationResult, ShaderCompilationSuccess, ShaderCompiler},
     texture,
@@ -57,7 +57,7 @@ impl VertexBufferContent {
     fn to_vertex_buffer_layout(&self) -> VertexBufferLayout {
         match self {
             VertexBufferContent::VertexWithTangent => VertexRawWithTangents::buffer_layout(),
-            VertexBufferContent::SceneComponent => SceneComponentRaw::buffer_layout(),
+            VertexBufferContent::SceneComponent => TransformComponentRaw::buffer_layout(),
         }
     }
 }
@@ -194,10 +194,7 @@ impl RenderPipeline {
         &mut self,
         device: &Device,
     ) -> anyhow::Result<ShaderCompilationSuccess> {
-        let result = self
-            .shader_compiler
-            .compile_shader_if_needed(device)
-            ?;
+        let result = self.shader_compiler.compile_shader_if_needed(device)?;
 
         match result {
             ShaderCompilationResult::AlreadyUpToDate => {

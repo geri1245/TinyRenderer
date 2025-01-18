@@ -1,3 +1,6 @@
+#[macro_use]
+mod world_object;
+
 mod actions;
 mod app;
 mod bind_group_layout_descriptors;
@@ -5,6 +8,7 @@ mod buffer;
 mod buffer_content;
 mod camera;
 mod camera_controller;
+mod components;
 mod cubemap_helpers;
 mod custom_event;
 mod diffuse_irradiance_renderer;
@@ -20,7 +24,6 @@ mod gpu_buffer;
 mod gui;
 mod gui_helpers;
 mod gui_settable_value;
-mod instance;
 mod light_controller;
 mod light_render_data;
 mod light_rendering_gpu_data;

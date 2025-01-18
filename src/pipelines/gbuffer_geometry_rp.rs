@@ -5,7 +5,7 @@ use wgpu::{
 use crate::{
     bind_group_layout_descriptors,
     buffer_content::BufferContent,
-    instance,
+    components::TransformComponentRaw,
     model::Renderable,
     texture::{self, SampledTexture},
     vertex,
@@ -93,7 +93,7 @@ impl GBufferGeometryRP {
                 entry_point: Some("vs_main"),
                 buffers: &[
                     vertex::VertexRawWithTangents::buffer_layout(),
-                    instance::SceneComponentRaw::buffer_layout(),
+                    TransformComponentRaw::buffer_layout(),
                 ],
             },
             fragment: Some(wgpu::FragmentState {

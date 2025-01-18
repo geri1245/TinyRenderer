@@ -161,19 +161,20 @@ impl LightRenderData {
         );
     }
 
-    fn update_gpu_data(
+    /// Updated the light parameters on the GPU. This means the actual paramteres of the lights (eg. position, color)
+    /// that is read in the main shading pass to do the lighting calculations
+    pub fn update_light_gpu_data(
         &self,
         queue: &Queue,
-        light_count: &LightCount,
-        point_lights: Vec<&PointLightData>,
-        directional_lights: Vec<&DirectionalLightData>,
+        point_lights: &Vec<&PointLightData>,
+        directional_lights: &Vec<&DirectionalLightData>,
     ) {
         let mut light_raws = point_lights
             .iter()
             .map(|light| light.to_raw())
             .collect::<Vec<_>>();
 
-        for directional_light in &directional_lights {
+        for directional_light in directional_lights {
             light_raws.push(directional_light.to_raw())
         }
 
@@ -182,6 +183,16 @@ impl LightRenderData {
             0,
             bytemuck::cast_slice(&light_raws),
         );
+    }
+
+    fn update_gpu_data(
+        &self,
+        queue: &Queue,
+        light_count: &LightCount,
+        point_lights: Vec<&PointLightData>,
+        directional_lights: Vec<&DirectionalLightData>,
+    ) {
+        self.update_light_gpu_data(queue, &point_lights, &directional_lights);
 
         queue.write_buffer(
             &self.light_parameters_uniform_buffer,

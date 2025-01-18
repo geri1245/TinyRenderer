@@ -4,8 +4,8 @@ use wgpu::{
 };
 
 use crate::{
-    bind_group_layout_descriptors, buffer_content::BufferContent, instance, model::Renderable,
-    vertex,
+    bind_group_layout_descriptors, buffer_content::BufferContent,
+    components::TransformComponentRaw, model::Renderable, vertex,
 };
 
 use super::shader_compiler::{ShaderCompilationResult, ShaderCompilationSuccess, ShaderCompiler};
@@ -71,7 +71,7 @@ impl ShadowRP {
                 entry_point: Some("vs_main"),
                 buffers: &[
                     vertex::VertexRawWithTangents::buffer_layout(),
-                    instance::SceneComponentRaw::buffer_layout(),
+                    TransformComponentRaw::buffer_layout(),
                 ],
             },
             fragment: None,

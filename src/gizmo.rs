@@ -4,14 +4,12 @@ use std::{collections::HashMap, path::PathBuf, str::FromStr};
 use glam::{Quat, Vec3};
 
 use crate::{
-    instance::TransformComponent,
+    components::{RenderableComponent, SceneComponentType, TransformComponent},
     material::PbrMaterialDescriptor,
     math::Line,
-    model::{
-        MeshDescriptor, ModelDescriptor, ModelRenderingOptions, PbrParameters, RenderingPass,
-        WorldObject,
-    },
+    model::{MeshDescriptor, ModelRenderingOptions, PbrParameters, RenderingPass},
     world::World,
+    world_object::WorldObject,
 };
 
 const X_AXIS_COLOR: [f32; 3] = [1.0, 0.0, 0.0];
@@ -107,8 +105,8 @@ impl Gizmo {
     pub fn update(&mut self, world: &mut World) {
         if let Some(selected_object_id) = self.selected_object_id {
             let maybe_selected_object_position =
-                if let Some(selected_object) = world.get_object(selected_object_id) {
-                    Some(selected_object.get_transform().position)
+                if let Some(selected_object) = world.get_world_object(&selected_object_id) {
+                    Some(selected_object.transform.get_position())
                 } else {
                     None
                 };
@@ -119,8 +117,8 @@ impl Gizmo {
                     Self::calculate_gizmo_scale(selected_object_position, camera_position);
 
                 for (gizmo_object_id, _axis) in &self.gizmo_parts_drawn {
-                    if let Some(mut gizmo_object) = world.get_object_mut(*gizmo_object_id) {
-                        gizmo_object.set_scale(gizmo_scale);
+                    if let Some(gizmo_object) = world.get_world_object_mut(gizmo_object_id) {
+                        gizmo_object.transform.set_scale(gizmo_scale);
                     }
                 }
             }
@@ -129,12 +127,14 @@ impl Gizmo {
 
     fn restore_hovered_gizmo_material_if_any(&self, world: &mut World) {
         if let Some(hovered_gizmo_part_id) = self.hovered_gizmo_part_id {
-            if let Some(mut object) = world.get_object_mut(hovered_gizmo_part_id) {
+            if let Some(object) = world.get_world_object_mut(&hovered_gizmo_part_id) {
                 if let Some(axis) = self.gizmo_parts_drawn.get(&hovered_gizmo_part_id) {
-                    let color = get_color_for_axis(*axis);
-                    object.update_material(&PbrMaterialDescriptor::Flat(PbrParameters::new(
-                        color, 1.0, 0.0,
-                    )));
+                    if let Some(renderable) = object.get_renderable_component_mut() {
+                        let color = get_color_for_axis(*axis);
+                        renderable.update_material(PbrMaterialDescriptor::Flat(
+                            PbrParameters::new(color, 1.0, 0.0),
+                        ));
+                    }
                 }
             }
         }
@@ -152,8 +152,12 @@ impl Gizmo {
         if let Some(hovered_gizmo_part_id) = hovered_object_id {
             if self.gizmo_parts_drawn.contains_key(&hovered_gizmo_part_id) {
                 self.hovered_gizmo_part_id = hovered_object_id;
-                if let Some(mut object) = world.get_object_mut(hovered_gizmo_part_id) {
-                    object.update_material(&PbrMaterialDescriptor::from_color(HOVERED_GIZMO_COLOR));
+                if let Some(object) = world.get_world_object_mut(&hovered_gizmo_part_id) {
+                    if let Some(renderable) = object.get_renderable_component_mut() {
+                        renderable.update_material(PbrMaterialDescriptor::from_color(
+                            HOVERED_GIZMO_COLOR,
+                        ));
+                    }
                 }
             } else {
                 self.hovered_gizmo_part_id = None;
@@ -180,7 +184,7 @@ impl Gizmo {
                     || new_selected_object_id.unwrap() != selected_object_id
                 {
                     for (gizmo_id, _) in self.gizmo_parts_drawn.drain() {
-                        world.remove_object(gizmo_id);
+                        world.remove_world_object(gizmo_id);
                     }
                     self.gizmo_position = None;
                 }
@@ -209,38 +213,42 @@ impl Gizmo {
                         GizmoUpdateResult::Nothing
                     }
                 } else {
-                    if let Some(object) = world.get_object(object_id) {
+                    if let Some(object) = world.get_world_object(&object_id) {
                         self.selected_object_id = Some(object_id);
-                        let selected_object_transform = object.get_transform();
+                        let selected_object_transform = object.transform;
                         let arrow_source = MeshDescriptor::FromFile(
                             PathBuf::from_str("./assets/models/arrow/arrow.obj").unwrap(),
                         );
 
-                        self.gizmo_position = Some(selected_object_transform.position);
+                        self.gizmo_position = Some(selected_object_transform.get_position());
 
                         for (_axis, gizmo_description) in &self.gizmo_part_descriptions {
-                            let gizmo_transform = TransformComponent {
-                                position: selected_object_transform.position,
-                                scale: Vec3::splat(Self::calculate_gizmo_scale(
+                            let gizmo_transform = TransformComponent::new(
+                                selected_object_transform.get_position(),
+                                Vec3::splat(Self::calculate_gizmo_scale(
                                     world.camera_controller.camera.get_position(),
-                                    selected_object_transform.position,
+                                    selected_object_transform.get_position(),
                                 )),
-                                rotation: gizmo_description.rotation,
-                            };
-                            let gizmo_id = world.add_object(WorldObject::new(
-                                ModelDescriptor {
-                                    material_descriptor: gizmo_description.material.clone(),
-                                    mesh_descriptor: arrow_source.clone(),
-                                },
-                                Some(gizmo_transform),
-                                true,
+                                gizmo_description.rotation,
+                            );
+
+                            let renderable_component = RenderableComponent::new(
+                                arrow_source.clone(),
+                                gizmo_description.material.clone(),
                                 ModelRenderingOptions {
                                     pass: RenderingPass::ForceForwardAfterDeferred,
                                     use_depth_test: false,
                                     cast_shadows: false,
-                                    needs_projection: false,
                                 },
-                            ));
+                                true,
+                            );
+
+                            let world_object = WorldObject::new(
+                                vec![SceneComponentType::Renderable(renderable_component)],
+                                gizmo_transform,
+                            );
+
+                            let gizmo_id = world.add_world_object(world_object);
                             self.gizmo_parts_drawn
                                 .insert(gizmo_id, gizmo_description.axis_vec);
                         }
@@ -266,8 +274,9 @@ impl Gizmo {
     pub fn update_position(&mut self, new_position: Vec3, world: &mut World) {
         self.gizmo_position = Some(new_position);
         for (id, _axis) in &self.gizmo_parts_drawn {
-            let mut object = world.get_object_mut(*id).unwrap();
-            object.set_location(new_position);
+            if let Some(object) = world.get_world_object_mut(id) {
+                object.transform.set_location(new_position);
+            }
         }
     }
 }

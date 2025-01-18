@@ -6,11 +6,13 @@ use winit::{
 
 use crate::{
     app::{WindowEventHandlingAction, WindowEventHandlingResult},
+    components::{RenderableComponent, SceneComponentType, TransformComponent},
     gizmo_handler::GizmoHandler,
     material::PbrMaterialDescriptor,
-    model::{MeshDescriptor, ModelDescriptor, ModelRenderingOptions, PbrParameters, WorldObject},
+    model::{MeshDescriptor, ModelRenderingOptions, PbrParameters},
     object_picker::ObjectPickManager,
     world::World,
+    world_object::WorldObject,
 };
 
 pub struct PlayerController {
@@ -77,8 +79,8 @@ impl PlayerController {
             },
             WindowEvent::KeyboardInput { event, .. } => match event.physical_key {
                 PhysicalKey::Code(KeyCode::Delete) => {
-                    if let Some(id) = self.gizmo_handler.get_active_onject_id() {
-                        world.remove_object(id);
+                    if let Some(id) = self.gizmo_handler.get_active_object_id() {
+                        world.remove_world_object(id);
                         self.gizmo_handler.remove_object_selection(world);
                         WindowEventHandlingResult::Handled
                     } else {
@@ -109,41 +111,23 @@ impl PlayerController {
                 WindowEventHandlingResult::Unhandled
             }
             WindowEvent::DroppedFile(path) => {
-                let object = WorldObject::new(
-                    ModelDescriptor {
-                        mesh_descriptor: MeshDescriptor::FromFile(path.clone()),
-                        material_descriptor: PbrMaterialDescriptor::Flat(PbrParameters::default()),
-                    },
-                    None,
-                    false,
+                let renderable_component = RenderableComponent::new(
+                    MeshDescriptor::FromFile(path.clone()),
+                    PbrMaterialDescriptor::Flat(PbrParameters::default()),
                     ModelRenderingOptions::default(),
+                    false,
                 );
 
-                world.add_object(object);
+                let object = WorldObject::new(
+                    vec![SceneComponentType::Renderable(renderable_component)],
+                    TransformComponent::default(),
+                );
+
+                world.add_world_object(object);
 
                 WindowEventHandlingResult::Handled
             }
             _ => WindowEventHandlingResult::Unhandled,
         }
     }
-
-    // pub fn handle_gui_events(&mut self, gui_event: &GuiEvent, world: &mut World) -> bool {
-    // match gui_event {
-    //     GuiEvent::LightPositionChanged { new_position } => {
-    //         if let Some(handle) = &selected_object_handle {
-    //             if let Some(light) = world.get_light(handle) {
-    //                 match light {
-    //                     crate::lights::Light::Point(point_light) => {
-    //                         point_light.transform.position = (*new_position).into();
-    //                     }
-    //                     crate::lights::Light::Directional(_) => {}
-    //                 }
-    //             }
-    //         }
-    //     }
-    //     _ => {}
-    // }
-
-    //     return false;
-    // }
 }

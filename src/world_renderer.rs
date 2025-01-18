@@ -7,19 +7,20 @@ use wgpu::{
 use crate::{
     actions::RenderingAction,
     camera_controller::CameraController,
+    components::{RenderableComponent, TransformComponent},
     diffuse_irradiance_renderer::DiffuseIrradianceRenderer,
     equirectangular_to_cubemap_renderer::EquirectangularToCubemapRenderer,
     forward_renderer::ForwardRenderer,
     gbuffer_geometry_renderer::GBufferGeometryRenderer,
     light_controller::LightController,
-    model::{Renderable, RenderingPass, WorldObject},
+    model::{Renderable, RenderableDescription, RenderingPass},
     object_picker::ObjectPickManager,
     pipelines::{self, MainRP, ShaderCompilationSuccess},
     post_process_manager::PostProcessManager,
     renderer::Renderer,
     resource_loader::{PrimitiveShape, ResourceLoader},
     skybox::Skybox,
-    world::{ModificationType, ObjectModificationType, World},
+    world::{ModificationType, World},
 };
 
 pub struct WorldRenderer {
@@ -98,21 +99,25 @@ impl WorldRenderer {
 
     fn add_object(
         &mut self,
-        world_object: &WorldObject,
+        renderable_component: &RenderableComponent,
+        transform: TransformComponent,
         new_renderable_id: u32,
         resource_loader: &ResourceLoader,
         renderer: &Renderer,
     ) {
         let renderable_parts = resource_loader
-            .load_model(&world_object.description.model_descriptor, renderer)
+            .load_model(&renderable_component.model_descriptor, renderer)
             .unwrap();
+        let renderable_desc = RenderableDescription {
+            model_descriptor: renderable_component.model_descriptor.clone(),
+            rendering_options: renderable_component.rendering_options,
+            transform,
+        };
         let new_renderable = Renderable::new(
-            world_object.description.model_descriptor.clone(),
-            world_object.get_transform(),
+            renderable_desc,
             renderable_parts,
             &renderer.device,
             new_renderable_id,
-            &world_object.description.rendering_options,
         );
         self.renderables.insert(new_renderable_id, new_renderable);
     }
@@ -120,37 +125,45 @@ impl WorldRenderer {
     pub fn update(&mut self, renderer: &Renderer, world: &World, resource_loader: &ResourceLoader) {
         for modification in &world.dirty_objects {
             match &modification.modification_type {
-                ObjectModificationType::Mesh(modification_type) => match &modification_type {
-                    ModificationType::Added => {
-                        if let Some(world_object) = world.get_object(modification.id) {
+                ModificationType::Added => {
+                    if let Some(world_object) = world.get_world_object(&modification.id) {
+                        if let Some(renderable) = world_object.get_renderable_component() {
                             self.add_object(
-                                world_object,
+                                renderable,
+                                world_object.transform.clone(),
                                 modification.id,
                                 resource_loader,
                                 renderer,
                             );
                         }
                     }
-                    ModificationType::Removed => {
-                        let _ = self.renderables.remove(&modification.id);
-                    }
-                    ModificationType::TransformModified(new_transform) => {
-                        if let Some(renderable) = self.renderables.get_mut(&modification.id) {
-                            renderable.update_transform_render_state(
-                                &renderer.queue,
-                                new_transform,
-                                modification.id,
-                            );
+                }
+                ModificationType::Removed => {
+                    let _ = self.renderables.remove(&modification.id);
+                }
+                ModificationType::Modified => {
+                    if let Some(renderable) = self.renderables.get_mut(&modification.id) {
+                        if let Some(world_object) = world.get_world_object(&modification.id) {
+                            if let Some(renderable_component) =
+                                world_object.get_renderable_component()
+                            {
+                                if renderable_component.is_material_dirty {
+                                    renderable.update_material_render_state(
+                                        &renderer.device,
+                                        &renderable_component.model_descriptor.material_descriptor,
+                                    );
+                                }
+                                if world_object.transform.is_transform_dirty {
+                                    renderable.update_transform_render_state(
+                                        &renderer.queue,
+                                        &world_object.transform,
+                                        modification.id,
+                                    );
+                                }
+                            }
                         }
                     }
-                    ModificationType::MaterialModified(new_material) => {
-                        if let Some(renderable) = self.renderables.get_mut(&modification.id) {
-                            renderable
-                                .update_material_render_state(&renderer.device, &new_material);
-                        }
-                    }
-                },
-                ObjectModificationType::Light(_modification_type) => {}
+                }
             }
         }
     }
@@ -186,7 +199,7 @@ impl WorldRenderer {
 
         let renderables = self.renderables.values();
 
-        light_controller.render(encoder, renderables.clone());
+        light_controller.render_shadows(encoder, renderables.clone());
 
         {
             let deferred_pass_items = renderables.clone().filter(|renderable| {

@@ -11,7 +11,7 @@ use wgpu::{CommandEncoderDescriptor, Device, Extent3d};
 
 use glam::{Vec2, Vec3};
 
-use crate::instance::TransformComponent;
+use crate::components::TransformComponent;
 use crate::model::{ModelDescriptor, RenderablePart};
 use crate::primitive_shapes::square;
 use crate::renderer::Renderer;

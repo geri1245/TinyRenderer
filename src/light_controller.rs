@@ -7,9 +7,9 @@ use crate::light_render_data::{GeneralLightRenderData, CUBE_FACE_COUNT};
 use crate::light_rendering_gpu_data::{LightCount, LightRenderData};
 use crate::lights::{DirectionalLight, DirectionalLightData};
 use crate::renderer::Renderer;
-use crate::world::{self, ObjectModificationType};
+use crate::world;
 use crate::{
-    lights::{Light, LightRawSmall, PointLight, PointLightData},
+    lights::{Light, LightRawSmall, PointLightData, PointLightRenderData},
     model::Renderable,
     pipelines::{ShaderCompilationSuccess, ShadowRP},
     world::World,
@@ -89,7 +89,7 @@ impl LightController {
         );
     }
 
-    fn add_point_light(&mut self, device: &Device, id: u32, light: PointLight) {
+    fn add_point_light(&mut self, device: &Device, id: u32, light: PointLightRenderData) {
         let depth_view_index = self
             .shadow_assets
             .point_light_render_data
@@ -109,19 +109,38 @@ impl LightController {
         self.directional_lights.insert(id, directional_light_data);
     }
 
-    pub fn add_light(&mut self, renderer: &Renderer, id: u32, light: Light) {
+    fn add_light(&mut self, renderer: &Renderer, id: u32, light: Light) {
         match light {
-            Light::Point(point_light) => self.add_point_light(&renderer.device, id, point_light),
+            Light::Point(point_light) => {
+                self.add_point_light(&renderer.device, id, point_light);
+            }
             Light::Directional(directional_light) => {
-                self.add_directional_light(&renderer.device, id, directional_light)
+                self.add_directional_light(&renderer.device, id, directional_light);
             }
         }
 
         self.update_shadow_assets(renderer);
     }
 
+    fn update_light(&mut self, renderer: &Renderer, id: &u32, light: &Light) {
+        match light {
+            Light::Point(point_light) => {
+                if let Some(point_light_render_data) = self.point_lights.get_mut(&id) {
+                    point_light_render_data.light = point_light.clone();
+                }
+            }
+            Light::Directional(directional_light) => todo!(),
+        }
+
+        self.light_render_data.update_light_gpu_data(
+            &renderer.queue,
+            &self.point_lights.values().collect(),
+            &self.directional_lights.values().collect(),
+        );
+    }
+
     pub fn remove_light(&mut self, device: &Device, id: u32) {
-        if let Some(lightData) = self.point_lights.remove(&id) {}
+        if let Some(light_data) = self.point_lights.remove(&id) {}
     }
 
     fn create_shadow_assets(device: &Device) -> ShadowAssets {
@@ -134,30 +153,38 @@ impl LightController {
         }
     }
 
-    pub fn update(&mut self, _delta_time: std::time::Duration, renderer: &Renderer, world: &World) {
+    fn get_light(world: &World, id: &u32) -> Option<Light> {
+        if let Some(world_object) = world.get_world_object(id) {
+            Light::from_world_object(world_object)
+        } else if let Some(omnipresent_object) = world.get_omnipresent_object(id) {
+            Light::from_omnipresent_object(omnipresent_object)
+        } else {
+            None
+        }
+    }
+
+    pub fn update(
+        &mut self,
+        _delta_time: std::time::Duration,
+        renderer: &Renderer,
+        world: &mut World,
+    ) {
         for modification in &world.dirty_objects {
-            if let ObjectModificationType::Light(light_modification) =
-                &modification.modification_type
-            {
-                match light_modification {
+            if let Some(light) = Self::get_light(world, &modification.id) {
+                match modification.modification_type {
                     world::ModificationType::Added => {
-                        if let Some(light) = world.get_light(&modification.id) {
-                            self.add_light(renderer, modification.id, light.clone());
-                        }
+                        self.add_light(renderer, modification.id, light);
                     }
                     world::ModificationType::Removed => todo!(),
-                    world::ModificationType::TransformModified(transform_component) => {
-                        todo!()
-                    }
-                    world::ModificationType::MaterialModified(pbr_material_descriptor) => {
-                        unreachable!()
+                    world::ModificationType::Modified => {
+                        self.update_light(renderer, &modification.id, &light);
                     }
                 }
             }
         }
     }
 
-    pub fn render<'a, T>(&self, encoder: &mut CommandEncoder, renderables: T)
+    pub fn render_shadows<'a, T>(&self, encoder: &mut CommandEncoder, renderables: T)
     where
         T: Clone,
         T: Iterator<Item = &'a Renderable>,

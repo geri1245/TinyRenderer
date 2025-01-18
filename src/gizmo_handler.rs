@@ -200,17 +200,17 @@ impl GizmoHandler {
             gizmo_axis_point + gizmo_move_info.gizmo_interaction_and_object_position_difference;
 
         {
-            let mut object = world
-                .get_object_mut(self.gizmo.selected_object_id.unwrap())
-                .unwrap();
-
-            object.set_location(new_position);
+            if let Some(object) =
+                world.get_world_object_mut(&self.gizmo.selected_object_id.unwrap())
+            {
+                object.transform.set_location(new_position);
+            }
         }
 
         self.gizmo.update_position(new_position, world);
     }
 
-    pub fn get_active_onject_id(&self) -> Option<u32> {
+    pub fn get_active_object_id(&self) -> Option<u32> {
         self.gizmo.selected_object_id
     }
 }

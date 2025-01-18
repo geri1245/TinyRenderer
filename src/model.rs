@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use wgpu::{util::DeviceExt, Device, Queue, RenderPass};
 
 use crate::{
-    instance::TransformComponent,
+    components::TransformComponent,
     material::{MaterialRenderData, PbrMaterialDescriptor},
     resource_loader::PrimitiveShape,
     texture::TextureUsage,
@@ -98,91 +98,16 @@ pub struct ModelRenderingOptions {
     /// Should this object cast shadows? If not, it won't be rendered into the shadow map
     #[serde(default = "default_true")]
     pub cast_shadows: bool,
-    /// Whether this object should use a projection matrix during rendering
-    #[serde(default = "default_true")]
-    pub needs_projection: bool,
 }
 
 impl Default for ModelRenderingOptions {
     fn default() -> Self {
         Self {
             cast_shadows: true,
-            needs_projection: true,
             use_depth_test: true,
 
             pass: Default::default(),
         }
-    }
-}
-
-/// Describes a model in the world. Mostly this is used to save out the current state into the level file
-/// The important thing is that from this info only, the world should be reconstructable
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct WorldObject {
-    pub description: RenderableDescription,
-
-    #[serde(skip_serializing)]
-    #[serde(default)]
-    pub is_transform_dirty: bool,
-
-    #[serde(skip_serializing)]
-    #[serde(default)]
-    pub is_material_dirty: bool,
-
-    #[serde(skip_serializing)]
-    #[serde(default)]
-    pub is_transient: bool,
-}
-
-impl WorldObject {
-    pub fn new(
-        object: ModelDescriptor,
-        transform: Option<TransformComponent>,
-        is_transient: bool,
-        rendering_options: ModelRenderingOptions,
-    ) -> Self {
-        Self {
-            description: RenderableDescription {
-                model_descriptor: object,
-                transform: transform.unwrap_or_default(),
-                rendering_options,
-            },
-            is_transform_dirty: false,
-            is_material_dirty: false,
-            is_transient,
-        }
-    }
-
-    pub fn update_material(&mut self, new_material: &PbrMaterialDescriptor) {
-        self.description.model_descriptor.material_descriptor = new_material.clone();
-        self.is_material_dirty = true;
-    }
-
-    pub fn get_transform(&self) -> TransformComponent {
-        self.description.transform
-    }
-
-    pub fn reset_transform_dirty(&mut self) -> TransformComponent {
-        self.is_transform_dirty = false;
-        self.get_transform()
-    }
-
-    pub fn reset_material_dirty(&mut self) -> PbrMaterialDescriptor {
-        self.is_material_dirty = false;
-        self.description
-            .model_descriptor
-            .material_descriptor
-            .clone()
-    }
-
-    pub fn set_location(&mut self, new_position: Vec3) {
-        self.description.transform.position = new_position;
-        self.is_transform_dirty = true;
-    }
-
-    pub fn set_scale(&mut self, new_scale: f32) {
-        self.description.transform.scale = Vec3::splat(new_scale);
-        self.is_transform_dirty = true;
     }
 }
 
@@ -195,8 +120,8 @@ pub struct ModelDescriptor {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct RenderableDescription {
     pub model_descriptor: ModelDescriptor,
-    pub transform: TransformComponent,
     pub rendering_options: ModelRenderingOptions,
+    pub transform: TransformComponent,
 }
 
 /// A part of a renderable object. If a renderable consists of multiple parts, then each part is described
@@ -292,21 +217,18 @@ pub struct InstanceData {
 
 impl Renderable {
     pub fn new(
-        mesh_descriptor: ModelDescriptor,
-        world_transform: TransformComponent,
+        renderable_description: RenderableDescription,
         renderable_parts: Vec<RenderablePart>,
         device: &wgpu::Device,
         object_id: u32,
-        rendering_options: &ModelRenderingOptions,
     ) -> Self {
-        let instance_data = create_instance_buffer(&world_transform, object_id, device);
+        let instance_data =
+            create_instance_buffer(&renderable_description.transform, object_id, device);
+
+        let world_transform = renderable_description.transform.clone();
 
         Self {
-            description: RenderableDescription {
-                model_descriptor: mesh_descriptor,
-                transform: world_transform,
-                rendering_options: *rendering_options,
-            },
+            description: renderable_description,
             renderable_parts,
             instance_data,
             world_transform,

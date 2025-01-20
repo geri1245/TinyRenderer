@@ -120,6 +120,16 @@ impl WorldRenderer {
             new_renderable_id,
         );
         self.renderables.insert(new_renderable_id, new_renderable);
+
+        let maybe_error = self.gbuffer_geometry_renderer.add_renderable(
+            &renderer.device,
+            new_renderable_id,
+            renderable_component,
+        );
+
+        if maybe_error.is_err() {
+            unreachable!("Pipeline creation should never fail!");
+        }
     }
 
     pub fn update(&mut self, renderer: &Renderer, world: &World, resource_loader: &ResourceLoader) {
@@ -140,6 +150,8 @@ impl WorldRenderer {
                 }
                 ModificationType::Removed => {
                     let _ = self.renderables.remove(&modification.id);
+                    self.gbuffer_geometry_renderer
+                        .remove_renderable(&modification.id);
                 }
                 ModificationType::Modified => {
                     if let Some(renderable) = self.renderables.get_mut(&modification.id) {

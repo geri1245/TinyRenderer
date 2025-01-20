@@ -3,7 +3,7 @@ use std::{collections::HashMap, path::PathBuf, time::Duration};
 use crate::{
     camera::Camera,
     camera_controller::CameraController,
-    components::{OmnipresentComponentType, SceneComponentType},
+    components::OmnipresentComponentType,
     renderer::Renderer,
     world_object::{OmnipresentObject, WorldObject},
 };

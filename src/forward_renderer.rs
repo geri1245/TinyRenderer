@@ -36,7 +36,7 @@ impl ForwardRenderer {
                 vertex: PipelineVertexState {
                     vertex_layouts: vec![
                         VertexBufferContent::VertexWithTangent,
-                        VertexBufferContent::SceneComponent,
+                        VertexBufferContent::TransformComponent,
                     ],
                     ..Default::default()
                 },
@@ -63,7 +63,6 @@ impl ForwardRenderer {
                 material_bind_group_index: Some(2),
             },
         )
-        
         .unwrap();
 
         Self { pipeline }
@@ -87,6 +86,7 @@ impl ForwardRenderer {
             render_pass,
             &[light_bind_group, camera_bind_group],
             renderables,
+            0,
         );
     }
 }

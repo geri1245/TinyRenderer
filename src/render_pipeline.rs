@@ -50,14 +50,14 @@ impl Default for PipelineFragmentState {
 
 pub enum VertexBufferContent {
     VertexWithTangent,
-    SceneComponent,
+    TransformComponent,
 }
 
 impl VertexBufferContent {
     fn to_vertex_buffer_layout(&self) -> VertexBufferLayout {
         match self {
             VertexBufferContent::VertexWithTangent => VertexRawWithTangents::buffer_layout(),
-            VertexBufferContent::SceneComponent => TransformComponentRaw::buffer_layout(),
+            VertexBufferContent::TransformComponent => TransformComponentRaw::buffer_layout(),
         }
     }
 }
@@ -212,11 +212,12 @@ impl RenderPipeline {
         &self,
         render_pass: &mut RenderPass<'a>,
         bind_groups: &[&'a BindGroup],
+        offset: u32,
     ) {
         render_pass.set_pipeline(&self.render_pipeline);
 
         for (index, bind_group) in bind_groups.iter().enumerate() {
-            render_pass.set_bind_group(index as u32, *bind_group, &[]);
+            render_pass.set_bind_group(index as u32 + offset, *bind_group, &[]);
         }
     }
 
@@ -225,8 +226,9 @@ impl RenderPipeline {
         render_pass: &mut RenderPass<'a>,
         bind_groups: &[&'a BindGroup],
         renderables: T,
+        offset: u32,
     ) {
-        self.set_render_parameters(render_pass, bind_groups);
+        self.set_render_parameters(render_pass, bind_groups, offset);
         for renderable in renderables {
             renderable.render(render_pass, self.descriptor.material_bind_group_index);
         }

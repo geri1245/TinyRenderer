@@ -1,17 +1,26 @@
+use std::collections::{HashMap, HashSet};
+
 use wgpu::{
-    BindGroup, CommandEncoder, Device, Extent3d, RenderPass, RenderPassColorAttachment,
-    RenderPassDepthStencilAttachment, TextureDimension, TextureFormat, TextureUsages,
+    BindGroup, ColorTargetState, CommandEncoder, Device, Extent3d, RenderPass,
+    RenderPassColorAttachment, RenderPassDepthStencilAttachment, TextureDimension, TextureFormat,
+    TextureUsages,
 };
 
 use crate::{
     bind_group_layout_descriptors,
-    material::PbrMaterialDescriptor,
-    model::Renderable,
-    pipelines::{
-        GBufferGeometryRP, GBufferTextures, PbrParameterVariation, ShaderCompilationSuccess,
+    components::RenderableComponent,
+    model::{ModelRenderingOptions, PbrRenderingType, Renderable},
+    pipelines::ShaderCompilationSuccess,
+    render_pipeline::{
+        PipelineFragmentState, PipelineVertexState, RenderPipeline, RenderPipelineDescriptor,
+        VertexBufferContent,
     },
     texture::{SampledTexture, SampledTextureDescriptor, SamplingType},
 };
+
+const SHADER_SOURCE_TEXTURED: &'static str = "src/shaders/gbuffer_geometry.wgsl";
+const SHADER_SOURCE_FLAT_PARAMETER: &'static str =
+    "src/shaders/gbuffer_geometry_flat_parameter.wgsl";
 
 const GBUFFER_TEXTURE_FORMAT: TextureFormat = TextureFormat::Rgba16Float;
 const GBUFFER_CLEAR_COLOR: wgpu::Color = wgpu::Color {
@@ -20,26 +29,68 @@ const GBUFFER_CLEAR_COLOR: wgpu::Color = wgpu::Color {
     b: 0.0,
     a: 0.0,
 };
+
+pub struct GBufferTextures {
+    pub position: SampledTexture,
+    pub normal: SampledTexture,
+    pub albedo_and_specular: SampledTexture,
+    pub depth_texture: SampledTexture,
+    pub metal_rough_ao: SampledTexture,
+}
+
+struct PipelineWithObjects {
+    render_pipeline: RenderPipeline,
+    objects: HashSet<u32>,
+}
+
+impl PipelineWithObjects {
+    fn new(render_pipeline: RenderPipeline) -> Self {
+        Self {
+            render_pipeline,
+            objects: HashSet::new(),
+        }
+    }
+}
+
+fn default_color_write_state(format: wgpu::TextureFormat) -> ColorTargetState {
+    wgpu::ColorTargetState {
+        format,
+        blend: Some(wgpu::BlendState {
+            alpha: wgpu::BlendComponent::REPLACE,
+            color: wgpu::BlendComponent::REPLACE,
+        }),
+        write_mask: wgpu::ColorWrites::ALL,
+    }
+}
+
 pub struct GBufferGeometryRenderer {
     pub textures: GBufferTextures,
     pub gbuffer_textures_bind_group: wgpu::BindGroup,
     pub depth_texture_bind_group: wgpu::BindGroup,
     width: u32,
     height: u32,
-    textured_gbuffer_rp: GBufferGeometryRP,
-    flat_parameter_gbuffer_rp: GBufferGeometryRP,
+    render_pipelines: HashMap<GBufferRenderingParams, PipelineWithObjects>,
+}
+
+#[derive(Debug, Hash, PartialEq, Eq)]
+struct GBufferRenderingParams {
+    use_depth_test: bool,
+    pbr_resource_type: PbrRenderingType,
+}
+
+impl From<&ModelRenderingOptions> for GBufferRenderingParams {
+    fn from(value: &ModelRenderingOptions) -> Self {
+        Self {
+            use_depth_test: value.use_depth_test,
+            pbr_resource_type: value.pbr_resource_type,
+        }
+    }
 }
 
 impl GBufferGeometryRenderer {
     pub fn new(device: &wgpu::Device, width: u32, height: u32) -> Self {
         let textures = Self::create_textures(device, width, height);
         let bind_group = Self::create_gbuffer_bind_group(device, &textures);
-
-        let textured_gbuffer_rp =
-            GBufferGeometryRP::new(device, &textures, PbrParameterVariation::Texture).unwrap();
-
-        let flat_parameter_gbuffer_rp =
-            GBufferGeometryRP::new(device, &textures, PbrParameterVariation::Flat).unwrap();
 
         let depth_texture_bind_group =
             Self::create_depth_bind_group(device, &textures.depth_texture);
@@ -49,9 +100,36 @@ impl GBufferGeometryRenderer {
             gbuffer_textures_bind_group: bind_group,
             width,
             height,
-            textured_gbuffer_rp,
-            flat_parameter_gbuffer_rp,
+            render_pipelines: HashMap::new(),
             depth_texture_bind_group,
+        }
+    }
+
+    pub fn add_renderable(
+        &mut self,
+        device: &Device,
+        id: u32,
+        renderable_component: &RenderableComponent,
+    ) -> anyhow::Result<()> {
+        let gbuffer_render_params =
+            GBufferRenderingParams::from(&renderable_component.rendering_options);
+        if let Some(pipeline_with_objects) = self.render_pipelines.get_mut(&gbuffer_render_params) {
+            pipeline_with_objects.objects.insert(id);
+        } else {
+            let pipeline =
+                Self::create_render_pipeline(device, &gbuffer_render_params, &self.textures)?;
+            self.render_pipelines
+                .insert(gbuffer_render_params, PipelineWithObjects::new(pipeline));
+        }
+
+        Ok(())
+    }
+
+    pub fn remove_renderable(&mut self, id: &u32) {
+        for pipeline_with_items in self.render_pipelines.values_mut() {
+            if pipeline_with_items.objects.remove(id) {
+                break;
+            }
         }
     }
 
@@ -59,17 +137,22 @@ impl GBufferGeometryRenderer {
         &mut self,
         device: &Device,
     ) -> anyhow::Result<ShaderCompilationSuccess> {
-        self.textured_gbuffer_rp.try_recompile_shader(
-            device,
-            &self.textures,
-            PbrParameterVariation::Texture,
-        )?;
+        let mut any_shader_changed = false;
 
-        self.flat_parameter_gbuffer_rp.try_recompile_shader(
-            device,
-            &self.textures,
-            PbrParameterVariation::Flat,
-        )
+        // If any of the shaders were actually recompiled, then return recompiled in the end
+        for render_pipeline in self.render_pipelines.values_mut() {
+            any_shader_changed = render_pipeline
+                .render_pipeline
+                .try_recompile_shader(device)?
+                == ShaderCompilationSuccess::Recompiled
+                || any_shader_changed;
+        }
+
+        if any_shader_changed {
+            Ok(ShaderCompilationSuccess::Recompiled)
+        } else {
+            Ok(ShaderCompilationSuccess::AlreadyUpToDate)
+        }
     }
 
     pub fn resize(&mut self, device: &wgpu::Device, width: u32, height: u32) {
@@ -125,6 +208,91 @@ impl GBufferGeometryRenderer {
             depth_texture,
             metal_rough_ao,
         }
+    }
+
+    fn create_render_pipeline(
+        device: &Device,
+        rendering_params: &GBufferRenderingParams,
+        textures: &GBufferTextures,
+    ) -> anyhow::Result<RenderPipeline> {
+        let vertex_state = PipelineVertexState {
+            entry_point: "vs_main",
+            vertex_layouts: vec![
+                VertexBufferContent::VertexWithTangent,
+                VertexBufferContent::TransformComponent,
+            ],
+        };
+
+        let primitive_state = wgpu::PrimitiveState {
+            topology: wgpu::PrimitiveTopology::TriangleList,
+            front_face: wgpu::FrontFace::Ccw,
+            cull_mode: Some(wgpu::Face::Back),
+            unclipped_depth: false,
+            ..Default::default()
+        };
+
+        let depth_stencil_state = Some(wgpu::DepthStencilState {
+            format: SampledTexture::DEPTH_FORMAT,
+            depth_write_enabled: true,
+            depth_compare: wgpu::CompareFunction::Greater,
+            stencil: wgpu::StencilState::default(),
+            bias: wgpu::DepthBiasState::default(),
+        });
+
+        let fragment_state = PipelineFragmentState {
+            entry_point: "fs_main",
+            color_targets: vec![
+                default_color_write_state(textures.position.texture.format()),
+                default_color_write_state(textures.normal.texture.format()),
+                default_color_write_state(textures.albedo_and_specular.texture.format()),
+                default_color_write_state(textures.metal_rough_ao.texture.format()),
+            ],
+        };
+
+        let bgroup_layouts = match rendering_params.pbr_resource_type {
+            PbrRenderingType::Textures => {
+                vec![
+                    device.create_bind_group_layout(&bind_group_layout_descriptors::PBR_TEXTURE),
+                    device.create_bind_group_layout(
+                        &bind_group_layout_descriptors::BUFFER_VISIBLE_EVERYWHERE,
+                    ),
+                    device.create_bind_group_layout(
+                        &bind_group_layout_descriptors::BUFFER_VISIBLE_EVERYWHERE,
+                    ),
+                ]
+            }
+            PbrRenderingType::FlatParameters => {
+                vec![
+                    device.create_bind_group_layout(
+                        &bind_group_layout_descriptors::BUFFER_VISIBLE_EVERYWHERE,
+                    ),
+                    device.create_bind_group_layout(
+                        &bind_group_layout_descriptors::BUFFER_VISIBLE_EVERYWHERE,
+                    ),
+                    device.create_bind_group_layout(
+                        &bind_group_layout_descriptors::BUFFER_VISIBLE_EVERYWHERE,
+                    ),
+                ]
+            }
+        };
+
+        let shader_source_path = match rendering_params.pbr_resource_type {
+            PbrRenderingType::Textures => SHADER_SOURCE_TEXTURED.to_owned(),
+            PbrRenderingType::FlatParameters => SHADER_SOURCE_FLAT_PARAMETER.to_owned(),
+        };
+
+        let render_pipeline_descriptor = RenderPipelineDescriptor {
+            name: Some("Render pipeline that creates the gbuffer textures".to_owned()),
+            shader_source_path,
+            vertex: vertex_state,
+            primitive: primitive_state,
+            depth_stencil: depth_stencil_state,
+            fragment: fragment_state,
+            bind_group_layouts: bgroup_layouts,
+            material_bind_group_index: Some(0),
+        };
+
+        RenderPipeline::new(device, render_pipeline_descriptor)
     }
 
     fn create_gbuffer_bind_group(
@@ -215,30 +383,17 @@ impl GBufferGeometryRenderer {
         camera_bind_group: &'a BindGroup,
         global_gpu_params_bind_group: &'a BindGroup,
     ) {
-        let textured_renderables = renderables.clone().filter(|renderable| {
-            matches!(
-                renderable.description.model_descriptor.material_descriptor,
-                PbrMaterialDescriptor::Texture(_)
-            )
-        });
-        self.textured_gbuffer_rp.render(
-            render_pass,
-            textured_renderables,
-            camera_bind_group,
-            global_gpu_params_bind_group,
-        );
+        for pipeline_with_items in self.render_pipelines.values() {
+            let items_for_current_pipeline = renderables
+                .clone()
+                .filter(|renderable| pipeline_with_items.objects.contains(&renderable.id));
 
-        let flat_param_renderables = renderables.clone().filter(|renderable| {
-            matches!(
-                renderable.description.model_descriptor.material_descriptor,
-                PbrMaterialDescriptor::Flat(_)
-            )
-        });
-        self.flat_parameter_gbuffer_rp.render(
-            render_pass,
-            flat_param_renderables,
-            camera_bind_group,
-            global_gpu_params_bind_group,
-        );
+            pipeline_with_items.render_pipeline.render(
+                render_pass,
+                &[camera_bind_group, global_gpu_params_bind_group],
+                items_for_current_pipeline,
+                1,
+            );
+        }
     }
 }

@@ -7,7 +7,9 @@ use crate::{
     components::{RenderableComponent, SceneComponentType, TransformComponent},
     material::PbrMaterialDescriptor,
     math::Line,
-    model::{MeshDescriptor, ModelRenderingOptions, PbrParameters, RenderingPass},
+    model::{
+        MeshDescriptor, ModelRenderingOptions, PbrParameters, PbrRenderingType, RenderingPass,
+    },
     world::World,
     world_object::WorldObject,
 };
@@ -239,6 +241,7 @@ impl Gizmo {
                                     pass: RenderingPass::ForceForwardAfterDeferred,
                                     use_depth_test: false,
                                     cast_shadows: false,
+                                    pbr_resource_type: PbrRenderingType::FlatParameters,
                                 },
                                 true,
                             );

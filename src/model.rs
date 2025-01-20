@@ -76,7 +76,7 @@ pub enum DirtyState {
 }
 
 #[derive(
-    Debug, Clone, Copy, Default, serde::Serialize, serde::Deserialize, PartialEq, PartialOrd,
+    Debug, Clone, Default, Copy, serde::Serialize, serde::Deserialize, PartialEq, PartialOrd,
 )]
 pub enum RenderingPass {
     #[default]
@@ -86,6 +86,24 @@ pub enum RenderingPass {
 
 pub fn default_true() -> bool {
     true
+}
+
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Default,
+    serde::Serialize,
+    serde::Deserialize,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Hash,
+)]
+pub enum PbrRenderingType {
+    #[default]
+    Textures,
+    FlatParameters,
 }
 
 #[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize, PartialEq, PartialOrd)]
@@ -98,6 +116,8 @@ pub struct ModelRenderingOptions {
     /// Should this object cast shadows? If not, it won't be rendered into the shadow map
     #[serde(default = "default_true")]
     pub cast_shadows: bool,
+
+    pub pbr_resource_type: PbrRenderingType,
 }
 
 impl Default for ModelRenderingOptions {
@@ -105,6 +125,7 @@ impl Default for ModelRenderingOptions {
         Self {
             cast_shadows: true,
             use_depth_test: true,
+            pbr_resource_type: PbrRenderingType::default(),
 
             pass: Default::default(),
         }
@@ -138,10 +159,10 @@ pub struct RenderablePart {
 
 #[derive(Debug)]
 pub struct Renderable {
+    pub id: u32,
     pub description: RenderableDescription,
 
     pub renderable_parts: Vec<RenderablePart>,
-    pub world_transform: TransformComponent,
     // Contains the data about the instances. The number of them and the transformation of each instance
     // Currently no instancing is used, so this will always contain a single transform
     pub instance_data: BufferWithLength,
@@ -160,6 +181,48 @@ pub struct BufferWithLength {
 }
 
 impl Renderable {
+    pub fn new(
+        renderable_description: RenderableDescription,
+        renderable_parts: Vec<RenderablePart>,
+        device: &wgpu::Device,
+        object_id: u32,
+    ) -> Self {
+        let instance_data =
+            create_instance_buffer(&renderable_description.transform, object_id, device);
+
+        Self {
+            id: object_id,
+            description: renderable_description,
+            renderable_parts,
+            instance_data,
+        }
+    }
+
+    pub fn render<'a>(
+        &'a self,
+        render_pass: &mut RenderPass<'a>,
+        material_group_index: Option<u32>,
+    ) {
+        for part in &self.renderable_parts {
+            if let Some(material_group_index) = material_group_index {
+                part.material_render_data
+                    .bind_render_pass(render_pass, material_group_index);
+            }
+
+            render_pass.set_vertex_buffer(0, part.primitive.vertex_buffer.slice(..));
+            render_pass.set_vertex_buffer(1, self.instance_data.buffer.slice(..));
+            render_pass.set_index_buffer(
+                part.primitive.index_data.buffer.slice(..),
+                wgpu::IndexFormat::Uint32,
+            );
+            render_pass.draw_indexed(
+                0..part.primitive.index_data.count,
+                0,
+                0..self.instance_data.count,
+            );
+        }
+    }
+
     pub fn update_transform_render_state(
         &mut self,
         queue: &Queue,
@@ -213,52 +276,6 @@ impl Primitive {
 #[derive(Debug, serde::Serialize)]
 pub struct InstanceData {
     pub instances: Vec<TransformComponent>,
-}
-
-impl Renderable {
-    pub fn new(
-        renderable_description: RenderableDescription,
-        renderable_parts: Vec<RenderablePart>,
-        device: &wgpu::Device,
-        object_id: u32,
-    ) -> Self {
-        let instance_data =
-            create_instance_buffer(&renderable_description.transform, object_id, device);
-
-        let world_transform = renderable_description.transform.clone();
-
-        Self {
-            description: renderable_description,
-            renderable_parts,
-            instance_data,
-            world_transform,
-        }
-    }
-
-    pub fn render<'a>(
-        &'a self,
-        render_pass: &mut RenderPass<'a>,
-        material_group_index: Option<u32>,
-    ) {
-        for part in &self.renderable_parts {
-            if let Some(material_group_index) = material_group_index {
-                part.material_render_data
-                    .bind_render_pass(render_pass, material_group_index);
-            }
-
-            render_pass.set_vertex_buffer(0, part.primitive.vertex_buffer.slice(..));
-            render_pass.set_vertex_buffer(1, self.instance_data.buffer.slice(..));
-            render_pass.set_index_buffer(
-                part.primitive.index_data.buffer.slice(..),
-                wgpu::IndexFormat::Uint32,
-            );
-            render_pass.draw_indexed(
-                0..part.primitive.index_data.count,
-                0,
-                0..self.instance_data.count,
-            );
-        }
-    }
 }
 
 pub fn create_instance_buffer(

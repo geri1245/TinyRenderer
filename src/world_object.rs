@@ -5,7 +5,7 @@ use crate::{
     },
     lights::DirectionalLight,
     material::PbrMaterialDescriptor,
-    model::{MeshDescriptor, ModelRenderingOptions, RenderingPass},
+    model::{MeshDescriptor, ModelRenderingOptions, PbrRenderingType, RenderingPass},
     resource_loader::PrimitiveShape,
     texture::{MaterialSource, TextureSourceDescriptor, TextureUsage},
 };
@@ -42,6 +42,7 @@ impl WorldObject {
             pass: RenderingPass::DeferredMain,
             use_depth_test: true,
             cast_shadows: false,
+            pbr_resource_type: PbrRenderingType::Textures,
         };
 
         RenderableComponent::new(
@@ -61,7 +62,7 @@ impl WorldObject {
     pub fn on_end_frame(&mut self) {
         self.transform.is_transform_dirty = false;
         for component in &mut self.components {
-            component.on_end_frame();
+            component.reset_dirty_state();
         }
     }
 
@@ -135,7 +136,7 @@ impl OmnipresentObject {
 
     pub fn on_end_frame(&mut self) {
         for component in &mut self.components {
-            component.on_end_frame();
+            component.reset_dirty_state();
         }
     }
 

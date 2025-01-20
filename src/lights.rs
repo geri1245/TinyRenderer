@@ -115,15 +115,6 @@ pub struct LightRawSmall {
     position_and_far_plane_distance: [f32; 4],
 }
 
-impl PointLightRenderData {
-    pub fn new(position: Vec3, color: Vec3) -> Self {
-        Self {
-            color,
-            transform: TransformComponent::from_position(position),
-        }
-    }
-}
-
 impl PointLightData {
     pub fn new(point_light: PointLightRenderData, depth_texture_index: usize) -> Self {
         PointLightData {

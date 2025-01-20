@@ -193,7 +193,7 @@ pub enum SceneComponentType {
 }
 
 impl SceneComponentType {
-    pub fn on_end_frame(&mut self) {
+    pub fn reset_dirty_state(&mut self) {
         match self {
             SceneComponentType::LightObject(_light_object_component) => {}
             SceneComponentType::Renderable(renderable_component) => {
@@ -204,7 +204,7 @@ impl SceneComponentType {
 
     pub fn is_transient(&self) -> bool {
         match self {
-            SceneComponentType::LightObject(light_object_component) => false,
+            SceneComponentType::LightObject(_light_object_component) => false,
             SceneComponentType::Renderable(renderable_component) => {
                 renderable_component.is_transient
             }
@@ -225,7 +225,7 @@ pub enum OmnipresentComponentType {
 }
 
 impl OmnipresentComponentType {
-    pub fn on_end_frame(&mut self) {}
+    pub fn reset_dirty_state(&mut self) {}
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

@@ -1,4 +1,4 @@
-use std::{fs::File, io::BufReader};
+use std::{fs::File, io::BufReader, path::PathBuf};
 
 use anyhow::*;
 use serde::{Deserialize, Serialize};
@@ -23,13 +23,35 @@ pub struct SampledTexture {
     pub descriptor: SampledTextureDescriptor,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Debug,
+    Clone,
+    serde::Serialize,
+    serde::Deserialize,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    ui_item_derive::UiDisplayable,
+    ui_item_derive::UiSettableNew,
+)]
 pub enum MaterialSource {
-    FromFile(String),
+    FromFile(PathBuf),
     Defaults(TextureUsage),
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Debug,
+    Clone,
+    serde::Serialize,
+    serde::Deserialize,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    ui_item_derive::UiDisplayable,
+    ui_item_derive::UiSettableNew,
+)]
 pub struct TextureSourceDescriptor {
     pub source: MaterialSource,
     pub usage: TextureUsage,
@@ -47,8 +69,23 @@ pub struct SampledTextureDescriptor {
     pub sampling_type: SamplingType,
 }
 
-#[derive(Serialize, Deserialize, Hash, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Serialize,
+    Deserialize,
+    Hash,
+    Debug,
+    Default,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    ui_item_derive::UiDisplayable,
+    ui_item_derive::UiSettableNew,
+)]
 pub enum TextureUsage {
+    #[default]
     Albedo,
     Normal,
     Metalness,

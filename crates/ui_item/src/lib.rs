@@ -1,3 +1,5 @@
-mod types;
+mod type_display;
+mod type_setting;
 
-pub use types::*;
+pub use type_display::*;
+pub use type_setting::*;

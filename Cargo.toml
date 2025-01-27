@@ -12,7 +12,7 @@ winit = "0.30.5"
 log = "0.4"
 async-std = "1.12"
 anyhow = "1.0"
-glam = { version = "0.29", features = ["serde"] }
+glam = { version = "0.29", features = ["serde", "bytemuck"] }
 futures-intrusive = "0.5"
 png = "0.17"
 simple_logger = "5.0.0"
@@ -31,6 +31,7 @@ egui = "0.30"
 egui-wgpu = { version = "0.30", features = ["winit"] }
 egui-winit = "0.30"
 
+math_helpers = { path = "crates/math_helpers" }
 shader_processor = { path = "crates/shader_processor" }
 ui_item = { path = "crates/ui_item" }
 ui_item_derive = { path = "crates/ui_item_derive" }

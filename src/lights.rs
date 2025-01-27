@@ -2,9 +2,10 @@ use std::f32::consts;
 
 use glam::{Mat4, Vec3, Vec3Swizzles};
 
+use math_helpers::reverse_z_matrix;
+
 use crate::{
     components::TransformComponent,
-    math::reverse_z_matrix,
     world_object::{OmnipresentObject, WorldObject},
 };
 
@@ -61,7 +62,16 @@ pub struct CommonLightParams {
     near_plane: f32,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Copy, Clone)]
+#[derive(
+    Debug,
+    Default,
+    Copy,
+    Clone,
+    serde::Serialize,
+    serde::Deserialize,
+    ui_item_derive::UiDisplayable,
+    ui_item_derive::UiSettableNew,
+)]
 pub struct PointLight {
     pub color: Vec3,
 }

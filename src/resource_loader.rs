@@ -7,6 +7,7 @@ use gltf::Gltf;
 use std::io::BufReader;
 use std::path::PathBuf;
 use tobj::MTLLoadResult;
+use ui_item_derive::{UiDisplayable, UiSettableNew};
 use wgpu::{CommandEncoderDescriptor, Device, Extent3d};
 
 use glam::{Vec2, Vec3};
@@ -24,9 +25,21 @@ use crate::{
 };
 
 #[derive(
-    Debug, Hash, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize, PartialOrd, Ord,
+    Default,
+    Debug,
+    Hash,
+    Clone,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+    PartialOrd,
+    Ord,
+    UiDisplayable,
+    UiSettableNew,
 )]
 pub enum PrimitiveShape {
+    #[default]
     Cube,
     Square,
 }
@@ -131,6 +144,7 @@ impl ResourceLoader {
                     height: image.height(),
                     depth_or_array_layers: 1,
                 };
+                // let a = path.as;
                 Ok(Rc::new(
                     SampledTexture::from_image(
                         renderer,
@@ -138,7 +152,7 @@ impl ResourceLoader {
                         texture_size,
                         descriptor.usage,
                         SamplingType::Linear,
-                        Some(&path),
+                        Some(&format!("{path:?}")),
                     )
                     .unwrap(),
                 ))

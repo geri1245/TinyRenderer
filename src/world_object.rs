@@ -1,3 +1,5 @@
+use std::{path::PathBuf, str::FromStr};
+
 use crate::{
     components::{
         LightObjectComponent, OmnipresentComponentType, RenderableComponent, SceneComponentType,
@@ -11,7 +13,14 @@ use crate::{
 };
 
 /// Describes an object in the world. Used for object that have a 3D position (eg. rendered meshes, lights)
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    serde::Serialize,
+    serde::Deserialize,
+    ui_item_derive::UiDisplayable,
+    ui_item_derive::UiSettableNew,
+)]
 pub struct WorldObject {
     pub components: Vec<SceneComponentType>,
 
@@ -34,7 +43,9 @@ impl WorldObject {
 
     fn get_light_debug_object() -> RenderableComponent {
         let texture_source_descriptor = TextureSourceDescriptor {
-            source: MaterialSource::FromFile("assets/textures/defaults/lightbulb.png".to_owned()),
+            source: MaterialSource::FromFile(
+                PathBuf::from_str("assets/textures/defaults/lightbulb.png").unwrap(),
+            ),
             usage: TextureUsage::Albedo,
         };
 

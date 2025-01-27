@@ -1,9 +1,7 @@
 [package]
-name = "ui_item"
+name = "math_helpers"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-darling = "0.20"
 glam = { version = "0.29", features = ["serde"] }
-math_helpers = { path = "../math_helpers" }

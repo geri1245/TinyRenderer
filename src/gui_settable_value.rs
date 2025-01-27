@@ -1,29 +1,28 @@
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
 use crossbeam_channel::{unbounded, Receiver};
-use ui_item::{SetPropertyFromUiParams, UiDisplayParam};
+use ui_item::UiDisplayDescription;
 use winit::event_loop::EventLoopProxy;
 
-use crate::custom_event::{CustomEvent, GuiRegistrationEvent};
+use crate::{
+    custom_event::{CustomEvent, GuiRegistrationEvent},
+    gui::SetItemFromUiParams,
+};
 
-type UpdateFunType<T, ExtraParam> = Box<dyn Fn(&mut T, &SetPropertyFromUiParams, &ExtraParam)>;
-
-pub struct GuiSettableValue<T, ExtraParam> {
+pub struct GuiSettableValue<T> {
     data: T,
     category: String,
-    receiver: Receiver<(String, SetPropertyFromUiParams)>,
-    update_fun: UpdateFunType<T, ExtraParam>,
+    receiver: Receiver<SetItemFromUiParams>,
 }
 
-impl<T, ExtraParam> GuiSettableValue<T, ExtraParam> {
+impl<T> GuiSettableValue<T> {
     pub fn new(
         data: T,
         category: String,
-        update_fun: UpdateFunType<T, ExtraParam>,
         event_loop_proxy: &EventLoopProxy<CustomEvent>,
-        items: Vec<UiDisplayParam>,
+        items: UiDisplayDescription,
     ) -> Self {
-        let (sender, receiver) = unbounded::<(String, SetPropertyFromUiParams)>();
+        let (sender, receiver) = unbounded::<SetItemFromUiParams>();
         let _ = event_loop_proxy.send_event(CustomEvent::GuiRegistration(GuiRegistrationEvent {
             register: true,
             items,
@@ -34,24 +33,33 @@ impl<T, ExtraParam> GuiSettableValue<T, ExtraParam> {
         Self {
             data,
             receiver,
-            update_fun,
             category,
         }
     }
 
-    pub fn handle_gui_changes(&mut self, extra_param: &ExtraParam) {
-        while let Ok((category, value_changed_params)) = self.receiver.try_recv() {
-            if category == self.category {
-                (self.update_fun)(&mut self.data, &value_changed_params, extra_param);
+    pub fn handle_gui_changes(&mut self) -> Vec<SetItemFromUiParams> {
+        let mut changes = Vec::new();
+
+        while let Ok(value_changed_params) = self.receiver.try_recv() {
+            if value_changed_params.category == self.category {
+                changes.push(value_changed_params);
             }
         }
+
+        changes
     }
 }
 
-impl<T, ExtraParam> Deref for GuiSettableValue<T, ExtraParam> {
+impl<T> Deref for GuiSettableValue<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
         &self.data
+    }
+}
+
+impl<T> DerefMut for GuiSettableValue<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.data
     }
 }

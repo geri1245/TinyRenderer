@@ -1,5 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
+use glam::Vec3;
 use wgpu::RenderPass;
 
 use crate::{
@@ -9,14 +10,28 @@ use crate::{
     texture::{SampledTexture, TextureSourceDescriptor, TextureUsage},
 };
 
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, PartialOrd)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    serde::Serialize,
+    serde::Deserialize,
+    ui_item_derive::UiDisplayable,
+    ui_item_derive::UiSettableNew,
+)]
 pub enum PbrMaterialDescriptor {
     Texture(Vec<TextureSourceDescriptor>), // All the parameters are given as textures
     Flat(PbrParameters),                   // The parameters are given as plain old numbers
 }
 
+impl Default for PbrMaterialDescriptor {
+    fn default() -> Self {
+        Self::Flat(PbrParameters::default())
+    }
+}
+
 impl PbrMaterialDescriptor {
-    pub fn from_color(color: [f32; 3]) -> Self {
+    pub fn from_color(color: Vec3) -> Self {
         Self::Flat(PbrParameters::new(color, 1.0, 0.0))
     }
 }

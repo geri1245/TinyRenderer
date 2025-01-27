@@ -10,7 +10,15 @@ use crate::{
 
 use crate::buffer_content::BufferContent;
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Copy, Clone)]
+#[derive(
+    serde::Serialize,
+    serde::Deserialize,
+    Debug,
+    Copy,
+    Clone,
+    ui_item_derive::UiDisplayable,
+    ui_item_derive::UiSettableNew,
+)]
 pub struct TransformComponent {
     position: Vec3,
     scale: Vec3,
@@ -18,6 +26,8 @@ pub struct TransformComponent {
 
     #[serde(skip_serializing)]
     #[serde(default)]
+    #[ui_param(skip)]
+    #[ui_set(skip)]
     pub is_transform_dirty: bool,
 }
 
@@ -142,17 +152,29 @@ impl BufferContent for TransformComponentRaw {
     }
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Default,
+    Debug,
+    Clone,
+    serde::Serialize,
+    serde::Deserialize,
+    ui_item_derive::UiDisplayable,
+    ui_item_derive::UiSettableNew,
+)]
 pub struct RenderableComponent {
     pub model_descriptor: ModelDescriptor,
     pub rendering_options: ModelRenderingOptions,
 
     #[serde(skip_serializing)]
     #[serde(default)]
+    #[ui_set(skip)]
+    #[ui_param(skip)]
     pub is_transient: bool,
 
     #[serde(skip_serializing)]
     #[serde(default)]
+    #[ui_set(skip)]
+    #[ui_param(skip)]
     pub is_material_dirty: bool,
 }
 
@@ -181,12 +203,27 @@ impl RenderableComponent {
 }
 
 /// Can be extended to work as a spotlight as well
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Default,
+    Debug,
+    Clone,
+    serde::Serialize,
+    serde::Deserialize,
+    ui_item_derive::UiDisplayable,
+    ui_item_derive::UiSettableNew,
+)]
 pub struct LightObjectComponent {
     pub light: PointLight,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    serde::Serialize,
+    serde::Deserialize,
+    ui_item_derive::UiDisplayable,
+    ui_item_derive::UiSettableNew,
+)]
 pub enum SceneComponentType {
     LightObject(LightObjectComponent),
     Renderable(RenderableComponent),

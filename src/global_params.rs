@@ -1,15 +1,14 @@
-use ui_item::{
-    DisplayNumberOnUiDescription, SetPropertyFromUiDescription, SetPropertyFromUiParams,
-    UiDisplayDescription, UiDisplayParam, UiDisplayable, UiSettable,
-};
-use ui_item_derive::{UiDisplayable, UiSettable};
+use ui_item_derive::{UiDisplayable, UiSettableNew};
 
 /// These will be transferred to the GPU and can be used there
 #[repr(C)]
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable, UiDisplayable, UiSettable)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable, UiDisplayable, UiSettableNew)]
 pub struct GlobalGPUParams {
+    #[ui_param(fmin = 0.0, fmax = 5.0)]
     pub random_param: f32,
+    #[ui_param(min = 0, max = 3)]
     pub tone_mapping_type: u32,
+    #[ui_param(fmin = 0.01, fmax = 0.1)]
     pub ssr_thickness: f32,
 }
 

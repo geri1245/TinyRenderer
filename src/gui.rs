@@ -1,20 +1,30 @@
 use core::f32;
 use std::{
     collections::HashMap,
+    ops::RangeInclusive,
     path::PathBuf,
     str::from_utf8,
     time::{Duration, Instant},
 };
 
 use crossbeam_channel::Sender;
-use egui::{Button, FontId, Label, Separator, Ui, Widget};
+use egui::{
+    Button, CollapsingHeader, FontId, Label, SelectableLabel, Separator, Slider, Ui, Widget,
+};
 use egui_wgpu::ScreenDescriptor;
+use glam::{Quat, Vec3};
 use rfd::FileDialog;
-use ui_item::{SetPropertyFromUiParams, UiDisplayParam};
+use ui_item::{
+    DisplayNumberOnUiDescription, SetEnumFromTheUiDescription, SetNumberFromUiDescription,
+    SetPathFromUiDescription, SetPropertyFromUiDescription, SetStructFromUiDesc,
+    SetVecFromUiDescription, UiDisplayDescription,
+};
 use wgpu::{CommandEncoder, TextureFormat};
 use winit::event::WindowEvent;
 
 use crate::gui_helpers::EguiRenderer;
+
+const LABEL_SIZE: [f32; 2] = [100.0, 10.0];
 
 pub enum GuiButton {
     SaveLevel,
@@ -101,18 +111,54 @@ impl DroppedFileHandler {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct SetItemFromUiParams {
+    pub category: String,
+    pub item_setting_breadcrumbs: Vec<SetPropertyFromUiDescription>,
+}
+
+impl SetItemFromUiParams {
+    fn add_breadcrumb(&self, new_breadcrumb: SetPropertyFromUiDescription) -> Self {
+        let mut new_breadcrumbs = self.item_setting_breadcrumbs.clone();
+        new_breadcrumbs.push(new_breadcrumb);
+
+        Self {
+            category: self.category.clone(),
+            item_setting_breadcrumbs: new_breadcrumbs,
+        }
+    }
+
+    fn get_last_category(&self) -> String {
+        if let Some(last_item) = self.item_setting_breadcrumbs.last() {
+            match last_item {
+                SetPropertyFromUiDescription::Float(_)
+                | SetPropertyFromUiDescription::Int(_)
+                | SetPropertyFromUiDescription::Bool(_)
+                | SetPropertyFromUiDescription::Vec3(_)
+                | SetPropertyFromUiDescription::Rotation(_)
+                | SetPropertyFromUiDescription::Path(_) => self.category.clone(),
+                SetPropertyFromUiDescription::Struct(set_struct_from_ui_desc) => {
+                    set_struct_from_ui_desc.field_name.clone()
+                }
+                SetPropertyFromUiDescription::Enum(set_enum_from_the_ui_description) => {
+                    set_enum_from_the_ui_description.variant_name.clone()
+                }
+                SetPropertyFromUiDescription::Vec(set_vec_from_ui_description) => {
+                    set_vec_from_ui_description.index.to_string()
+                }
+            }
+        } else {
+            self.category.clone()
+        }
+    }
+}
+
 pub struct Gui {
     renderer: EguiRenderer,
     sender: Sender<GuiEvent>,
     app_info: AppInfo,
     dropped_file_handler: DroppedFileHandler,
-    registered_items: HashMap<
-        String,
-        (
-            Vec<UiDisplayParam>,
-            Sender<(String, SetPropertyFromUiParams)>,
-        ),
-    >,
+    registered_items: HashMap<String, (UiDisplayDescription, Sender<SetItemFromUiParams>)>,
 }
 
 impl Gui {
@@ -142,12 +188,12 @@ impl Gui {
     pub fn register_item(
         &mut self,
         category: &String,
-        items: Vec<UiDisplayParam>,
-        sender: Sender<(String, SetPropertyFromUiParams)>,
+        item: UiDisplayDescription,
+        sender: Sender<SetItemFromUiParams>,
     ) -> bool {
         let insertion_result = self
             .registered_items
-            .insert(category.clone(), (items, sender));
+            .insert(category.clone(), (item, sender));
         insertion_result.is_none()
     }
 
@@ -155,91 +201,248 @@ impl Gui {
         self.registered_items.remove(category).is_some()
     }
 
-    fn add_item_with_change_notification(
+    fn add_float_slider(
         ui: &mut Ui,
-        category: &String,
-        display_param: &mut UiDisplayParam,
-        sender: &mut Sender<(String, SetPropertyFromUiParams)>,
+        slider_label: String,
+        value: &mut f32,
+        range: RangeInclusive<f32>,
+    ) -> bool {
+        let slider_response = ui
+            .horizontal(|ui| {
+                ui.add_sized(
+                    LABEL_SIZE,
+                    Label::new(slider_label).wrap_mode(egui::TextWrapMode::Truncate),
+                );
+                ui.add(Slider::new(value, range).smart_aim(false))
+            })
+            .inner;
+
+        slider_response.changed()
+    }
+
+    fn add_vec3(
+        ui: &mut Ui,
+        slider_label: String,
+        vec: &mut DisplayNumberOnUiDescription<Vec3>,
+    ) -> bool {
+        let mut any_component_changed = false;
+        any_component_changed =
+            Self::add_float_slider(ui, "x".to_owned(), &mut vec.value.x, vec.min.x..=vec.max.x)
+                || any_component_changed;
+
+        any_component_changed =
+            Self::add_float_slider(ui, "y".to_owned(), &mut vec.value.y, vec.min.y..=vec.max.y)
+                || any_component_changed;
+
+        any_component_changed =
+            Self::add_float_slider(ui, "z".to_owned(), &mut vec.value.z, vec.min.z..=vec.max.z)
+                || any_component_changed;
+
+        any_component_changed
+    }
+
+    fn add_item_to_ui(
+        item: &mut UiDisplayDescription,
+        ui: &mut Ui,
+        breadcrumbs: SetItemFromUiParams,
+        sender: &mut Sender<SetItemFromUiParams>,
         dropped_file: &mut Option<PathBuf>,
     ) {
-        ui.horizontal(|ui| {
-            ui.add(Label::new(&display_param.name));
-            ui.add(Separator::default().vertical());
+        match item {
+            UiDisplayDescription::SliderFloat(float_desc) => {
+                let slider_changed = Self::add_float_slider(
+                    ui,
+                    breadcrumbs.get_last_category(),
+                    &mut float_desc.value,
+                    float_desc.min..=float_desc.max,
+                );
 
-            match &mut display_param.value {
-                ui_item::UiDisplayDescription::Float(float_desc) => {
-                    let slider_response = ui.add(
-                        egui::Slider::new(&mut float_desc.value, float_desc.min..=float_desc.max)
-                            .smart_aim(false),
-                    );
-
-                    if slider_response.changed() {
-                        sender
-                            .try_send((
-                                category.clone(),
-                                SetPropertyFromUiParams {
-                                    name: display_param.name.clone(),
-                                    value: ui_item::SetPropertyFromUiDescription::Float(
-                                        ui_item::SetNumberFromUiDescription {
-                                            value: float_desc.value,
-                                        },
-                                    ),
+                if slider_changed {
+                    sender
+                        .try_send(
+                            breadcrumbs.add_breadcrumb(SetPropertyFromUiDescription::Float(
+                                SetNumberFromUiDescription {
+                                    value: float_desc.value,
                                 },
-                            ))
-                            .unwrap();
-                    }
-                }
-                ui_item::UiDisplayDescription::UInt(uint_desc) => {
-                    let slider_response = ui.add(
-                        egui::Slider::new(&mut uint_desc.value, uint_desc.min..=uint_desc.max)
-                            .smart_aim(false),
-                    );
-
-                    if slider_response.changed() {
-                        sender
-                            .try_send((
-                                category.clone(),
-                                SetPropertyFromUiParams {
-                                    name: display_param.name.clone(),
-                                    value: ui_item::SetPropertyFromUiDescription::UInt(
-                                        ui_item::SetNumberFromUiDescription {
-                                            value: uint_desc.value,
-                                        },
-                                    ),
-                                },
-                            ))
-                            .unwrap();
-                    }
-                }
-                ui_item::UiDisplayDescription::Path(path_desc) => {
-                    let button_response = Button::new(
-                        path_desc
-                            .path
-                            .as_os_str()
-                            .to_str()
-                            .unwrap_or("Failed to get path"),
-                    )
-                    .ui(ui);
-                    if button_response.clicked() {
-                        if let Some(file) = FileDialog::new()
-                            .add_filter(
-                                &path_desc.file_type_description,
-                                &path_desc.valid_extensions,
-                            )
-                            .pick_file()
-                        {
-                            println!("Some file was picked: {file:?}");
-                        }
-                    } else if button_response.hovered() && dropped_file.is_some() {
-                        {
-                            let file_path = dropped_file.as_ref().unwrap();
-                            println!("Some file was fropped: {file_path:?}");
-                        }
-                        *dropped_file = None;
-                    }
+                            )),
+                        )
+                        .unwrap();
                 }
             }
-        });
+            UiDisplayDescription::SliderInt(uint_desc) => {
+                let slider_response = ui.horizontal(|ui| {
+                    ui.add_sized(
+                        LABEL_SIZE,
+                        Label::new(breadcrumbs.get_last_category())
+                            .wrap_mode(egui::TextWrapMode::Truncate),
+                    );
+
+                    ui.add(
+                        egui::Slider::new(&mut uint_desc.value, uint_desc.min..=uint_desc.max)
+                            .smart_aim(false),
+                    )
+                });
+
+                if slider_response.inner.changed() {
+                    sender
+                        .try_send(
+                            breadcrumbs.add_breadcrumb(SetPropertyFromUiDescription::Int(
+                                SetNumberFromUiDescription {
+                                    value: uint_desc.value,
+                                },
+                            )),
+                        )
+                        .unwrap();
+                }
+            }
+            UiDisplayDescription::Path(path_desc) => {
+                let button_response = Button::new(
+                    path_desc
+                        .path
+                        .as_os_str()
+                        .to_str()
+                        .unwrap_or("Failed to get path"),
+                )
+                .ui(ui);
+                if button_response.clicked() {
+                    if let Some(file) = FileDialog::new()
+                        .add_filter(
+                            &path_desc.file_type_description,
+                            &path_desc
+                                .valid_file_extensions
+                                .split(',')
+                                .collect::<Vec<_>>(),
+                        )
+                        .pick_file()
+                    {
+                        sender
+                            .try_send(breadcrumbs.add_breadcrumb(
+                                SetPropertyFromUiDescription::Path(SetPathFromUiDescription {
+                                    value: file,
+                                }),
+                            ))
+                            .unwrap();
+                    }
+                } else if button_response.hovered() && dropped_file.is_some() {
+                    {
+                        let file_path = dropped_file.as_ref().unwrap();
+                        sender
+                            .try_send(breadcrumbs.add_breadcrumb(
+                                SetPropertyFromUiDescription::Path(SetPathFromUiDescription {
+                                    value: file_path.clone(),
+                                }),
+                            ))
+                            .unwrap();
+                    }
+                    *dropped_file = None;
+                }
+            }
+            UiDisplayDescription::Vec3(vec) => {
+                let any_component_changed =
+                    Self::add_vec3(ui, breadcrumbs.get_last_category(), vec);
+
+                if any_component_changed {
+                    sender
+                        .try_send(
+                            breadcrumbs
+                                .add_breadcrumb(SetPropertyFromUiDescription::Vec3(vec.value)),
+                        )
+                        .unwrap();
+                }
+            }
+            UiDisplayDescription::Vector(vec) => {
+                for (index, desc) in vec.iter_mut().enumerate() {
+                    let new_breadcrumb = breadcrumbs.add_breadcrumb(
+                        SetPropertyFromUiDescription::Vec(SetVecFromUiDescription { index }),
+                    );
+                    Self::add_item_to_ui(desc, ui, new_breadcrumb, sender, dropped_file);
+                }
+            }
+            UiDisplayDescription::Struct(display_params) => {
+                ui.add(Separator::default().horizontal());
+
+                for item in display_params {
+                    Self::add_item_to_ui(
+                        &mut item.display,
+                        ui,
+                        breadcrumbs.add_breadcrumb(SetPropertyFromUiDescription::Struct(
+                            SetStructFromUiDesc {
+                                field_name: item.name.clone(),
+                            },
+                        )),
+                        sender,
+                        dropped_file,
+                    );
+                }
+            }
+            UiDisplayDescription::Enum(display_enum_on_ui_description) => {
+                let labels = display_enum_on_ui_description
+                    .variants
+                    .iter()
+                    .map(|variant_name| {
+                        SelectableLabel::new(
+                            *variant_name == display_enum_on_ui_description.active_variant,
+                            variant_name,
+                        )
+                    });
+                for label in labels {
+                    if ui.add(label).clicked() {}
+                }
+                if let Some(active_variant_item) =
+                    &mut display_enum_on_ui_description.active_variant_item_desc
+                {
+                    Self::add_item_to_ui(
+                        active_variant_item,
+                        ui,
+                        breadcrumbs.add_breadcrumb(SetPropertyFromUiDescription::Enum(
+                            SetEnumFromTheUiDescription {
+                                variant_name: display_enum_on_ui_description.active_variant.clone(),
+                            },
+                        )),
+                        sender,
+                        dropped_file,
+                    );
+                }
+            }
+            UiDisplayDescription::Rotation(display_rotation_on_ui_params) => {
+                let mut any_component_changed = Self::add_vec3(
+                    ui,
+                    breadcrumbs.get_last_category(),
+                    &mut display_rotation_on_ui_params.axis,
+                );
+
+                any_component_changed = Self::add_float_slider(
+                    ui,
+                    breadcrumbs.get_last_category(),
+                    &mut display_rotation_on_ui_params.angle.value,
+                    display_rotation_on_ui_params.angle.min
+                        ..=display_rotation_on_ui_params.angle.max,
+                ) || any_component_changed;
+
+                if any_component_changed {
+                    sender
+                        .try_send(breadcrumbs.add_breadcrumb(
+                            SetPropertyFromUiDescription::Rotation(Quat::from_axis_angle(
+                                display_rotation_on_ui_params.axis.value,
+                                display_rotation_on_ui_params.angle.value,
+                            )),
+                        ))
+                        .unwrap();
+                }
+            }
+            UiDisplayDescription::Bool(value) => {
+                if ui
+                    .checkbox(value, breadcrumbs.get_last_category())
+                    .changed()
+                {
+                    sender
+                        .try_send(
+                            breadcrumbs.add_breadcrumb(SetPropertyFromUiDescription::Bool(*value)),
+                        )
+                        .unwrap();
+                }
+            }
+        }
     }
 
     pub fn render(
@@ -275,19 +478,23 @@ impl Gui {
                     }
                     ui.style_mut().spacing.slider_width = 300.0;
 
-                    ui.separator();
+                    ui.add(Separator::default().horizontal());
 
-                    for (category, (items, sender)) in &mut self.registered_items {
-                        ui.add(Separator::default().horizontal());
-                        for item in items {
-                            Self::add_item_with_change_notification(
-                                ui,
-                                &category,
-                                item,
-                                sender,
-                                &mut self.dropped_file_handler.dropped_file,
-                            );
-                        }
+                    for (category, (item, sender)) in &mut self.registered_items {
+                        CollapsingHeader::new(category)
+                            .default_open(true)
+                            .show(ui, |ui| {
+                                Self::add_item_to_ui(
+                                    item,
+                                    ui,
+                                    SetItemFromUiParams {
+                                        category: category.clone(),
+                                        item_setting_breadcrumbs: vec![],
+                                    },
+                                    sender,
+                                    &mut self.dropped_file_handler.dropped_file,
+                                );
+                            });
                     }
 
                     ui.add(Separator::default().horizontal());

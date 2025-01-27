@@ -6,11 +6,12 @@ use winit::{
     event::{MouseButton, WindowEvent},
 };
 
+use math_helpers::reverse_z_matrix;
+
 use crate::{
     bind_group_layout_descriptors,
     buffer::{create_bind_group_from_buffer_entire_binding_init, GpuBufferCreationOptions},
     camera::{Camera, CameraEvent},
-    math::reverse_z_matrix,
 };
 
 /// Contains the rendering-related concepts of the camera

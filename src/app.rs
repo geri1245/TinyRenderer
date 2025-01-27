@@ -19,8 +19,8 @@ use async_std::task::block_on;
 use crossbeam_channel::{unbounded, Receiver};
 use std::path::Path;
 use std::time::Duration;
-use ui_item::{UiDisplayable, UiSettable};
-use wgpu::{Queue, TextureViewDescriptor};
+use ui_item::{UiDisplayable, UiSettableNew};
+use wgpu::TextureViewDescriptor;
 use winit::event::{ElementState, KeyEvent, WindowEvent};
 use winit::event_loop::EventLoopProxy;
 use winit::keyboard::{KeyCode, PhysicalKey};
@@ -47,7 +47,7 @@ pub struct App {
     frame_timer: BasicTimer,
     gui: Gui,
     player_controller: PlayerController,
-    gpu_params: GuiSettableValue<GpuBuffer<GlobalGPUParams>, Queue>,
+    gpu_params: GuiSettableValue<GpuBuffer<GlobalGPUParams>>,
     cpu_rendering_params: GlobalCPUParams,
 
     light_controller: LightController,
@@ -97,10 +97,6 @@ impl App {
         let gpu_params = GuiSettableValue::new(
             gpu_params,
             "gpu_params".to_owned(),
-            Box::new(|data, set_property_params, queue| {
-                data.get_mut_data(queue)
-                    .try_set_value_from_ui(set_property_params.clone());
-            }),
             &event_loop_proxy,
             ui_items,
         );
@@ -303,7 +299,11 @@ impl App {
     }
 
     fn handle_gpu_params_changed_events(&mut self) {
-        self.gpu_params.handle_gui_changes(&self.renderer.queue);
+        for change in self.gpu_params.handle_gui_changes() {
+            self.gpu_params
+                .get_mut_data(&self.renderer.queue)
+                .set_value_from_ui(&change.item_setting_breadcrumbs);
+        }
     }
 
     fn handle_events_received_from_gui(&mut self) {

@@ -5,10 +5,11 @@ use winit::{
     keyboard::{KeyCode, PhysicalKey},
 };
 
+use math_helpers::Line;
+
 use crate::{
     camera_controller::CameraController,
     gizmo::{Gizmo, GizmoUpdateResult},
-    math::Line,
     object_picker::ObjectPickManager,
     world::World,
 };

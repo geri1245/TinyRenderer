@@ -31,7 +31,6 @@ mod lights;
 mod mainloop;
 mod mappable_gpu_buffer;
 mod material;
-mod math;
 mod mipmap_generator;
 mod model;
 mod object_picker;

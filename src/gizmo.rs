@@ -3,10 +3,11 @@ use std::{collections::HashMap, path::PathBuf, str::FromStr};
 
 use glam::{Quat, Vec3};
 
+use math_helpers::Line;
+
 use crate::{
     components::{RenderableComponent, SceneComponentType, TransformComponent},
     material::PbrMaterialDescriptor,
-    math::Line,
     model::{
         MeshDescriptor, ModelRenderingOptions, PbrParameters, PbrRenderingType, RenderingPass,
     },
@@ -14,10 +15,26 @@ use crate::{
     world_object::WorldObject,
 };
 
-const X_AXIS_COLOR: [f32; 3] = [1.0, 0.0, 0.0];
-const Y_AXIS_COLOR: [f32; 3] = [0.0, 1.0, 0.0];
-const Z_AXIS_COLOR: [f32; 3] = [0.0, 0.0, 1.0];
-const HOVERED_GIZMO_COLOR: [f32; 3] = [0.9, 0.9, 0.0];
+const X_AXIS_COLOR: Vec3 = Vec3 {
+    x: 1.0,
+    y: 0.0,
+    z: 0.0,
+};
+const Y_AXIS_COLOR: Vec3 = Vec3 {
+    x: 0.0,
+    y: 1.0,
+    z: 0.0,
+};
+const Z_AXIS_COLOR: Vec3 = Vec3 {
+    x: 0.0,
+    y: 0.0,
+    z: 1.0,
+};
+const HOVERED_GIZMO_COLOR: Vec3 = Vec3 {
+    x: 0.9,
+    y: 0.9,
+    z: 0.0,
+};
 const GIZMO_DISTANCE_SCALE: f32 = 0.06;
 
 pub enum GizmoUpdateResult {
@@ -49,12 +66,12 @@ pub struct Gizmo {
     gizmo_part_descriptions: HashMap<GizmoAxis, GizmoAxisDescription>,
 }
 
-fn get_color_for_axis(axis_vec: Vec3) -> [f32; 3] {
+fn get_color_for_axis(axis_vec: Vec3) -> Vec3 {
     match axis_vec {
         Vec3::X => X_AXIS_COLOR,
         Vec3::Y => Y_AXIS_COLOR,
         Vec3::Z => Z_AXIS_COLOR,
-        _ => [0.0, 0.0, 0.0],
+        _ => Vec3::splat(0.0),
     }
 }
 

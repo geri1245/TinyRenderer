@@ -29,22 +29,25 @@ pub struct ModelDescriptorFile {
     serde::Serialize,
     serde::Deserialize,
     PartialEq,
-    PartialOrd,
+    ui_item_derive::UiDisplayable,
+    ui_item_derive::UiSettableNew,
 )]
 pub struct PbrParameters {
-    pub albedo: [f32; 3],
+    pub albedo: Vec3,
     pub roughness: f32,
     pub metalness: f32,
 
     #[serde(skip_serializing)]
     #[serde(default)]
+    #[ui_set(skip)]
+    #[ui_param(skip)]
     _padding: [u32; 3],
 }
 
 impl Default for PbrParameters {
     fn default() -> Self {
         Self {
-            albedo: [1.0, 0.0, 0.0],
+            albedo: [1.0, 0.0, 0.0].into(),
             roughness: 1.0,
             metalness: 0.0,
             _padding: [0, 0, 0],
@@ -53,9 +56,9 @@ impl Default for PbrParameters {
 }
 
 impl PbrParameters {
-    pub fn new(albedo: [f32; 3], roughness: f32, metalness: f32) -> Self {
+    pub fn new(albedo: Vec3, roughness: f32, metalness: f32) -> Self {
         Self {
-            albedo,
+            albedo: albedo.into(),
             roughness,
             metalness,
             _padding: [0, 0, 0],
@@ -76,7 +79,16 @@ pub enum DirtyState {
 }
 
 #[derive(
-    Debug, Clone, Default, Copy, serde::Serialize, serde::Deserialize, PartialEq, PartialOrd,
+    Default,
+    Debug,
+    Clone,
+    Copy,
+    serde::Serialize,
+    serde::Deserialize,
+    PartialEq,
+    PartialOrd,
+    ui_item_derive::UiDisplayable,
+    ui_item_derive::UiSettableNew,
 )]
 pub enum RenderingPass {
     #[default]
@@ -99,6 +111,8 @@ pub fn default_true() -> bool {
     Eq,
     PartialOrd,
     Hash,
+    ui_item_derive::UiDisplayable,
+    ui_item_derive::UiSettableNew,
 )]
 pub enum PbrRenderingType {
     #[default]
@@ -106,7 +120,17 @@ pub enum PbrRenderingType {
     FlatParameters,
 }
 
-#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize, PartialEq, PartialOrd)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    serde::Serialize,
+    serde::Deserialize,
+    PartialEq,
+    PartialOrd,
+    ui_item_derive::UiDisplayable,
+    ui_item_derive::UiSettableNew,
+)]
 pub struct ModelRenderingOptions {
     pub pass: RenderingPass,
     /// Should we use depth testing when rendering this object? If not, then it will be drawn to the screen even if
@@ -132,7 +156,16 @@ impl Default for ModelRenderingOptions {
     }
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, PartialOrd)]
+#[derive(
+    Default,
+    Debug,
+    Clone,
+    serde::Serialize,
+    serde::Deserialize,
+    PartialEq,
+    ui_item_derive::UiDisplayable,
+    ui_item_derive::UiSettableNew,
+)]
 pub struct ModelDescriptor {
     pub mesh_descriptor: MeshDescriptor,
     pub material_descriptor: PbrMaterialDescriptor,
@@ -168,10 +201,27 @@ pub struct Renderable {
     pub instance_data: BufferWithLength,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    serde::Serialize,
+    serde::Deserialize,
+    ui_item_derive::UiDisplayable,
+    ui_item_derive::UiSettableNew,
+)]
 pub enum MeshDescriptor {
     PrimitiveInCode(PrimitiveShape),
     FromFile(PathBuf),
+}
+
+impl Default for MeshDescriptor {
+    fn default() -> Self {
+        Self::PrimitiveInCode(PrimitiveShape::default())
+    }
 }
 
 #[derive(Debug)]

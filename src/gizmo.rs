@@ -137,7 +137,7 @@ impl Gizmo {
 
                 for (gizmo_object_id, _axis) in &self.gizmo_parts_drawn {
                     if let Some(gizmo_object) = world.get_world_object_mut(gizmo_object_id) {
-                        gizmo_object.transform.set_scale(gizmo_scale);
+                        gizmo_object.transform.set_scale(Vec3::splat(gizmo_scale));
                     }
                 }
             }
@@ -295,7 +295,7 @@ impl Gizmo {
         self.gizmo_position = Some(new_position);
         for (id, _axis) in &self.gizmo_parts_drawn {
             if let Some(object) = world.get_world_object_mut(id) {
-                object.transform.set_location(new_position);
+                object.transform.set_position(new_position);
             }
         }
     }

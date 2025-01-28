@@ -16,11 +16,14 @@ use crate::buffer_content::BufferContent;
     Debug,
     Copy,
     Clone,
+    PartialEq,
     ui_item_derive::UiDisplayable,
     ui_item_derive::UiSettableNew,
 )]
 pub struct TransformComponent {
+    #[ui_set(setter = "set_position")]
     position: Vec3,
+    #[ui_set(setter = "set_scale")]
     scale: Vec3,
     rotation: Quat,
 
@@ -64,13 +67,13 @@ impl TransformComponent {
         self.position
     }
 
-    pub fn set_location(&mut self, new_position: Vec3) {
+    pub fn set_position(&mut self, new_position: Vec3) {
         self.position = new_position;
         self.is_transform_dirty = true;
     }
 
-    pub fn set_scale(&mut self, new_scale: f32) {
-        self.scale = Vec3::splat(new_scale);
+    pub fn set_scale(&mut self, new_scale: Vec3) {
+        self.scale = new_scale;
         self.is_transform_dirty = true;
     }
 
@@ -167,8 +170,6 @@ pub struct RenderableComponent {
 
     #[serde(skip_serializing)]
     #[serde(default)]
-    #[ui_set(skip)]
-    #[ui_param(skip)]
     pub is_transient: bool,
 
     #[serde(skip_serializing)]

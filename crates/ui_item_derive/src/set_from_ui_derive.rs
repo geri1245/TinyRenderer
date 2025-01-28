@@ -1,7 +1,7 @@
 use darling::FromField;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::Data;
+use syn::{Data, Ident, Type};
 
 #[derive(Debug, FromField)]
 #[darling(attributes(ui_set))]
@@ -12,6 +12,12 @@ pub struct UiSetFieldAttributes {
     pub skip: Option<bool>,
 }
 
+struct FieldData {
+    name: Ident,
+    attributes: UiSetFieldAttributes,
+    field_type: Type,
+}
+
 pub fn derive_ui_settable_helper(item: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(item as syn::DeriveInput);
 
@@ -19,7 +25,8 @@ pub fn derive_ui_settable_helper(item: TokenStream) -> TokenStream {
 
     let function_body = match &input.data {
         Data::Struct(syn::DataStruct { fields, .. }) => {
-            let mut field_names_with_params = Vec::new();
+            let mut cases = quote! {};
+
             for field in fields {
                 let field_params = match UiSetFieldAttributes::from_field(field) {
                     Ok(v) => v,
@@ -34,16 +41,14 @@ pub fn derive_ui_settable_helper(item: TokenStream) -> TokenStream {
                     }
                 }
 
-                field_names_with_params.push((field.ident.clone().unwrap(), field_params));
-            }
+                let field_name = field.ident.clone().unwrap();
+                let field_type = field.ty.clone();
 
-            let mut cases = quote! {};
-            for (field_name, field_params) in field_names_with_params {
                 if let Some(setter_function) = field_params.setter {
                     let setter_function_ident = format_ident!("{}", setter_function);
                     cases.extend(
                         quote! {
-                            stringify!(#field_name) => self.#field_name.#setter_function_ident(&desc[1..]),
+                            stringify!(#field_name) => self.#setter_function_ident(<#field_type as ui_item::CustomUiSettablePrimitive>::get_raw_value(&desc[1..])),
                         },
                     );
                 } else {
@@ -108,7 +113,6 @@ pub fn derive_ui_settable_helper(item: TokenStream) -> TokenStream {
                         _ => {},
                     }
                 }
-                println!("This is not implemented yet!");
             }
         }
         _ => unimplemented!(),

@@ -42,14 +42,28 @@ pub enum SetPropertyFromUiDescription {
     Enum(SetEnumFromTheUiDescription),
 }
 
+/// If a custom setter is used for setting a value from the UI, this trait must be implemented for it
+pub trait CustomUiSettablePrimitive
+where
+    Self: Sized,
+{
+    fn get_raw_value(params: &[SetPropertyFromUiDescription]) -> Self;
+}
+
 pub trait UiSettableNew {
     fn set_value_from_ui(&mut self, params: &[SetPropertyFromUiDescription]);
 }
 
 impl UiSettableNew for f32 {
     fn set_value_from_ui(&mut self, value: &[SetPropertyFromUiDescription]) {
+        *self = Self::get_raw_value(value);
+    }
+}
+
+impl CustomUiSettablePrimitive for f32 {
+    fn get_raw_value(value: &[SetPropertyFromUiDescription]) -> Self {
         if let SetPropertyFromUiDescription::Float(params) = &value[0] {
-            *self = params.value;
+            params.value
         } else {
             panic!("Wrong type!")
         }
@@ -66,10 +80,30 @@ impl UiSettableNew for u32 {
     }
 }
 
+impl CustomUiSettablePrimitive for u32 {
+    fn get_raw_value(value: &[SetPropertyFromUiDescription]) -> Self {
+        if let SetPropertyFromUiDescription::Int(params) = &value[0] {
+            params.value as u32
+        } else {
+            panic!("Wrong type!")
+        }
+    }
+}
+
 impl UiSettableNew for i32 {
     fn set_value_from_ui(&mut self, value: &[SetPropertyFromUiDescription]) {
         if let SetPropertyFromUiDescription::Int(params) = &value[0] {
             *self = params.value;
+        } else {
+            panic!("Wrong type!")
+        }
+    }
+}
+
+impl CustomUiSettablePrimitive for i32 {
+    fn get_raw_value(value: &[SetPropertyFromUiDescription]) -> Self {
+        if let SetPropertyFromUiDescription::Int(params) = &value[0] {
+            params.value as i32
         } else {
             panic!("Wrong type!")
         }
@@ -86,10 +120,30 @@ impl UiSettableNew for bool {
     }
 }
 
+impl CustomUiSettablePrimitive for bool {
+    fn get_raw_value(value: &[SetPropertyFromUiDescription]) -> Self {
+        if let SetPropertyFromUiDescription::Bool(param) = &value[0] {
+            *param
+        } else {
+            panic!("Wrong type!")
+        }
+    }
+}
+
 impl UiSettableNew for Vec3 {
     fn set_value_from_ui(&mut self, value: &[SetPropertyFromUiDescription]) {
         if let SetPropertyFromUiDescription::Vec3(params) = &value[0] {
             *self = *params;
+        } else {
+            panic!("Wrong type!")
+        }
+    }
+}
+
+impl CustomUiSettablePrimitive for Vec3 {
+    fn get_raw_value(value: &[SetPropertyFromUiDescription]) -> Self {
+        if let SetPropertyFromUiDescription::Vec3(vec) = &value[0] {
+            *vec
         } else {
             panic!("Wrong type!")
         }
@@ -106,10 +160,30 @@ impl UiSettableNew for Quat {
     }
 }
 
+impl CustomUiSettablePrimitive for Quat {
+    fn get_raw_value(value: &[SetPropertyFromUiDescription]) -> Self {
+        if let SetPropertyFromUiDescription::Rotation(quat) = &value[0] {
+            *quat
+        } else {
+            panic!("Wrong type!")
+        }
+    }
+}
+
 impl UiSettableNew for PathBuf {
     fn set_value_from_ui(&mut self, value: &[SetPropertyFromUiDescription]) {
         if let SetPropertyFromUiDescription::Path(params) = &value[0] {
             *self = params.value.clone();
+        } else {
+            panic!("Wrong type!")
+        }
+    }
+}
+
+impl CustomUiSettablePrimitive for PathBuf {
+    fn get_raw_value(value: &[SetPropertyFromUiDescription]) -> Self {
+        if let SetPropertyFromUiDescription::Path(params) = &value[0] {
+            params.value.clone()
         } else {
             panic!("Wrong type!")
         }

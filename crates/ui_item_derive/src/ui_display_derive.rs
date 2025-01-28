@@ -118,15 +118,22 @@ pub fn derive_ui_displayable_type(item: TokenStream) -> TokenStream {
                 variant_names.push(variant_name.clone());
 
                 let case = if variant.fields.is_empty() {
-                    quote! {#type_name::#variant_name => { None }}
+                    quote! {#type_name::#variant_name => {
+                        active_variant_name = Some(stringify!(#variant_name).to_string());
+                        None
+                    }}
                 } else {
-                    quote! {#type_name::#variant_name(variant_data) => { Some(variant_data.get_ui_description()) }}
+                    quote! {#type_name::#variant_name(variant_data) => {
+                        active_variant_name = Some(stringify!(#variant_name).to_string());
+                        Some(variant_data.get_ui_description())
+                    }}
                 };
                 cases.push(case);
             }
 
             let implementation = quote! {
                 let mut variant_names = Vec::new();
+                let mut active_variant_name = None;
 
                 #(variant_names.push(stringify!(#variant_names).to_string());)*
 
@@ -136,7 +143,7 @@ pub fn derive_ui_displayable_type(item: TokenStream) -> TokenStream {
 
                 let enum_desc = ui_item::DisplayEnumOnUiDescription{
                     variants: variant_names,
-                    active_variant: "".to_string(),
+                    active_variant: active_variant_name.unwrap(),
                     active_variant_item_desc,
                 };
 

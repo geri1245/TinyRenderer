@@ -26,9 +26,9 @@ pub struct ModelDescriptorFile {
     Clone,
     bytemuck::Pod,
     bytemuck::Zeroable,
+    PartialEq,
     serde::Serialize,
     serde::Deserialize,
-    PartialEq,
     ui_item_derive::UiDisplayable,
     ui_item_derive::UiSettableNew,
 )]

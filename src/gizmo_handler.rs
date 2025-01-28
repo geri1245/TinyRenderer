@@ -204,7 +204,7 @@ impl GizmoHandler {
             if let Some(object) =
                 world.get_world_object_mut(&self.gizmo.selected_object_id.unwrap())
             {
-                object.transform.set_location(new_position);
+                object.transform.set_position(new_position);
             }
         }
 

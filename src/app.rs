@@ -15,7 +15,6 @@ use crate::world::World;
 use crate::world_loader::{load_level, save_level};
 use crate::world_renderer::WorldRenderer;
 use crate::{frame_timer::BasicTimer, renderer::Renderer};
-use async_std::task::block_on;
 use crossbeam_channel::{unbounded, Receiver};
 use std::path::Path;
 use std::time::Duration;
@@ -140,12 +139,16 @@ impl App {
     pub fn handle_custom_event(&mut self, event: &CustomEvent) {
         match event {
             CustomEvent::GuiRegistration(gui_registration_event) => {
-                if gui_registration_event.register {
-                    self.gui.register_item(
-                        &gui_registration_event.category,
-                        gui_registration_event.items.clone(),
-                        gui_registration_event.sender.clone(),
-                    );
+                self.gui.register_item(
+                    &gui_registration_event.category,
+                    gui_registration_event.items.clone(),
+                    gui_registration_event.sender.clone(),
+                );
+            }
+            CustomEvent::GuiDeregistration(gui_deregistration_event) => {
+                if !self.gui.deregister_item(&gui_deregistration_event.category) {
+                    let category = &gui_deregistration_event.category;
+                    log::warn!("Failed to deregister item with category {category:?}");
                 }
             }
         }
@@ -155,6 +158,7 @@ impl App {
         &mut self,
         window: &winit::window::Window,
         event: &winit::event::WindowEvent,
+        event_loop_proxy: &mut EventLoopProxy<CustomEvent>,
     ) -> WindowEventHandlingResult {
         if self.gui.handle_event(window, event) {
             return WindowEventHandlingResult::Handled;
@@ -191,7 +195,7 @@ impl App {
             //     inner_size_writer,
             // } => todo!(),
             WindowEvent::RedrawRequested => {
-                match self.run_frame(window) {
+                match self.run_frame(window, event_loop_proxy) {
                     Ok(_) => WindowEventHandlingResult::Handled,
                     // Reconfigure the surface if lost
                     Err(wgpu::SurfaceError::Lost) => {
@@ -276,10 +280,14 @@ impl App {
         self.object_picker.on_end_frame();
     }
 
-    pub fn run_frame(&mut self, window: &winit::window::Window) -> Result<(), wgpu::SurfaceError> {
+    pub fn run_frame(
+        &mut self,
+        window: &winit::window::Window,
+        event_loop_proxy: &mut EventLoopProxy<CustomEvent>,
+    ) -> Result<(), wgpu::SurfaceError> {
         let delta = self.frame_timer.get_delta_and_reset_timer();
 
-        self.update(delta);
+        self.update(delta, event_loop_proxy);
 
         self.render(window)?;
 
@@ -299,10 +307,11 @@ impl App {
     }
 
     fn handle_gpu_params_changed_events(&mut self) {
-        for change in self.gpu_params.handle_gui_changes() {
+        let changes = self.gpu_params.get_gui_changes();
+        for change in changes {
             self.gpu_params
                 .get_mut_data(&self.renderer.queue)
-                .set_value_from_ui(&change.item_setting_breadcrumbs);
+                .set_value_from_ui(&change);
         }
     }
 
@@ -315,7 +324,7 @@ impl App {
         }
     }
 
-    async fn recompile_shaders_internal(&mut self) -> anyhow::Result<()> {
+    fn recompile_shaders_internal(&mut self) -> anyhow::Result<()> {
         self.light_controller
             .try_recompile_shaders(&self.renderer.device)?;
 
@@ -331,16 +340,17 @@ impl App {
     }
 
     fn recompile_shaders(&mut self) {
-        let result = block_on(self.recompile_shaders_internal());
+        let result = self.recompile_shaders_internal();
         self.gui
             .push_display_info_update(GuiUpdateEvent::ShaderCompilationResult(result));
     }
 
-    pub fn update(&mut self, delta: Duration) {
+    fn update(&mut self, delta: Duration, event_loop_proxy: &mut EventLoopProxy<CustomEvent>) {
         self.handle_events_received_from_gui();
         self.handle_gpu_params_changed_events();
 
-        self.player_controller.update(&mut self.world);
+        self.player_controller
+            .update(&mut self.world, event_loop_proxy);
 
         // Light controller might add light debug objects to the world, so we update it before the world
         self.light_controller
@@ -356,7 +366,7 @@ impl App {
         self.gui.update(delta);
     }
 
-    pub fn toggle_should_draw_gui(&mut self) {
+    fn toggle_should_draw_gui(&mut self) {
         self.should_draw_gui = !self.should_draw_gui
     }
 }

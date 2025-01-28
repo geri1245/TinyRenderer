@@ -1,7 +1,7 @@
 use std::ops::{Deref, DerefMut};
 
 use crossbeam_channel::{unbounded, Receiver};
-use ui_item::UiDisplayDescription;
+use ui_item::{SetPropertyFromUiDescription, UiDisplayDescription};
 use winit::event_loop::EventLoopProxy;
 
 use crate::{
@@ -20,12 +20,11 @@ impl<T> GuiSettableValue<T> {
         data: T,
         category: String,
         event_loop_proxy: &EventLoopProxy<CustomEvent>,
-        items: UiDisplayDescription,
+        item: UiDisplayDescription,
     ) -> Self {
         let (sender, receiver) = unbounded::<SetItemFromUiParams>();
         let _ = event_loop_proxy.send_event(CustomEvent::GuiRegistration(GuiRegistrationEvent {
-            register: true,
-            items,
+            items: item,
             category: category.clone(),
             sender,
         }));
@@ -37,12 +36,12 @@ impl<T> GuiSettableValue<T> {
         }
     }
 
-    pub fn handle_gui_changes(&mut self) -> Vec<SetItemFromUiParams> {
-        let mut changes = Vec::new();
+    pub fn get_gui_changes(&mut self) -> Vec<Vec<SetPropertyFromUiDescription>> {
+        let mut changes = vec![];
 
         while let Ok(value_changed_params) = self.receiver.try_recv() {
             if value_changed_params.category == self.category {
-                changes.push(value_changed_params);
+                changes.push(value_changed_params.item_setting_breadcrumbs);
             }
         }
 

@@ -56,11 +56,11 @@ impl ApplicationHandler<CustomEvent> for MainApplicationState {
     ) {
         // `unwrap` is fine, the window will always be available when receiving a window event.
         let window = self.window.as_ref().unwrap();
-        let result = self
-            .app
-            .as_mut()
-            .unwrap()
-            .handle_window_event(&window, &event);
+        let result = self.app.as_mut().unwrap().handle_window_event(
+            &window,
+            &event,
+            &mut self.event_loop_proxy,
+        );
 
         if let WindowEventHandlingResult::RequestAction(WindowEventHandlingAction::Exit) = result {
             event_loop.exit();

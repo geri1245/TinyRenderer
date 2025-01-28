@@ -4,8 +4,6 @@ use ui_item::UiDisplayDescription;
 use crate::gui::SetItemFromUiParams;
 
 pub struct GuiRegistrationEvent {
-    /// Register or deregister?
-    pub register: bool,
     /// What items should be registered?
     pub items: UiDisplayDescription,
     /// The category under which the items will be displayed
@@ -14,7 +12,13 @@ pub struct GuiRegistrationEvent {
     pub sender: Sender<SetItemFromUiParams>,
 }
 
+pub struct GuiDeregistrationEvent {
+    /// The category under which the items will be displayed
+    pub category: String,
+}
+
 /// Events that can be posted from inside the app. These are also handled in the event loop
 pub enum CustomEvent {
     GuiRegistration(GuiRegistrationEvent),
+    GuiDeregistration(GuiDeregistrationEvent),
 }

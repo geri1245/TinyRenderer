@@ -159,13 +159,15 @@ impl WorldRenderer {
                             if let Some(renderable_component) =
                                 world_object.get_renderable_component()
                             {
-                                if renderable_component.is_material_dirty {
+                                if renderable_component.model_descriptor.material_descriptor
+                                    != renderable.description.model_descriptor.material_descriptor
+                                {
                                     renderable.update_material_render_state(
                                         &renderer.device,
                                         &renderable_component.model_descriptor.material_descriptor,
                                     );
                                 }
-                                if world_object.transform.is_transform_dirty {
+                                if world_object.transform != renderable.description.transform {
                                     renderable.update_transform_render_state(
                                         &renderer.queue,
                                         &world_object.transform,

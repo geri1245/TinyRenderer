@@ -1,6 +1,6 @@
 use core::f32;
 use glam::{Quat, Vec3};
-use std::path::PathBuf;
+use std::{fmt::Debug, path::PathBuf};
 
 #[derive(Debug, Clone)]
 pub struct DisplayNumberOnUiDescription<NumberType> {
@@ -47,6 +47,20 @@ pub struct UiDisplayParam {
     pub display: UiDisplayDescription,
 }
 
+fn get_or_warn<T>(value: &Option<T>, name: &String, attribute: &str, default: T) -> T
+where
+    T: Debug + Clone,
+{
+    if let Some(unwrapped_value) = value {
+        unwrapped_value.clone()
+    } else {
+        log::warn!(
+            "Attribute {attribute:?} wasn't set for item {name:?}. Using default value {default:?}"
+        );
+        default
+    }
+}
+
 impl UiDisplayParam {
     pub fn new(
         name: String,
@@ -55,29 +69,41 @@ impl UiDisplayParam {
     ) -> Self {
         match &mut ui_display {
             UiDisplayDescription::SliderFloat(display_number_on_ui_description) => {
-                display_number_on_ui_description.min = ui_params.fmin.unwrap();
-                display_number_on_ui_description.max = ui_params.fmax.unwrap();
+                display_number_on_ui_description.min =
+                    get_or_warn(&ui_params.fmin, &name, "fmin", 0.0);
+                display_number_on_ui_description.max =
+                    get_or_warn(&ui_params.fmax, &name, "fmax", 1.0);
             }
             UiDisplayDescription::SliderInt(display_number_on_ui_description) => {
-                display_number_on_ui_description.min = ui_params.min.unwrap();
-                display_number_on_ui_description.max = ui_params.max.unwrap();
+                display_number_on_ui_description.min = get_or_warn(&ui_params.min, &name, "min", 0);
+                display_number_on_ui_description.max = get_or_warn(&ui_params.max, &name, "max", 5);
             }
             UiDisplayDescription::Path(display_path_on_ui_description) => {
-                display_path_on_ui_description.file_type_description =
-                    ui_params.file_description.clone().unwrap();
-                display_path_on_ui_description.valid_file_extensions =
-                    ui_params.valid_file_extensions.clone().unwrap();
+                display_path_on_ui_description.file_type_description = get_or_warn(
+                    &ui_params.file_description,
+                    &name,
+                    "file_description",
+                    "Dummy file".to_string(),
+                );
+                display_path_on_ui_description.valid_file_extensions = get_or_warn(
+                    &ui_params.valid_file_extensions,
+                    &name,
+                    "valid_file_extensions",
+                    "png".to_string(),
+                );
             }
             UiDisplayDescription::Vec3(display_vec3_on_ui_description) => {
-                display_vec3_on_ui_description.min = Vec3::splat(ui_params.fmin.unwrap());
-                display_vec3_on_ui_description.max = Vec3::splat(ui_params.fmax.unwrap());
+                let fmin = get_or_warn(&ui_params.fmin, &name, "fmin", 0.0);
+                let fmax = get_or_warn(&ui_params.fmax, &name, "fmax", 1.0);
+                display_vec3_on_ui_description.min = Vec3::splat(fmin);
+                display_vec3_on_ui_description.max = Vec3::splat(fmax);
             }
 
             // These types don't need to set anything from the UI, only the primitive types will have things set
             UiDisplayDescription::Struct(_) => {}
             UiDisplayDescription::Enum(_) => {}
-            UiDisplayDescription::Rotation(_quat) => {}
-            UiDisplayDescription::Vector(_vec) => {}
+            UiDisplayDescription::Rotation(_) => {}
+            UiDisplayDescription::Vector(_) => {}
             UiDisplayDescription::Bool(_) => {}
         }
 

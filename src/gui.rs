@@ -9,7 +9,8 @@ use std::{
 
 use crossbeam_channel::Sender;
 use egui::{
-    Button, CollapsingHeader, FontId, Label, SelectableLabel, Separator, Slider, Ui, Widget,
+    scroll_area, Align, Button, CollapsingHeader, FontId, Label, Layout, Response, SelectableLabel,
+    Separator, Slider, Ui, Vec2, Widget,
 };
 use egui_wgpu::ScreenDescriptor;
 use glam::{Quat, Vec3};
@@ -24,7 +25,9 @@ use winit::event::WindowEvent;
 
 use crate::gui_helpers::EguiRenderer;
 
-const LABEL_SIZE: [f32; 2] = [100.0, 10.0];
+const LABEL_SIZE: [f32; 2] = [120.0, 10.0];
+const SLIDER_WIDTH: f32 = 240.0;
+const UI_MIN_SIZE: Vec2 = Vec2 { x: 600.0, y: 0.0 };
 
 pub enum GuiButton {
     SaveLevel,
@@ -201,18 +204,25 @@ impl Gui {
         self.registered_items.remove(category).is_some()
     }
 
+    fn add_label(ui: &mut Ui, text: &String) -> Response {
+        let layout = Layout::top_down_justified(Align::LEFT);
+        ui.allocate_ui_with_layout(LABEL_SIZE.into(), layout, |ui| {
+            ui.add(Label::new(text).wrap_mode(egui::TextWrapMode::Truncate))
+        })
+        .inner
+    }
+
     fn add_float_slider(
         ui: &mut Ui,
-        slider_label: String,
+        slider_label: Option<String>,
         value: &mut f32,
         range: RangeInclusive<f32>,
     ) -> bool {
         let slider_response = ui
             .horizontal(|ui| {
-                ui.add_sized(
-                    LABEL_SIZE,
-                    Label::new(slider_label).wrap_mode(egui::TextWrapMode::Truncate),
-                );
+                if let Some(label_text) = slider_label {
+                    Self::add_label(ui, &label_text);
+                }
                 ui.add(Slider::new(value, range).smart_aim(false))
             })
             .inner;
@@ -225,20 +235,24 @@ impl Gui {
         slider_label: String,
         vec: &mut DisplayNumberOnUiDescription<Vec3>,
     ) -> bool {
-        let mut any_component_changed = false;
-        any_component_changed =
-            Self::add_float_slider(ui, "x".to_owned(), &mut vec.value.x, vec.min.x..=vec.max.x)
-                || any_component_changed;
+        ui.horizontal(|ui| {
+            Self::add_label(ui, &slider_label);
+            let mut any_component_changed = false;
+            any_component_changed =
+                Self::add_float_slider(ui, None, &mut vec.value.x, vec.min.x..=vec.max.x)
+                    || any_component_changed;
 
-        any_component_changed =
-            Self::add_float_slider(ui, "y".to_owned(), &mut vec.value.y, vec.min.y..=vec.max.y)
-                || any_component_changed;
+            any_component_changed =
+                Self::add_float_slider(ui, None, &mut vec.value.y, vec.min.y..=vec.max.y)
+                    || any_component_changed;
 
-        any_component_changed =
-            Self::add_float_slider(ui, "z".to_owned(), &mut vec.value.z, vec.min.z..=vec.max.z)
-                || any_component_changed;
+            any_component_changed =
+                Self::add_float_slider(ui, None, &mut vec.value.z, vec.min.z..=vec.max.z)
+                    || any_component_changed;
 
-        any_component_changed
+            any_component_changed
+        })
+        .inner
     }
 
     fn add_item_to_ui(
@@ -252,7 +266,7 @@ impl Gui {
             UiDisplayDescription::SliderFloat(float_desc) => {
                 let slider_changed = Self::add_float_slider(
                     ui,
-                    breadcrumbs.get_last_category(),
+                    Some(breadcrumbs.get_last_category()),
                     &mut float_desc.value,
                     float_desc.min..=float_desc.max,
                 );
@@ -271,11 +285,7 @@ impl Gui {
             }
             UiDisplayDescription::SliderInt(uint_desc) => {
                 let slider_response = ui.horizontal(|ui| {
-                    ui.add_sized(
-                        LABEL_SIZE,
-                        Label::new(breadcrumbs.get_last_category())
-                            .wrap_mode(egui::TextWrapMode::Truncate),
-                    );
+                    Self::add_label(ui, &breadcrumbs.get_last_category());
 
                     ui.add(
                         egui::Slider::new(&mut uint_desc.value, uint_desc.min..=uint_desc.max)
@@ -413,7 +423,7 @@ impl Gui {
 
                 any_component_changed = Self::add_float_slider(
                     ui,
-                    breadcrumbs.get_last_category(),
+                    Some(breadcrumbs.get_last_category()),
                     &mut display_rotation_on_ui_params.angle.value,
                     display_rotation_on_ui_params.angle.min
                         ..=display_rotation_on_ui_params.angle.max,
@@ -445,6 +455,11 @@ impl Gui {
         }
     }
 
+    fn set_default_style_params(ui: &mut Ui) {
+        ui.set_min_size(UI_MIN_SIZE);
+        ui.style_mut().spacing.slider_width = SLIDER_WIDTH;
+    }
+
     pub fn render(
         &mut self,
         window: &winit::window::Window,
@@ -468,76 +483,79 @@ impl Gui {
             screen_descriptor,
             &mut |ctx| {
                 egui::Window::new("Settings page").show(&ctx, |ui| {
-                    let frame_time_string = self.app_info.frame_time.to_string();
-                    let fps_string = self.app_info.fps_counter.to_string();
-                    ui.label(format!("Frame time: {frame_time_string}"));
-                    ui.label(format!("FPS: {fps_string}"));
+                    Self::set_default_style_params(ui);
 
-                    if ui.button("Recompile shaders").clicked() {
-                        let _ = self.sender.try_send(GuiEvent::RecompileShaders);
-                    }
-                    ui.style_mut().spacing.slider_width = 300.0;
+                    scroll_area::ScrollArea::vertical().show(ui, |ui| {
+                        let frame_time_string = self.app_info.frame_time.to_string();
+                        let fps_string = self.app_info.fps_counter.to_string();
+                        ui.label(format!("Frame time: {frame_time_string}"));
+                        ui.label(format!("FPS: {fps_string}"));
 
-                    ui.add(Separator::default().horizontal());
-
-                    for (category, (item, sender)) in &mut self.registered_items {
-                        CollapsingHeader::new(category)
-                            .default_open(true)
-                            .show(ui, |ui| {
-                                Self::add_item_to_ui(
-                                    item,
-                                    ui,
-                                    SetItemFromUiParams {
-                                        category: category.clone(),
-                                        item_setting_breadcrumbs: vec![],
-                                    },
-                                    sender,
-                                    &mut self.dropped_file_handler.dropped_file,
-                                );
-                            });
-                    }
-
-                    ui.add(Separator::default().horizontal());
-
-                    let button_response = Button::new("Change skybox").ui(ui);
-                    if button_response.clicked() {
-                        if let Some(file) = FileDialog::new()
-                            .add_filter("hdr environment map", &["hdr"])
-                            .pick_file()
-                        {
-                            println!("Some file was picked: {file:?}");
+                        if ui.button("Recompile shaders").clicked() {
+                            let _ = self.sender.try_send(GuiEvent::RecompileShaders);
                         }
-                    } else if button_response.hovered() {
-                        if self.dropped_file_handler.dropped_file.is_some() {
-                            let file_path =
-                                self.dropped_file_handler.dropped_file.as_ref().unwrap();
-                            println!("Some file was fropped: {file_path:?}");
+
+                        ui.add(Separator::default().horizontal());
+
+                        for (category, (item, sender)) in &mut self.registered_items {
+                            CollapsingHeader::new(category)
+                                .default_open(true)
+                                .show(ui, |ui| {
+                                    Self::add_item_to_ui(
+                                        item,
+                                        ui,
+                                        SetItemFromUiParams {
+                                            category: category.clone(),
+                                            item_setting_breadcrumbs: vec![],
+                                        },
+                                        sender,
+                                        &mut self.dropped_file_handler.dropped_file,
+                                    );
+                                });
                         }
-                    }
 
-                    ui.add(Separator::default().horizontal());
+                        ui.add(Separator::default().horizontal());
 
-                    if Button::new("Save current level").ui(ui).clicked() {
-                        let _ = self
-                            .sender
-                            .try_send(GuiEvent::ButtonClicked(GuiButton::SaveLevel));
-                    }
+                        let button_response = Button::new("Change skybox").ui(ui);
+                        if button_response.clicked() {
+                            if let Some(file) = FileDialog::new()
+                                .add_filter("hdr environment map", &["hdr"])
+                                .pick_file()
+                            {
+                                println!("Some file was picked: {file:?}");
+                            }
+                        } else if button_response.hovered() {
+                            if self.dropped_file_handler.dropped_file.is_some() {
+                                let file_path =
+                                    self.dropped_file_handler.dropped_file.as_ref().unwrap();
+                                println!("Some file was fropped: {file_path:?}");
+                            }
+                        }
 
-                    if let Some(result) = &self.app_info.recent_notification {
-                        let color = if result.auto_remove_after_time {
-                            egui::Color32::from_rgb(112, 200, 128)
-                        } else {
-                            egui::Color32::from_rgb(255, 166, 166)
-                        };
-                        ui.label(
-                            egui::RichText::new(&result.notification_text)
-                                .color(color)
-                                .font(FontId {
-                                    size: 14.0,
-                                    family: egui::FontFamily::Monospace,
-                                }),
-                        );
-                    }
+                        ui.add(Separator::default().horizontal());
+
+                        if Button::new("Save current level").ui(ui).clicked() {
+                            let _ = self
+                                .sender
+                                .try_send(GuiEvent::ButtonClicked(GuiButton::SaveLevel));
+                        }
+
+                        if let Some(result) = &self.app_info.recent_notification {
+                            let color = if result.auto_remove_after_time {
+                                egui::Color32::from_rgb(112, 200, 128)
+                            } else {
+                                egui::Color32::from_rgb(255, 166, 166)
+                            };
+                            ui.label(
+                                egui::RichText::new(&result.notification_text)
+                                    .color(color)
+                                    .font(FontId {
+                                        size: 14.0,
+                                        family: egui::FontFamily::Monospace,
+                                    }),
+                            );
+                        }
+                    });
                 });
             },
         );

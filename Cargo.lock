@@ -2921,6 +2921,7 @@ version = "0.1.0"
 dependencies = [
  "darling",
  "glam",
+ "log",
  "math_helpers",
 ]
 

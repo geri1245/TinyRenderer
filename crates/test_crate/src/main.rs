@@ -4,7 +4,7 @@ use ui_item_derive::{UiDisplayable, UiSettableNew};
 
 #[derive(UiDisplayable, UiSettableNew, Default)]
 struct Embedded {
-    #[ui_param(fmax = 25.0)]
+    #[ui_param(max = "25.0")]
     member1: u32,
     #[ui_param(valid_file_extensions = "jpg,png")]
     path: PathBuf,
@@ -12,9 +12,9 @@ struct Embedded {
 
 #[derive(UiDisplayable, UiSettableNew, Default)]
 struct Test {
-    #[ui_param(fmin = 12.0, fmax = 25.0)]
+    #[ui_param(min = "12.0", max = "25.0")]
     member1: f32,
-    #[ui_param(min = 12, max = 25)]
+    #[ui_param(min = "12", max = "25")]
     member2: i32,
 
     embedded: Embedded,

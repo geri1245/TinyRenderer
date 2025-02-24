@@ -134,21 +134,6 @@ impl World {
     }
 
     pub fn on_end_frame(&mut self) {
-        let dirty_objects = self
-            .dirty_objects
-            .drain(..)
-            .map(|item| item.id)
-            .collect::<Vec<_>>();
-        for dirty_object_id in dirty_objects {
-            if let Some(world_object) = self.get_world_object_mut(&dirty_object_id) {
-                world_object.on_end_frame();
-            } else if let Some(omnipresent_object) =
-                self.get_omnipresent_object_mut(&dirty_object_id)
-            {
-                omnipresent_object.on_end_frame();
-            }
-        }
-
         self.dirty_objects.clear();
     }
 

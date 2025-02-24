@@ -1,6 +1,6 @@
 use core::f32;
 use glam::{Quat, Vec3};
-use std::{fmt::Debug, path::PathBuf};
+use std::{fmt::Debug, path::PathBuf, str::FromStr};
 
 #[derive(Debug, Clone)]
 pub struct DisplayNumberOnUiDescription<NumberType> {
@@ -33,10 +33,8 @@ pub struct DisplayRotationOnUiParams {
 }
 
 pub struct FieldAttributes {
-    pub min: Option<i32>,
-    pub max: Option<i32>,
-    pub fmin: Option<f32>,
-    pub fmax: Option<f32>,
+    pub min: Option<String>,
+    pub max: Option<String>,
     pub valid_file_extensions: Option<String>,
     pub file_description: Option<String>,
 }
@@ -47,12 +45,18 @@ pub struct UiDisplayParam {
     pub display: UiDisplayDescription,
 }
 
-fn get_or_warn<T>(value: &Option<T>, name: &String, attribute: &str, default: T) -> T
+fn get_or_warn<T>(value_str: &Option<String>, name: &String, attribute: &str, default: T) -> T
 where
-    T: Debug + Clone,
+    T: Debug + Clone + FromStr,
 {
-    if let Some(unwrapped_value) = value {
-        unwrapped_value.clone()
+    if let Some(unwrapped_value) = value_str {
+        match unwrapped_value.parse::<T>() {
+            Ok(value) => value,
+            Err(_err) => {
+                log::warn!("Failed to parse {value_str:?}");
+                default
+            }
+        }
     } else {
         log::warn!(
             "Attribute {attribute:?} wasn't set for item {name:?}. Using default value {default:?}"
@@ -70,9 +74,9 @@ impl UiDisplayParam {
         match &mut ui_display {
             UiDisplayDescription::SliderFloat(display_number_on_ui_description) => {
                 display_number_on_ui_description.min =
-                    get_or_warn(&ui_params.fmin, &name, "fmin", 0.0);
+                    get_or_warn(&ui_params.min, &name, "min", 0.0);
                 display_number_on_ui_description.max =
-                    get_or_warn(&ui_params.fmax, &name, "fmax", 1.0);
+                    get_or_warn(&ui_params.max, &name, "max", 1.0);
             }
             UiDisplayDescription::SliderInt(display_number_on_ui_description) => {
                 display_number_on_ui_description.min = get_or_warn(&ui_params.min, &name, "min", 0);
@@ -93,10 +97,10 @@ impl UiDisplayParam {
                 );
             }
             UiDisplayDescription::Vec3(display_vec3_on_ui_description) => {
-                let fmin = get_or_warn(&ui_params.fmin, &name, "fmin", 0.0);
-                let fmax = get_or_warn(&ui_params.fmax, &name, "fmax", 1.0);
-                display_vec3_on_ui_description.min = Vec3::splat(fmin);
-                display_vec3_on_ui_description.max = Vec3::splat(fmax);
+                let min = get_or_warn(&ui_params.min, &name, "min", 0.0);
+                let max = get_or_warn(&ui_params.max, &name, "max", 1.0);
+                display_vec3_on_ui_description.min = Vec3::splat(min);
+                display_vec3_on_ui_description.max = Vec3::splat(max);
             }
 
             // These types don't need to set anything from the UI, only the primitive types will have things set

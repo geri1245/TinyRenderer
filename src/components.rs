@@ -21,17 +21,11 @@ use crate::buffer_content::BufferContent;
     ui_item_derive::UiSettableNew,
 )]
 pub struct TransformComponent {
-    #[ui_set(setter = "set_position")]
+    #[ui_param(min = "-200.0", max = "200.0")]
     position: Vec3,
-    #[ui_set(setter = "set_scale")]
+    #[ui_param(min = "0.01", max = "200.0")]
     scale: Vec3,
     rotation: Quat,
-
-    #[serde(skip_serializing)]
-    #[serde(default)]
-    #[ui_param(skip)]
-    #[ui_set(skip)]
-    pub is_transform_dirty: bool,
 }
 
 impl Default for TransformComponent {
@@ -40,8 +34,6 @@ impl Default for TransformComponent {
             position: Vec3::ZERO,
             scale: Vec3::ONE,
             rotation: Quat::IDENTITY,
-
-            is_transform_dirty: false,
         }
     }
 }
@@ -52,7 +44,6 @@ impl TransformComponent {
             position,
             scale,
             rotation,
-            is_transform_dirty: false,
         }
     }
 
@@ -69,12 +60,10 @@ impl TransformComponent {
 
     pub fn set_position(&mut self, new_position: Vec3) {
         self.position = new_position;
-        self.is_transform_dirty = true;
     }
 
     pub fn set_scale(&mut self, new_scale: Vec3) {
         self.scale = new_scale;
-        self.is_transform_dirty = true;
     }
 
     pub fn to_raw(&self, object_id: u32) -> TransformComponentRaw {
@@ -171,12 +160,6 @@ pub struct RenderableComponent {
     #[serde(skip_serializing)]
     #[serde(default)]
     pub is_transient: bool,
-
-    #[serde(skip_serializing)]
-    #[serde(default)]
-    #[ui_set(skip)]
-    #[ui_param(skip)]
-    pub is_material_dirty: bool,
 }
 
 impl RenderableComponent {
@@ -192,14 +175,12 @@ impl RenderableComponent {
                 material_descriptor,
             },
             rendering_options,
-            is_material_dirty: false,
             is_transient,
         }
     }
 
     pub fn update_material(&mut self, new_material: PbrMaterialDescriptor) {
         self.model_descriptor.material_descriptor = new_material;
-        self.is_material_dirty = true;
     }
 }
 
@@ -231,15 +212,6 @@ pub enum SceneComponentType {
 }
 
 impl SceneComponentType {
-    pub fn reset_dirty_state(&mut self) {
-        match self {
-            SceneComponentType::LightObject(_light_object_component) => {}
-            SceneComponentType::Renderable(renderable_component) => {
-                renderable_component.is_material_dirty = false;
-            }
-        }
-    }
-
     pub fn is_transient(&self) -> bool {
         match self {
             SceneComponentType::LightObject(_light_object_component) => false,
@@ -260,10 +232,6 @@ pub struct SceneComponent {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum OmnipresentComponentType {
     DirectionalLight(DirectionalLight),
-}
-
-impl OmnipresentComponentType {
-    pub fn reset_dirty_state(&mut self) {}
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

@@ -29,7 +29,6 @@ pub struct PlayerController {
 
     // TODO: This should be refactored into something like a selection controller and the gizmo andler and this struct
     // should both be using the new selection controller
-    selected_object: Option<u32>,
     gui_registered_object: Option<GuiSettableValue<u32>>,
 }
 
@@ -40,7 +39,6 @@ impl PlayerController {
             is_left_button_pressed: false,
             gizmo_handler: GizmoHandler::new(),
             modifiers: ModifiersState::empty(),
-            selected_object: None,
             gui_registered_object: None,
         }
     }
@@ -56,6 +54,8 @@ impl PlayerController {
                     return;
                 }
             }
+
+            self.gui_registered_object = None; // This will cause the drop code to run
 
             if let Some(world_object) = world.get_world_object(&new_selected_object_id) {
                 let ui_desc = world_object.get_ui_description();
@@ -81,10 +81,12 @@ impl PlayerController {
         self.update_registered_object(world, event_loop_proxy);
 
         if let Some(selected_object_id) = &mut self.gui_registered_object {
-            if let Some(world_object) = world.get_world_object_mut(selected_object_id) {
-                let changes = selected_object_id.get_gui_changes();
-                for change in changes {
-                    world_object.set_value_from_ui(&change);
+            let changes = selected_object_id.get_gui_changes();
+            if !changes.is_empty() {
+                if let Some(world_object) = world.get_world_object_mut(selected_object_id) {
+                    for change in changes {
+                        world_object.set_value_from_ui(&change);
+                    }
                 }
             }
         }

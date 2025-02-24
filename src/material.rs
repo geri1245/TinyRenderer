@@ -1,4 +1,8 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{
+    collections::{HashMap, HashSet},
+    ops::Index,
+    rc::Rc,
+};
 
 use glam::Vec3;
 use wgpu::RenderPass;
@@ -7,7 +11,9 @@ use crate::{
     bind_group_layout_descriptors,
     buffer::{create_bind_group_from_buffer_entire_binding_init, GpuBufferCreationOptions},
     model::PbrParameters,
-    texture::{SampledTexture, TextureSourceDescriptor, TextureUsage},
+    renderer::Renderer,
+    resource_loader::ResourceLoader,
+    texture::{MaterialSource, SampledTexture, TextureSourceDescriptor, TextureUsage},
 };
 
 #[derive(
@@ -82,10 +88,45 @@ impl MaterialRenderData {
                     .unwrap()
                     .get_sampler_bind_group_entry(7),
             ],
-            label: None,
+            label: Some("Pbr texture bind group"),
         });
 
         MaterialRenderData { bind_group }
+    }
+
+    pub fn from_textures(
+        renderer: &Renderer,
+        textures: &Vec<TextureSourceDescriptor>,
+        resource_loader: &ResourceLoader,
+    ) -> anyhow::Result<Self> {
+        let mut texture_map = HashMap::new();
+
+        let mut texture_usages = HashSet::new();
+        texture_usages.insert(TextureUsage::Albedo);
+        texture_usages.insert(TextureUsage::Normal);
+        texture_usages.insert(TextureUsage::Roughness);
+        texture_usages.insert(TextureUsage::Metalness);
+
+        for texture_desc in textures {
+            texture_usages.remove(&texture_desc.usage);
+            let texture = resource_loader.load_texture(texture_desc, renderer)?;
+            texture_map.insert(texture_desc.usage, texture);
+        }
+
+        for usage in texture_usages {
+            if !texture_map.contains_key(&usage) {
+                let texture = resource_loader.load_texture(
+                    &TextureSourceDescriptor {
+                        source: MaterialSource::Default,
+                        usage,
+                    },
+                    renderer,
+                )?;
+                texture_map.insert(usage, texture);
+            }
+        }
+
+        Ok(Self::new(&renderer.device, &texture_map))
     }
 
     pub fn from_flat_parameters(device: &wgpu::Device, pbr_parameters: &PbrParameters) -> Self {

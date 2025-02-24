@@ -7,7 +7,8 @@ use wgpu::{util::DeviceExt, Device, Queue, RenderPass};
 use crate::{
     components::TransformComponent,
     material::{MaterialRenderData, PbrMaterialDescriptor},
-    resource_loader::PrimitiveShape,
+    renderer::Renderer,
+    resource_loader::{PrimitiveShape, ResourceLoader},
     texture::TextureUsage,
     vertex::VertexRawWithTangents,
 };
@@ -33,8 +34,11 @@ pub struct ModelDescriptorFile {
     ui_item_derive::UiSettableNew,
 )]
 pub struct PbrParameters {
+    #[ui_param(min = "0.0", max = "1.0")]
     pub albedo: Vec3,
+    #[ui_param(min = "0.0", max = "1.0")]
     pub roughness: f32,
+    #[ui_param(min = "0.0", max = "1.0")]
     pub metalness: f32,
 
     #[serde(skip_serializing)]
@@ -285,27 +289,39 @@ impl Renderable {
             bytemuck::cast_slice(&[new_transform.to_raw(object_id)]),
         );
         self.instance_data.count = 1;
+        self.description.transform = new_transform.clone();
     }
 
     pub fn update_material_render_state(
         &mut self,
-        device: &Device,
+        renderer: &Renderer,
         new_material: &PbrMaterialDescriptor,
+        resource_loader: &ResourceLoader,
     ) {
         // TODO: this should only update a specific material, not all of them.
         // As a first solution, it would be enough to just recreate the entire renderable state when something changes
         // This is very much not optimal, but it would be an easy first version to implement
         for part in &mut self.renderable_parts {
             match new_material {
-                PbrMaterialDescriptor::Texture(_vec) => {
-                    // todo!()
+                PbrMaterialDescriptor::Texture(texture_sources) => {
+                    if let Ok(material) = MaterialRenderData::from_textures(
+                        renderer,
+                        texture_sources,
+                        resource_loader,
+                    ) {
+                        part.material_render_data = material;
+                    } else {
+                        log::error!("Failed to load textures {texture_sources:?}");
+                    }
                 }
                 PbrMaterialDescriptor::Flat(pbr_parameters) => {
                     part.material_render_data =
-                        MaterialRenderData::from_flat_parameters(device, pbr_parameters);
+                        MaterialRenderData::from_flat_parameters(&renderer.device, pbr_parameters);
                 }
             }
         }
+
+        self.description.model_descriptor.material_descriptor = new_material.clone();
     }
 }
 

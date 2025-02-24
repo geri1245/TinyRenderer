@@ -163,8 +163,17 @@ impl WorldRenderer {
                                     != renderable.description.model_descriptor.material_descriptor
                                 {
                                     renderable.update_material_render_state(
-                                        &renderer.device,
+                                        renderer,
                                         &renderable_component.model_descriptor.material_descriptor,
+                                        resource_loader,
+                                    );
+
+                                    self.gbuffer_geometry_renderer
+                                        .remove_renderable(&modification.id);
+                                    let _ = self.gbuffer_geometry_renderer.add_renderable(
+                                        &renderer.device,
+                                        modification.id,
+                                        renderable_component,
                                     );
                                 }
                                 if world_object.transform != renderable.description.transform {

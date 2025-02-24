@@ -139,11 +139,14 @@ impl App {
     pub fn handle_custom_event(&mut self, event: &CustomEvent) {
         match event {
             CustomEvent::GuiRegistration(gui_registration_event) => {
-                self.gui.register_item(
+                if !self.gui.register_item(
                     &gui_registration_event.category,
                     gui_registration_event.items.clone(),
                     gui_registration_event.sender.clone(),
-                );
+                ) {
+                    let name = gui_registration_event.category.clone();
+                    log::warn!("Failed to register gui item with category {name:?}");
+                }
             }
             CustomEvent::GuiDeregistration(gui_deregistration_event) => {
                 if !self.gui.deregister_item(&gui_deregistration_event.category) {

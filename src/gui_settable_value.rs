@@ -5,7 +5,7 @@ use ui_item::{SetPropertyFromUiDescription, UiDisplayDescription};
 use winit::event_loop::EventLoopProxy;
 
 use crate::{
-    custom_event::{CustomEvent, GuiRegistrationEvent},
+    custom_event::{CustomEvent, GuiDeregistrationEvent, GuiRegistrationEvent},
     gui::SetItemFromUiParams,
 };
 
@@ -13,6 +13,7 @@ pub struct GuiSettableValue<T> {
     data: T,
     category: String,
     receiver: Receiver<SetItemFromUiParams>,
+    event_loop_proxy: EventLoopProxy<CustomEvent>,
 }
 
 impl<T> GuiSettableValue<T> {
@@ -33,6 +34,7 @@ impl<T> GuiSettableValue<T> {
             data,
             receiver,
             category,
+            event_loop_proxy: event_loop_proxy.clone(),
         }
     }
 
@@ -60,5 +62,15 @@ impl<T> Deref for GuiSettableValue<T> {
 impl<T> DerefMut for GuiSettableValue<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.data
+    }
+}
+
+impl<T> Drop for GuiSettableValue<T> {
+    fn drop(&mut self) {
+        let _ = self
+            .event_loop_proxy
+            .send_event(CustomEvent::GuiDeregistration(GuiDeregistrationEvent {
+                category: self.category.clone(),
+            }));
     }
 }

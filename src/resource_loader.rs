@@ -131,11 +131,12 @@ impl ResourceLoader {
         )
     }
 
-    fn load_texture(
+    pub fn load_texture(
         &self,
         descriptor: &TextureSourceDescriptor,
         renderer: &Renderer,
     ) -> anyhow::Result<Rc<SampledTexture>> {
+        let texture_usage = descriptor.usage;
         match &descriptor.source {
             crate::texture::MaterialSource::FromFile(path) => {
                 let image = ImageLoader::try_load_image(async_std::path::PathBuf::from(path))?;
@@ -144,23 +145,21 @@ impl ResourceLoader {
                     height: image.height(),
                     depth_or_array_layers: 1,
                 };
-                // let a = path.as;
-                Ok(Rc::new(
-                    SampledTexture::from_image(
-                        renderer,
-                        &image,
-                        texture_size,
-                        descriptor.usage,
-                        SamplingType::Linear,
-                        Some(&format!("{path:?}")),
-                    )
-                    .unwrap(),
-                ))
+                Ok(Rc::new(SampledTexture::from_image(
+                    renderer,
+                    &image,
+                    texture_size,
+                    descriptor.usage,
+                    SamplingType::Linear,
+                    Some(&format!("{path:?}")),
+                )))
             }
-            crate::texture::MaterialSource::Defaults(usage) => Ok(self
+            crate::texture::MaterialSource::Default => Ok(self
                 .default_textures
-                .get(usage)
-                .ok_or(anyhow!("Could not find default texture for {usage:?}"))?
+                .get(&texture_usage)
+                .ok_or(anyhow!(
+                    "Could not find default texture for {texture_usage:?}"
+                ))?
                 .clone()),
         }
     }

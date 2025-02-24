@@ -38,7 +38,7 @@ pub struct SampledTexture {
 )]
 pub enum MaterialSource {
     FromFile(PathBuf),
-    Defaults(TextureUsage),
+    Default,
 }
 
 #[derive(
@@ -139,19 +139,26 @@ impl SampledTexture {
                     .chunks_exact(4)
                     .map(|a| a[0] as f32 / 255.0)
                     .collect::<Vec<_>>();
-                Self::from_image(
+                Ok(Self::from_image(
                     &renderer,
                     bytemuck::cast_slice(&data),
                     size,
                     usage,
                     SamplingType::Linear,
                     label,
-                )
+                ))
             }
             TextureUsage::HdrAlbedo => panic!("Hdr not supported in this function"),
             TextureUsage::Albedo | TextureUsage::Normal => {
                 let data = &rgba.into_vec();
-                Self::from_image(&renderer, data, size, usage, SamplingType::Linear, label)
+                Ok(Self::from_image(
+                    &renderer,
+                    data,
+                    size,
+                    usage,
+                    SamplingType::Linear,
+                    label,
+                ))
             }
         }
     }
@@ -174,14 +181,14 @@ impl SampledTexture {
             depth_or_array_layers: 1,
         };
 
-        Self::from_image(
+        Ok(Self::from_image(
             &renderer,
             bytemuck::cast_slice(&bytes),
             texture_size,
             TextureUsage::HdrAlbedo,
             SamplingType::Linear,
             label,
-        )
+        ))
     }
 
     pub fn from_image(
@@ -191,7 +198,7 @@ impl SampledTexture {
         usage: TextureUsage,
         sampling_type: SamplingType,
         label: Option<&str>,
-    ) -> Result<Self> {
+    ) -> Self {
         let format = match usage {
             TextureUsage::Albedo => wgpu::TextureFormat::Rgba8Unorm,
             TextureUsage::Normal => wgpu::TextureFormat::Rgba8Unorm,
@@ -261,7 +268,7 @@ impl SampledTexture {
             }),
         };
 
-        Ok(Self {
+        Self {
             texture,
             view,
             sampler,
@@ -273,7 +280,7 @@ impl SampledTexture {
                 mip_count,
                 sampling_type,
             },
-        })
+        }
     }
 
     pub fn create_depth_texture(

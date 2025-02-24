@@ -9,7 +9,8 @@ use wgpu::{
 use crate::{
     bind_group_layout_descriptors,
     components::RenderableComponent,
-    model::{ModelRenderingOptions, PbrRenderingType, Renderable},
+    material::PbrMaterialDescriptor,
+    model::{PbrRenderingType, Renderable},
     pipelines::ShaderCompilationSuccess,
     render_pipeline::{
         PipelineFragmentState, PipelineVertexState, RenderPipeline, RenderPipelineDescriptor,
@@ -75,14 +76,19 @@ pub struct GBufferGeometryRenderer {
 #[derive(Debug, Hash, PartialEq, Eq)]
 struct GBufferRenderingParams {
     use_depth_test: bool,
-    pbr_resource_type: PbrRenderingType,
+    pbr_rendering_type: PbrRenderingType,
 }
 
-impl From<&ModelRenderingOptions> for GBufferRenderingParams {
-    fn from(value: &ModelRenderingOptions) -> Self {
+impl From<&RenderableComponent> for GBufferRenderingParams {
+    fn from(renderable: &RenderableComponent) -> Self {
+        let pbr_rendering_type = match renderable.model_descriptor.material_descriptor {
+            PbrMaterialDescriptor::Texture(_) => PbrRenderingType::Textures,
+            PbrMaterialDescriptor::Flat(_) => PbrRenderingType::FlatParameters,
+        };
+
         Self {
-            use_depth_test: value.use_depth_test,
-            pbr_resource_type: value.pbr_resource_type,
+            use_depth_test: renderable.rendering_options.use_depth_test,
+            pbr_rendering_type,
         }
     }
 }
@@ -111,8 +117,7 @@ impl GBufferGeometryRenderer {
         id: u32,
         renderable_component: &RenderableComponent,
     ) -> anyhow::Result<()> {
-        let gbuffer_render_params =
-            GBufferRenderingParams::from(&renderable_component.rendering_options);
+        let gbuffer_render_params = GBufferRenderingParams::from(renderable_component);
         if let Some(pipeline_with_objects) = self.render_pipelines.get_mut(&gbuffer_render_params) {
             pipeline_with_objects.objects.insert(id);
         } else {
@@ -249,7 +254,7 @@ impl GBufferGeometryRenderer {
             ],
         };
 
-        let bgroup_layouts = match rendering_params.pbr_resource_type {
+        let bgroup_layouts = match rendering_params.pbr_rendering_type {
             PbrRenderingType::Textures => {
                 vec![
                     device.create_bind_group_layout(&bind_group_layout_descriptors::PBR_TEXTURE),
@@ -276,7 +281,7 @@ impl GBufferGeometryRenderer {
             }
         };
 
-        let shader_source_path = match rendering_params.pbr_resource_type {
+        let shader_source_path = match rendering_params.pbr_rendering_type {
             PbrRenderingType::Textures => SHADER_SOURCE_TEXTURED.to_owned(),
             PbrRenderingType::FlatParameters => SHADER_SOURCE_FLAT_PARAMETER.to_owned(),
         };

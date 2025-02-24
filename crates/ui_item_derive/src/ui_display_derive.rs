@@ -7,13 +7,9 @@ use syn::Data;
 #[darling(attributes(ui_param))]
 pub struct UiParamFieldAttributes {
     #[darling(default)]
-    pub min: Option<i32>,
+    pub min: Option<String>,
     #[darling(default)]
-    pub max: Option<i32>,
-    #[darling(default)]
-    pub fmin: Option<f32>,
-    #[darling(default)]
-    pub fmax: Option<f32>,
+    pub max: Option<String>,
     #[darling(default)]
     pub valid_file_extensions: Option<String>,
     #[darling(default)]
@@ -66,10 +62,8 @@ pub fn derive_ui_displayable_type(item: TokenStream) -> TokenStream {
                         }
                     }
 
-                    let field_param_min = quote_option(field_params.min);
-                    let field_param_max = quote_option(field_params.max);
-                    let field_param_fmin = quote_option(field_params.fmin);
-                    let field_param_fmax = quote_option(field_params.fmax);
+                    let field_param_min = quote_option_string(field_params.min);
+                    let field_param_max = quote_option_string(field_params.max);
                     let field_param_valid_file_types =
                         quote_option_string(field_params.valid_file_extensions);
                     let field_param_file_description =
@@ -89,8 +83,6 @@ pub fn derive_ui_displayable_type(item: TokenStream) -> TokenStream {
                         let field_params = ui_item::FieldAttributes{
                             min: #field_param_min,
                             max: #field_param_max,
-                            fmin: #field_param_fmin,
-                            fmax: #field_param_fmax,
                             valid_file_extensions: #field_param_valid_file_types,
                             file_description: #field_param_file_description,
                         };

@@ -62,6 +62,7 @@ pub struct Gizmo {
     pub selected_object_id: Option<u32>,
     pub hovered_gizmo_part_id: Option<u32>,
     pub gizmo_position: Option<Vec3>,
+    gizmo_scale: f32,
     gizmo_parts_drawn: HashMap<u32, Vec3>,
     gizmo_part_descriptions: HashMap<GizmoAxis, GizmoAxisDescription>,
 }
@@ -110,6 +111,7 @@ impl Gizmo {
             gizmo_position: None,
             hovered_gizmo_part_id: None,
             gizmo_part_descriptions: gizmo_part_configs,
+            gizmo_scale: 1.0,
         }
     }
 
@@ -132,12 +134,20 @@ impl Gizmo {
 
             if let Some(selected_object_position) = maybe_selected_object_position {
                 let camera_position = world.camera_controller.camera.get_position();
-                let gizmo_scale =
+                let new_gizmo_scale =
                     Self::calculate_gizmo_scale(selected_object_position, camera_position);
+
+                if self.gizmo_scale == new_gizmo_scale {
+                    return;
+                } else {
+                    self.gizmo_scale = new_gizmo_scale;
+                }
 
                 for (gizmo_object_id, _axis) in &self.gizmo_parts_drawn {
                     if let Some(gizmo_object) = world.get_world_object_mut(gizmo_object_id) {
-                        gizmo_object.transform.set_scale(Vec3::splat(gizmo_scale));
+                        gizmo_object
+                            .transform
+                            .set_scale(Vec3::splat(new_gizmo_scale));
                     }
                 }
             }
@@ -153,6 +163,8 @@ impl Gizmo {
                         renderable.update_material(PbrMaterialDescriptor::Flat(
                             PbrParameters::new(color, 1.0, 0.0),
                         ));
+                    } else {
+                        log::warn!("Failed to get renderable component for gizmo!");
                     }
                 }
             }

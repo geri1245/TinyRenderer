@@ -26,7 +26,8 @@ use winit::event::WindowEvent;
 use crate::gui_helpers::EguiRenderer;
 
 const LABEL_SIZE: [f32; 2] = [120.0, 10.0];
-const SLIDER_WIDTH: f32 = 240.0;
+const STANDARD_SLIDER_SIZE: [f32; 2] = [240.0, 10.0];
+const VEC3_SLIDER_SIZE: [f32; 2] = [80.0, 10.0];
 const UI_MIN_SIZE: Vec2 = Vec2 { x: 600.0, y: 0.0 };
 
 pub enum GuiButton {
@@ -217,13 +218,17 @@ impl Gui {
         slider_label: Option<String>,
         value: &mut f32,
         range: RangeInclusive<f32>,
+        max_size: [f32; 2],
     ) -> bool {
         let slider_response = ui
             .horizontal(|ui| {
                 if let Some(label_text) = slider_label {
                     Self::add_label(ui, &label_text);
                 }
-                ui.add(Slider::new(value, range).smart_aim(false))
+                ui.add_sized(
+                    max_size,
+                    Slider::new(value, range).smart_aim(false).fixed_decimals(2),
+                )
             })
             .inner;
 
@@ -238,17 +243,29 @@ impl Gui {
         ui.horizontal(|ui| {
             Self::add_label(ui, &slider_label);
             let mut any_component_changed = false;
-            any_component_changed =
-                Self::add_float_slider(ui, None, &mut vec.value.x, vec.min.x..=vec.max.x)
-                    || any_component_changed;
+            any_component_changed = Self::add_float_slider(
+                ui,
+                None,
+                &mut vec.value.x,
+                vec.min.x..=vec.max.x,
+                VEC3_SLIDER_SIZE,
+            ) || any_component_changed;
 
-            any_component_changed =
-                Self::add_float_slider(ui, None, &mut vec.value.y, vec.min.y..=vec.max.y)
-                    || any_component_changed;
+            any_component_changed = Self::add_float_slider(
+                ui,
+                None,
+                &mut vec.value.y,
+                vec.min.y..=vec.max.y,
+                VEC3_SLIDER_SIZE,
+            ) || any_component_changed;
 
-            any_component_changed =
-                Self::add_float_slider(ui, None, &mut vec.value.z, vec.min.z..=vec.max.z)
-                    || any_component_changed;
+            any_component_changed = Self::add_float_slider(
+                ui,
+                None,
+                &mut vec.value.z,
+                vec.min.z..=vec.max.z,
+                VEC3_SLIDER_SIZE,
+            ) || any_component_changed;
 
             any_component_changed
         })
@@ -269,6 +286,7 @@ impl Gui {
                     Some(breadcrumbs.get_last_category()),
                     &mut float_desc.value,
                     float_desc.min..=float_desc.max,
+                    STANDARD_SLIDER_SIZE,
                 );
 
                 if slider_changed {
@@ -369,35 +387,41 @@ impl Gui {
                 }
             }
             UiDisplayDescription::Struct(display_params) => {
-                ui.add(Separator::default().horizontal());
-
-                for item in display_params {
-                    Self::add_item_to_ui(
-                        &mut item.display,
-                        ui,
-                        breadcrumbs.add_breadcrumb(SetPropertyFromUiDescription::Struct(
-                            SetStructFromUiDesc {
-                                field_name: item.name.clone(),
-                            },
-                        )),
-                        sender,
-                        dropped_file,
-                    );
-                }
+                CollapsingHeader::new(breadcrumbs.get_last_category())
+                    .default_open(true)
+                    .show(ui, |ui| {
+                        for item in display_params {
+                            Self::add_item_to_ui(
+                                &mut item.display,
+                                ui,
+                                breadcrumbs.add_breadcrumb(SetPropertyFromUiDescription::Struct(
+                                    SetStructFromUiDesc {
+                                        field_name: item.name.clone(),
+                                    },
+                                )),
+                                sender,
+                                dropped_file,
+                            );
+                        }
+                    });
             }
             UiDisplayDescription::Enum(display_enum_on_ui_description) => {
-                let labels = display_enum_on_ui_description
-                    .variants
-                    .iter()
-                    .map(|variant_name| {
-                        SelectableLabel::new(
-                            *variant_name == display_enum_on_ui_description.active_variant,
-                            variant_name,
-                        )
-                    });
-                for label in labels {
-                    if ui.add(label).clicked() {}
-                }
+                ui.label(breadcrumbs.get_last_category());
+                ui.horizontal(|ui| {
+                    for variant_name in &display_enum_on_ui_description.variants {
+                        let is_active =
+                            *variant_name == display_enum_on_ui_description.active_variant;
+                        let label = SelectableLabel::new(is_active, variant_name);
+                        if ui.add(label).clicked() && !is_active {
+                            let _ = sender.try_send(breadcrumbs.add_breadcrumb(
+                                SetPropertyFromUiDescription::Enum(SetEnumFromTheUiDescription {
+                                    variant_name: variant_name.clone(),
+                                }),
+                            ));
+                        }
+                    }
+                });
+
                 if let Some(active_variant_item) =
                     &mut display_enum_on_ui_description.active_variant_item_desc
                 {
@@ -427,6 +451,7 @@ impl Gui {
                     &mut display_rotation_on_ui_params.angle.value,
                     display_rotation_on_ui_params.angle.min
                         ..=display_rotation_on_ui_params.angle.max,
+                    VEC3_SLIDER_SIZE,
                 ) || any_component_changed;
 
                 if any_component_changed {
@@ -457,7 +482,6 @@ impl Gui {
 
     fn set_default_style_params(ui: &mut Ui) {
         ui.set_min_size(UI_MIN_SIZE);
-        ui.style_mut().spacing.slider_width = SLIDER_WIDTH;
     }
 
     pub fn render(
@@ -498,20 +522,16 @@ impl Gui {
                         ui.add(Separator::default().horizontal());
 
                         for (category, (item, sender)) in &mut self.registered_items {
-                            CollapsingHeader::new(category)
-                                .default_open(true)
-                                .show(ui, |ui| {
-                                    Self::add_item_to_ui(
-                                        item,
-                                        ui,
-                                        SetItemFromUiParams {
-                                            category: category.clone(),
-                                            item_setting_breadcrumbs: vec![],
-                                        },
-                                        sender,
-                                        &mut self.dropped_file_handler.dropped_file,
-                                    );
-                                });
+                            Self::add_item_to_ui(
+                                item,
+                                ui,
+                                SetItemFromUiParams {
+                                    category: category.clone(),
+                                    item_setting_breadcrumbs: vec![],
+                                },
+                                sender,
+                                &mut self.dropped_file_handler.dropped_file,
+                            );
                         }
 
                         ui.add(Separator::default().horizontal());

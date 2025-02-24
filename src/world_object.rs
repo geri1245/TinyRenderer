@@ -70,13 +70,6 @@ impl WorldObject {
         ));
     }
 
-    pub fn on_end_frame(&mut self) {
-        self.transform.is_transform_dirty = false;
-        for component in &mut self.components {
-            component.reset_dirty_state();
-        }
-    }
-
     // TODO: general method for getting any component?
     pub fn get_renderable_component(&self) -> Option<&RenderableComponent> {
         for component in &self.components {
@@ -143,12 +136,6 @@ macro_rules! get_component {
 impl OmnipresentObject {
     pub fn new(components: Vec<OmnipresentComponentType>) -> Self {
         Self { components }
-    }
-
-    pub fn on_end_frame(&mut self) {
-        for component in &mut self.components {
-            component.reset_dirty_state();
-        }
     }
 
     pub fn get_light_component(&self) -> Option<&DirectionalLight> {
